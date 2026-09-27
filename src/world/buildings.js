@@ -31,7 +31,8 @@ function tintJitter(rnd, base, amt = 0.08) {
 
 // opts.exclude: [{x0,z0,x1,z1}] lots touching these are left empty (hero buildings); union returned in `excluded`
 // opts.force: [{x, z, arch(rnd, lot) -> partial archetype}] overrides the archetype of the lot containing (x,z)
-export function generateBuildings(blocks, seed = 1234, opts = {}) {
+// opts.progress(f) -> Promise|undefined: loading-screen progress over the blocks (0..1), awaited
+export async function generateBuildings(blocks, seed = 1234, opts = {}) {
   const rnd = mulberry32(seed);
   const tiles = new Map();
   const ctx = {
@@ -52,7 +53,9 @@ export function generateBuildings(blocks, seed = 1234, opts = {}) {
   const placedMid = []; // (street r12) mid-rise lofts / walk-ups placed so far (streetVary)
   const excluded = (opts.exclude || []).map(() => null);
   const reserves = (opts.reserve || []).map(r => ({ ...r, lot: null }));
+  let nBlk = 0;
   for (const b of blocks) {
+    await opts.progress?.(nBlk++ / blocks.length);
     const bStart = ctx.buildings.length; // (layout2 r2) rect buildings of this block (frontage height caps)
     const flat = b.diag?.length ? flatironPoly(b) : null; // (layout2 r2) Flatiron wedge site
     const halves = b.split ? [{ ...b, pz1: b.split }, { ...b, pz0: b.split }] : [b];

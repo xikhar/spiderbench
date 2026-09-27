@@ -17,6 +17,15 @@ import { FSPass } from './common.js';
 const sub = list => ({ traverse: f => { for (const o of list) f(o); }, traverseVisible: () => {} });
 const drawable = o => (o.isMesh || o.isPoints || o.isLine || o.isSprite) && o.material;
 
+// (loading screen) every texture the scene's materials use: renderer.initTexture() them one by one before the first
+// frame (which would upload them all in one ~1 s block), so the loading bar can advance between them. Same uploads.
+export function sceneTextures(scene) {
+  const T = new Set(), add = v => { if (v?.isTexture && !v.isRenderTargetTexture) T.add(v); };
+  scene.traverse(o => { for (const m of [].concat(o.material ?? [])) for (const k in m) {
+    if (k === 'uniforms') for (const u of Object.values(m.uniforms)) add(u?.value); else add(m[k]); } });
+  return [...T];
+}
+
 export function createWarmup(renderer, scene, camera, { mirrorLayers = null, perStep = 4, budgetMs = 2 } = {}) {
   const rt1 = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
   const done = new WeakSet(); // objects already compiled in a given pass (per-pass sets)

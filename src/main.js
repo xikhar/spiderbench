@@ -8,7 +8,7 @@
 //                      player = {update(dt), object:Object3D, applyShot(name)->boolean}
 //  ui/hud.js           createHud({player, world}) -> {update(dt), setVisible(b)}
 //  shots.js            SHOTS[name] = {time?, apply(ctx)}  deterministic poses for screenshot/critique
-//  ui/boot.js          bootStage(text) -> Promise, bootDone(instant?)  loading screen until the first frame
+//  ui/boot.js          bootStage(text), bootProgress(step, f?) -> Promise|undefined, bootDone(instant?)  loading screen
 import * as THREE from 'three';
 import { createPipeline } from './render/pipeline.js';
 import { createLighting } from './render/lighting.js';
@@ -17,11 +17,12 @@ import { createPlayer } from './player/player.js';
 import { createInput } from './player/input.js';
 import { createHud } from './ui/hud.js';
 import { SHOTS } from './shots.js';
-import { bootStage, bootDone } from './ui/boot.js';
-import { createWarmup } from './render/warmup.js'; // (perf r3)
+import { bootStage, bootProgress, bootDone } from './ui/boot.js';
+import { createWarmup, sceneTextures } from './render/warmup.js'; // (perf r3)
 import { REFL_LAYER } from './world/water.js';
 import { BIG_CASTER_LAYER } from './render/csm.js';
 
+bootProgress('start'); // the modules are loaded
 const params = new URLSearchParams(location.search);
 const shotName = params.get('shot');
 
@@ -51,12 +52,14 @@ const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 15
 
 const lighting = createLighting({ renderer, scene });
 bootStage('Building the city');
-const world = await buildCity({ scene, renderer });
+const world = await buildCity({ scene, renderer, progress: bootProgress });
 const input = createInput(renderer.domElement);
 bootStage('Suiting up');
 const player = await createPlayer({ scene, world, camera, input, renderer });
+await bootProgress('player');
 const hud = createHud({ player, world, camera });
 const pipeline = createPipeline({ renderer, scene, camera, lighting });
+await bootProgress('pipeline');
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
@@ -66,7 +69,7 @@ addEventListener('resize', () => {
 const ctx = { THREE, renderer, scene, camera, lighting, world, player, hud, pipeline, input };
 ctx.systems = ctx.systems || []; // C5: game systems (src/game/**) push {update(dt)} here
 window.__ctx = ctx;
-await bootStage('Compiling shaders'); // painted before the warm-up and the first frame block the main thread
+bootStage('Warming up the GPU');
 // (perf r3) queue every shader program the game can draw (main pass + the river mirror's unshadowed variant + the
 // post passes) before the first frame: they link in parallel on the driver's threads during the loading frame instead
 // of one by one later, each freezing the game for 0.2-6 s the first time its material came into view
@@ -75,6 +78,9 @@ const warmup = !shotName && !params.has('nowarm') ? createWarmup(renderer, scene
 // first the state the first frame would set that is part of the program keys: the sky IBL (scene.environment, from the
 // first lighting update) and the pipeline's NO_SSR material defines
 if (warmup) { lighting.update(camera); pipeline.prepareMaterials?.(); warmup.rescan(); warmup.flush(); }
+await bootProgress('shaders');
+const tex = sceneTextures(scene); // uploaded one by one (the first frame would do them in one block): the bar advances
+for (let i = 0; i < tex.length; i++) { renderer.initTexture(tex[i]); await bootProgress('textures', (i + 1) / tex.length); }
 if (!shotName) import('./game/systems/index.js').then(m => m.initSystems(ctx)).catch(e => console.error('[systems] init failed', e)) // open-world systems (C5)
   .then(() => import('./game/combat/index.js')).then(m => m.initCombat(ctx)).catch(e => console.error('[combat] init failed', e)) // combat (C5)
   .then(() => warmup?.rescan()); // (perf r3) + the meshes the systems / combat added (trickled by warmup.step)

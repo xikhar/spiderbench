@@ -1,5 +1,6 @@
 // OWNER: city agent. Procedural Midtown-Manhattan chunk. Contract (see src/main.js):
-//   buildCity({scene, renderer}) -> Promise<world>
+//   buildCity({scene, renderer, progress?}) -> Promise<world>
+//   progress(step, f?) -> Promise|undefined: called as each build step (f = 0..1: part of it) is done (loading screen)
 //   world = { raycast(origin, dir, maxDist) -> {point, normal, distance} | null, groundHeight(x,z[,y]), spawn, update(dt, camera),
 //             buildings:[{min,max}], streetsAt(x,z), getMapFeatures(), viewpoints:{street,wall,swing,swingBack,climb}, ... }
 // Debug: ?cam=x,y,z,tx,ty,tz forces the camera; ?vp=<viewpoint name> puts the camera at a named viewpoint.
@@ -33,19 +34,21 @@ import { attachLife } from './npc/life.js';
 import { applyDistanceFade } from './pool.js';
 import { batchTiles } from './tilebatch.js'; // (perf)
 
-export async function buildCity({ scene, renderer }) {
+export async function buildCity({ scene, renderer, progress }) {
   const t0 = performance.now();
   const T = await loadCityTextures(renderer);
   const facadeMat = createFacadeMaterial(T);
   const detailMat = createDetailMaterial(T);
   applyDistanceFade(detailMat, 320, 450); // citylife: small facade details dissolve 320-450 m; tiles hidden beyond (no pop)
 
-  const TT = [], tick = (n) => TT.push(n + ' ' + (performance.now() - t0).toFixed(0));
-  tick('tex');
+  // timing log + loading-screen progress: await tick() between the long synchronous steps so the bar can repaint
+  const TT = [], tick = (n) => { TT.push(n + ' ' + (performance.now() - t0).toFixed(0)); return progress?.('city:' + n.split(' ')[0]); };
+  await tick('tex');
   const blocks = buildBlocks();
   // hero tower for the `wall` shot (ref 2) on the park-facing block east of the avenue at x=250
   const HERO_RECT = { x0: 266, z0: -620, x1: 300, z1: -580 };
-  const gen = generateBuildings(blocks, 1234, {
+  const gen = await generateBuildings(blocks, 1234, {
+    progress: f => progress?.('city:gen', f),
     exclude: [HERO_RECT, ...approachRects()], // foundation: Manhattan bridge approach viaducts keep their lots empty
     reserve: [...landmarkReserves().filter(r => !/^ts[A-Z]/.test(r.name)), ...timesSquareReserves(), ...lincolnReserves()], // timessq: Times Square lives in timessq.js; (layout2 r5) Lincoln Center
     force: [
@@ -58,15 +61,18 @@ export async function buildCity({ scene, renderer }) {
       { x: -232, z: 520, arch: () => ({ layer: LAYER.BROWN, base: LAYER.LIME, style: STYLE.PUNCHED, type: 'loft' }) },
     ],
   });
-  tick('gen');
+  await tick('gen');
   const sqd = dressSquares(gen, blocks); console.log('[city] (layout2 r4) square dressing', JSON.stringify(sqd)); // Broadway bow-tie plazas
   const heroRect = gen.excluded[0] ? { ...gen.excluded[0], x0: HERO_RECT.x0 } : HERO_RECT;
   const root = new THREE.Group(); root.name = 'city';
   scene.add(root);
   buildStandalone({ scene: root, gen, T }); // citygeo: Grand Central, Times-Square screens (writes into the tile builders)
   buildTimesSquare({ scene: root, gen }); // timessq: screens, plazas, TKTS steps, One-Times-Square tower (writes into the tile builders)
-  const rooftops = await buildRooftops({ scene: root, gen, facadeMat, T, renderer, extraRoofs: [{ rect: heroRect, H: 96 }] }); // rooftops: roof skins, penthouses, clutter (writes into the tile builders)
+  await tick('landmarks');
+  const rooftops = await buildRooftops({ scene: root, gen, facadeMat, T, renderer, extraRoofs: [{ rect: heroRect, H: 96 }], progress: f => progress?.('city:roofs', f) }); // rooftops: roof skins, penthouses, clutter (writes into the tile builders)
+  await tick('roofs');
   const signage = buildSignage({ scene: root, gen }); // billboards: rooftop billboards, wall ads, blade signs, LED corners (steel -> detail tiles)
+  await tick('signs');
   const tileMeshes = [];
   // (perf) the far-LOD tiles are grouped into 2x2 super-tiles (tilebatch.js): one draw per super-tile while all its
   // tiles are far (the far cascades drew ~180 facadeLod tiles). Same per-tile show / hide -> no visible change. Facade /
@@ -80,6 +86,7 @@ export async function buildCity({ scene, renderer }) {
     // (street r3) release the builders' JS number arrays as each tile is converted to typed arrays: the renderer hit the
     // V8 heap limit here ('V8 javascript OOM (CALL_AND_RETRY_LAST)' at ~3.3 GB, every page crashed after [rooftops])
     t.fac = t.lod = t.det = null;
+    await progress?.('city:tiles', (i + 1) / gen.tiles.size);
   }
   const ctr = tileMeshes.map(t => [t.cx, t.cz]);
   const facB = batchTiles(facG, facadeMat, 'facade', { castShadow: true, receiveShadow: true, merge: false }, ctr); // (perf) big: per tile
@@ -87,28 +94,30 @@ export async function buildCity({ scene, renderer }) {
   const detB = batchTiles(detG, detailMat, 'detail', { castShadow: true, receiveShadow: true, merge: false }, ctr);
   for (const b of [facB, lodB, detB]) for (const m of b.meshes) root.add(m);
   for (const tm of tileMeshes) if (tm.lod) lodB.setVisible(tm.i, false);
-  tick('tiles');
+  await tick('tiles');
   const hero = buildHero({ scene: root, rect: heroRect, facadeMat, renderer, solids: gen.solids, zips: gen.zips });
   gen.boxes.push(hero.box); gen.footprints.push(hero.footprint);
   const ground = buildGround({ scene: root, T, blocks, facadeMat, solids: gen.solids, zips: gen.zips, renderer });
   buildPark({ scene: root, facadeMat, solids: gen.solids, zips: gen.zips, meadowDist, parkPaths: ground.parkPaths }); // park agent: Met-like museum + schist outcrops
-  tick('ground');
+  await tick('ground');
   const far = buildFarShore({ scene: root, facadeMat, solids: gen.solids });
-  tick('far');
+  await tick('far');
   const bridges = buildBridges({ scene: root, T, solids: gen.solids, zips: gen.zips, boxes: gen.boxes }); // foundation: East River bridges (bridges r1: + anchor boxes)
-  tick('bridges');
+  await tick('bridges');
   // foundation: distant hinterland out to the horizon + wet tidal bands along every seawall / bulkhead
   const hinter = buildHinterland({ scene: root });
   buildWetBands({ scene: root, T, segs: [...(ground.wetSegs ?? []), ...(far.wetSegs ?? [])] });
-  tick('hinterland ' + hinter.count);
+  await tick('hinterland ' + hinter.count);
   const boats = buildBoats({ scene: root, solids: gen.solids, // foundation: river traffic + wakes (+ round 12: moored boats at the piers)
     docks: [...PIERS, ...(far.piers ?? []).map(([x0, z0, x1, z1]) => ({ x0, z0, x1, z1 }))] });
   const vehModels = await loadVehicleModels(renderer); // (bridges r3) shared by the highways and the street traffic
+  await tick('vehicles');
   const highways = buildHighways({ scene: root, T, solids: gen.solids, models: vehModels }); // foundation: West Side Highway / FDR + traffic ((bridges r3) real vehicles + real trees)
+  await tick('highways');
   // (citylife bridges) bridge cars are ordinary street traffic now (collidable, junction rules, same models): no bridgeTraffic
   const nSolidsPre = gen.solids.count; // citygeo: props' solids start here (refit below)
   const props = await buildProps({ scene: root, blocks, parkPaths: ground.parkPaths, T, solids: gen.solids, buildings: gen.buildings }); // citylife
-  tick('props');
+  await tick('props');
   { // (bridges r3) bridge ramp mouths: no street furniture / trees on the apron, the ramp foot or the joined street's
     // sidewalks and parking lanes at the T (lamps, signal masts / posts stay). Parked cars: npc/roads.js bridgeJunctions.
     const K = bridgeKeepOuts(), inR = (r, x, z) => x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1;
@@ -156,11 +165,14 @@ export async function buildCity({ scene, renderer }) {
     });
   }
   if (gen.variety) console.log('[city] (layout2 r3) block variety', JSON.stringify(gen.variety));
+  await tick('treespots');
   const trees = buildTrees({ scene: root, T, spots: props.treeSpots, parkPaths: ground.parkPaths });
+  await tick('trees');
   const traffic = buildTraffic({ scene: root, phase: props.phase, models: vehModels });
+  await tick('traffic');
   const peds = await buildPeds({ scene: root, blocks, parkPaths: ground.parkPaths, props, traffic }); // citylife
   const flags = buildFlags({ scene: root, flags: gen.buildings.flags });
-  tick('life');
+  await tick('life');
   let time = 0;
   let _fr = null, _pm = null, _sp = null; // (perf r2) tile pre-upload frustum
 
@@ -181,12 +193,15 @@ export async function buildCity({ scene, renderer }) {
     dumpster: { solidBase: true }, drum: { solidBase: true }, hydrant: { solidBase: true },
   } });
   const tFit2 = performance.now();
+  await tick('fit');
   trees.addSolids?.(gen.solids); // (veg r1) trunk collision (after the refit: it culls solids inside prop footprints)
+  await tick('trunks');
   const grid = new CollisionGrid(gen.solids, 24);
+  await tick('grid');
   const zips = gen.zips.finalize(grid);
   const { groundHeight, raycast, surfaceAt } = makeQueries(grid, terrainHeight);
   const geoDebug = createGeoDebug(root, grid, zips, collisionDebugLines);
-  tick('coll');
+  await tick('coll');
 
   const spawn = new THREE.Vector3(250, 0, 160 + G.ST_HALF + 2.3); // on the centre line, in the south crosswalk
   const viewpoints = makeViewpoints(gen, spawn, hero);

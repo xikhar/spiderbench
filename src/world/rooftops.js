@@ -12,7 +12,7 @@
 //  - rear-yard dressing in the block interiors (lawn / patio / gravel yards, fences, sheds, yard trees);
 //  - louvre cladding over the buildings.js glass-tower mechanical screen (was a white untextured cube);
 //  - exact collision (collision.js Solids) for every solid piece + roofCorner zip points on the big structures.
-// Contract: buildRooftops({ scene, gen, facadeMat, T }) -> Promise<{ update(camera), stats }>. Must run BEFORE the tile
+// Contract: buildRooftops({ scene, gen, facadeMat, T, progress? }) -> Promise<{ update(camera), stats }>. Must run BEFORE the tile
 // facade meshes are built (it appends to gen.tiles' builders) and before props (props avoid our solids).
 import * as THREE from 'three';
 import { mulberry32, district, blockAt, ZFIX } from './layout.js';
@@ -528,7 +528,7 @@ const ZONE_ALT = { [CELL.GRAVEL]: [CELL.MEMBRANE, CELL.BITUMEN, CELL.EPDM, CELL.
 const FAM_WARM = [1.02, 0.99, 0.94], FAM_COOL = [0.92, 0.96, 1.0], FAM_N = [1, 1, 1];
 
 // ------------------------------------------------------------------------------------------ main
-export async function buildRooftops({ scene, gen, facadeMat, T, renderer, extraRoofs = [] }) {
+export async function buildRooftops({ scene, gen, facadeMat, T, renderer, extraRoofs = [], progress }) {
   void facadeMat;
   const aniso = Math.min(8, renderer?.capabilities?.getMaxAnisotropy?.() ?? 4);
   const [imC, imN] = await Promise.all([loadImage('/assets/city/tex/roof_col.png'), loadImage('/assets/city/tex/roof_nrm.png')]);
@@ -577,7 +577,9 @@ export async function buildRooftops({ scene, gen, facadeMat, T, renderer, extraR
     masses: [{ x0: rect.x0, z0: rect.z0, x1: rect.x1, z1: rect.z1, y0: 0, y1: H, parapet: 0,
       p: { floorH: 4, bayW: 1.55, winW: 0.97, winH: 0.74, layer: LAYER.CONCRETE, base: LAYER.GRANITE, seed: 42, margin: 0, depth: 0.04, tint: [1, 1, 1], style: STYLE.BLANK } }],
   }));
-  for (const bld of [...gen.buildings, ...extra]) {
+  const blds = [...gen.buildings, ...extra]; let nBld = 0;
+  for (const bld of blds) {
+    await progress?.(nBld++ / blds.length); // loading-screen progress (0..1)
     const A = bld.A, masses = bld.masses;
     if (!masses?.length) continue;
     bld.roofKit = true; // props.js: this roof is dressed here (it then skips its generic HVAC / garden stamps)
