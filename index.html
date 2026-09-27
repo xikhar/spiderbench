@@ -5,9 +5,46 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Spidey</title>
 <link rel="icon" href="data:," />
-<style>html,body{margin:0;height:100%;overflow:hidden;background:#000}canvas{display:block}</style>
+<link rel="stylesheet" id="sys-fonts" href="/assets/ui/fonts/fonts.css" />
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#000}canvas{display:block}
+/* boot loading screen (src/ui/boot.js): static, so it paints before any module loads; same look as the fast-travel
+   screen (systems.css .sys-fade). The bar moves with a transform so it keeps animating while the main thread is busy
+   building the city / linking shaders. */
+#boot{position:fixed;inset:0;z-index:100;background:radial-gradient(ellipse 80% 70% at 50% 45%,#0d1733,#02040b 70%);color:#f4f6fb;
+  font-family:'Spidey Sans','Manrope',system-ui,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;user-select:none;transition:opacity .6s}
+#boot.done{opacity:0;pointer-events:none}
+#boot .dest{position:absolute;left:5vw;bottom:6vh;max-width:60vw;border-left:4px solid #e3262f;padding-left:18px}
+#boot .dest small{display:block;font:800 14px 'Spidey Condensed','Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.4em;text-transform:uppercase;color:#e3262f}
+#boot .dest b{display:block;font:800 52px/1.05 'Spidey Condensed','Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.06em;text-transform:uppercase;margin-top:4px}
+#boot .dest i{display:block;font-size:16px;font-weight:500;line-height:1.4;font-style:normal;letter-spacing:.08em;color:#b9c6e6;margin-top:6px;overflow-wrap:anywhere}
+#boot .ld{position:absolute;right:5vw;bottom:6vh;display:flex;align-items:center;gap:18px;font:800 18px 'Spidey Condensed','Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.3em;text-transform:uppercase;color:#b9c6e6}
+#boot .line{width:24vw;height:3px;background:rgba(255,255,255,.15);position:relative;overflow:hidden}
+#boot .line i{position:absolute;left:0;top:0;bottom:0;width:30%;background:#e3262f;animation:bootLoad 1s linear infinite}
+@keyframes bootLoad{from{transform:translateX(-100%)}to{transform:translateX(334%)}}
+#boot.err .ld{color:#e3262f}
+#boot.err .line{display:none}
+@media (max-width:700px){#boot .dest{bottom:14vh;max-width:none;right:5vw}#boot .ld{left:5vw}#boot .line{flex:1}}
+@media (prefers-reduced-motion:reduce){#boot .line i{animation-duration:3s}}
+</style>
 </head>
 <body>
+<div id="boot"><div class="dest"><small>Manhattan</small><b>Spidey</b><i>Press H for controls</i></div>
+  <div class="ld"><span role="status">Loading</span><div class="line"><i></i></div></div></div>
+<script>
+// boot loading screen: an uncaught error before the first frame (no WebGL2, a missing asset) is shown on it instead of
+// leaving a black page
+(() => {
+  const fail = msg => {
+    const b = document.getElementById('boot');
+    if (!b || b.classList.contains('done')) return;
+    b.classList.add('err');
+    b.querySelector('.ld span').textContent = 'Failed to start';
+    b.querySelector('.dest i').textContent = msg || 'Unknown error (see the console)';
+  };
+  addEventListener('error', e => fail(e.error?.message || e.message));
+  addEventListener('unhandledrejection', e => fail(e.reason?.message || String(e.reason)));
+})();
+</script>
 <div id="hud"></div>
 <script type="module" src="/src/main.js"></script>
 </body>

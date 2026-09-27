@@ -8,6 +8,7 @@
 //                      player = {update(dt), object:Object3D, applyShot(name)->boolean}
 //  ui/hud.js           createHud({player, world}) -> {update(dt), setVisible(b)}
 //  shots.js            SHOTS[name] = {time?, apply(ctx)}  deterministic poses for screenshot/critique
+//  ui/boot.js          bootStage(text) -> Promise, bootDone(instant?)  loading screen until the first frame
 import * as THREE from 'three';
 import { createPipeline } from './render/pipeline.js';
 import { createLighting } from './render/lighting.js';
@@ -16,6 +17,7 @@ import { createPlayer } from './player/player.js';
 import { createInput } from './player/input.js';
 import { createHud } from './ui/hud.js';
 import { SHOTS } from './shots.js';
+import { bootStage, bootDone } from './ui/boot.js';
 import { createWarmup } from './render/warmup.js'; // (perf r3)
 import { REFL_LAYER } from './world/water.js';
 import { BIG_CASTER_LAYER } from './render/csm.js';
@@ -48,8 +50,10 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 150000);
 
 const lighting = createLighting({ renderer, scene });
+bootStage('Building the city');
 const world = await buildCity({ scene, renderer });
 const input = createInput(renderer.domElement);
+bootStage('Suiting up');
 const player = await createPlayer({ scene, world, camera, input, renderer });
 const hud = createHud({ player, world, camera });
 const pipeline = createPipeline({ renderer, scene, camera, lighting });
@@ -62,6 +66,7 @@ addEventListener('resize', () => {
 const ctx = { THREE, renderer, scene, camera, lighting, world, player, hud, pipeline, input };
 ctx.systems = ctx.systems || []; // C5: game systems (src/game/**) push {update(dt)} here
 window.__ctx = ctx;
+await bootStage('Compiling shaders'); // painted before the warm-up and the first frame block the main thread
 // (perf r3) queue every shader program the game can draw (main pass + the river mirror's unshadowed variant + the
 // post passes) before the first frame: they link in parallel on the driver's threads during the loading frame instead
 // of one by one later, each freezing the game for 0.2-6 s the first time its material came into view
@@ -78,6 +83,7 @@ ctx.timeScale = 1; // global game-time scale (combat hit-stop / slow-mo); ctx.re
 if (shotName) {
   const shot = SHOTS[shotName];
   if (!shot) throw new Error('unknown shot ' + shotName);
+  bootDone(true);
   shot.apply(ctx);
   // Warm up: let shadows, TAA/accumulation, streaming settle.
   const dt = 1 / 60;
@@ -91,12 +97,14 @@ if (shotName) {
   window.__shotReady = true;
 } else {
   const clock = new THREE.Clock();
+  let booted = false;
   renderer.setAnimationLoop(() => {
     ctx.realDt = Math.min(clock.getDelta(), 1 / 20);
     const dt = ctx.realDt * (ctx.timeScale ?? 1);
     player.update(dt); world.update(dt, camera); lighting.update(camera); hud.update(dt);
     for (const s of ctx.systems) s.update?.(dt);
     pipeline.render(dt);
+    if (!booted) { booted = true; bootDone(); } // the first frame (and its shader links) is done: fade the loading screen
     warmup?.step(); // (perf r3)
   });
 }
