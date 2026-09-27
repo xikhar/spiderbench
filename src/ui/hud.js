@@ -10,8 +10,12 @@ const VIEW_M = 260;        // meters visible across the minimap width
 
 function css() {
   if (document.getElementById('hud-css')) return;
-  const l = document.createElement('link'); l.rel = 'stylesheet';
-  l.href = (import.meta.env?.BASE_URL || '/') + 'assets/ui/fonts/fonts.css'; document.head.appendChild(l); // local fonts only (no network)
+  // local fonts only (no network). Not twice: index.html links them for the loading screen, and Safari treats re-added
+  // @font-face rules as new fonts, hiding all text in them (font-display: block) until they have "loaded" again
+  if (!document.getElementById('sys-fonts')) {
+    const l = document.createElement('link'); l.id = 'sys-fonts'; l.rel = 'stylesheet';
+    l.href = (import.meta.env?.BASE_URL || '/') + 'assets/ui/fonts/fonts.css'; document.head.appendChild(l);
+  }
   const s = document.createElement('style'); s.id = 'hud-css';
   s.textContent = `
   #hud{position:fixed;inset:0;pointer-events:none;font-family:Rajdhani,'Barlow Condensed','Arial Narrow',sans-serif;color:#fff;z-index:10;transition:opacity .4s}
