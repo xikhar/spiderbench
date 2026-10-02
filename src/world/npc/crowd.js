@@ -697,6 +697,12 @@ export async function createCrowd({ scene, blocks, parkPaths, props, roads, phas
     new THREE.TextureLoader().loadAsync('/assets/city/tex/peds_atlas.webp').catch(() => null), // (peds r1) faces / hair / fabric
     new THREE.TextureLoader().loadAsync('/assets/city/npc/people_bake.webp').catch(() => null), // (peds r2) Cycles cloth normal + AO
   ]);
+  if (!meta || typeof meta !== 'object' || !Number.isInteger(meta.anim) || meta.anim < 0 ||
+      !Number.isInteger(meta.frames) || meta.frames <= 0 || !Number.isInteger(meta.nb) || meta.nb <= 0 ||
+      !Array.isArray(meta.variants) || typeof meta.clips !== 'object' ||
+      !(bin instanceof ArrayBuffer) || meta.anim + meta.frames * meta.nb * 12 * 4 > bin.byteLength) {
+    throw new Error('Invalid or corrupted NPC crowd data');
+  }
   if (bakeTex) { bakeTex.flipY = false; bakeTex.colorSpace = THREE.NoColorSpace; bakeTex.anisotropy = 4; bakeTex.needsUpdate = true; }
   const useBake = !!bakeTex && !!meta.bake && meta.variants[0]?.lods[0]?.uv !== undefined;
   const animData = new Float32Array(bin, meta.anim, meta.frames * meta.nb * 12);
