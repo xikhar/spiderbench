@@ -140,7 +140,7 @@ float cityLShadow( int s, vec3 wp, float dist, float range ) {
   const mat2 R = mat2( 0.866, 0.5, -0.5, 0.866 );
   for ( int j = - 1; j <= 1; j ++ ) for ( int i = - 1; i <= 1; i ++ ) {
     vec2 q = clamp( tuv + R * vec2( float( i ), float( j ) ) * tx * 1.25, tile + tx, tile + 0.5 - tx );
-    vis += step( fd, texture( cityL.shMap, q ).r );
+    vis += step( fd, textureLod( cityL.shMap, q, 0.0 ).r );
   }
   float w = s == 0 ? cityL.shW.x : s == 1 ? cityL.shW.y : s == 2 ? cityL.shW.z : cityL.shW.w;
   return mix( 1.0, vis / 9.0, w );

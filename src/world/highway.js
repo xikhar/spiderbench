@@ -142,10 +142,11 @@ function createHighwayMaterial(T) {
       .replace(
         "#include <common>",
         `#include <common>
-      uniform sampler2D tCol; uniform sampler2D tNoise; uniform sampler2D tMacro; varying vec2 vHw; varying vec3 vHwP; float hwR;
-      float band(float u, float c, float hw) { float aa = max(fwidth(u), 1e-3); return 1.0 - smoothstep(hw - aa, hw + aa, abs(u - c)); }
-      vec3 highway() {
+      uniform sampler2D tCol; uniform sampler2D tNoise; uniform sampler2D tMacro; varying vec2 vHw; varying vec3 vHwP; float hwR = 0.85;
+      float band(float u, float c, float hw, float aa) { return 1.0 - smoothstep(hw - aa, hw + aa, abs(u - c)); }
+      void highway(out vec3 highwayColor) {
         float u = vHw.x, v = vHw.y;
+        float lineAA = max(fwidth(u), 1e-3);
         vec2 p = vHwP.xz;
         vec3 c = texture(tCol, p / 6.0).rgb * 0.92;
         vec3 m = texture(tMacro, p / 70.0).rgb; vec3 nz = texture(tNoise, p / 53.0).rgb;
@@ -161,28 +162,28 @@ function createHighwayMaterial(T) {
         // planted median: kerbed strip with grass / soil
         if (u > m0 + 0.25 && u < m1 - 0.25) {
           vec3 g = mix(vec3(0.16, 0.18, 0.1), vec3(0.2, 0.18, 0.13), texture(tNoise, p / 7.0).g);
-          hwR = 0.95; return g * (0.85 + 0.3 * nz.b);
+          hwR = 0.95; highwayColor = g * (0.85 + 0.3 * nz.b); return;
         }
-        if (u > m0 && u < m1) { hwR = 0.8; return vec3(0.46, 0.45, 0.42) * (0.9 + 0.2 * nz.g); } // kerb
+        if (u > m0 && u < m1) { hwR = 0.8; highwayColor = vec3(0.46, 0.45, 0.42) * (0.9 + 0.2 * nz.g); return; } // kerb
         float wear = 0.75 + 0.25 * smoothstep(0.3, 0.7, texture(tNoise, p / 3.1).r);
         float paint = 0.0; vec3 pc = vec3(0.86, 0.86, 0.83);
         // solid white edge lines
-        paint += band(u, SH - 0.1, 0.075) + band(u, W - SH + 0.1, 0.075);
+        paint += band(u, SH - 0.1, 0.075, lineAA) + band(u, W - SH + 0.1, 0.075, lineAA);
         // dashed lane lines (3 m dash, 9 m gap)
         float dash = step(mod(v, 12.0), 3.0);
-        for (int j = 1; j < 3; j++) { paint += dash * (band(u, SH + float(j) * LN, 0.06) + band(u, m1 + float(j) * LN, 0.06)); }
+        for (int j = 1; j < 3; j++) { paint += dash * (band(u, SH + float(j) * LN, 0.06, lineAA) + band(u, m1 + float(j) * LN, 0.06, lineAA)); }
         paint = clamp(paint, 0.0, 1.0);
         // double yellow along the median kerbs
-        float yl = band(u, m0 - 0.2, 0.055) + band(u, m1 + 0.2, 0.055);
+        float yl = band(u, m0 - 0.2, 0.055, lineAA) + band(u, m1 + 0.2, 0.055, lineAA);
         c = mix(c, pc * 0.85, paint * wear * 0.85);
         c = mix(c, vec3(0.72, 0.55, 0.16) * 0.85, clamp(yl, 0.0, 1.0) * wear * 0.85);
         hwR = mix(0.9, 0.6, paint);
         // gutters
         c *= 1.0 - 0.2 * (1.0 - smoothstep(0.0, 0.6, u)) - 0.2 * (1.0 - smoothstep(0.0, 0.6, W - u));
-        return c;
+        highwayColor = c;
       }`,
       )
-      .replace("#include <map_fragment>", "diffuseColor.rgb = highway();")
+      .replace("#include <map_fragment>", "vec3 highwayColor; highway(highwayColor); diffuseColor.rgb = highwayColor;")
       .replace(
         "#include <roughnessmap_fragment>",
         "float roughnessFactor = hwR;",

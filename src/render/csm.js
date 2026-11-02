@@ -72,7 +72,7 @@ function installChunks(N, taps, charCascade) {
   float csmPCF( sampler2DShadow map, vec2 size, float bias, float radius, vec4 sc, float phi ) {
     vec3 c = sc.xyz / sc.w; c.z += bias;
     float r = radius / size.x; float s = 0.0;
-    for (int k = 0; k < CSM_TAPS; k++) s += texture( map, vec3( c.xy + vogelDiskSample( k, CSM_TAPS, phi ) * r, c.z ) );
+    for (int k = 0; k < CSM_TAPS; k++) s += textureLod( map, vec3( c.xy + vogelDiskSample( k, CSM_TAPS, phi ) * r, c.z ), 0.0 );
     return s / float( CSM_TAPS );
   }
   #endif

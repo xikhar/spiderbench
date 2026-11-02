@@ -499,14 +499,16 @@ function makeMaterials(animTex, meta, pedTex, bakeTex) {
       // (citylife r1) garment detail painted from the rest-pose position (every LOD): suit / jacket / coat fronts with the
       // shirt V, tie, lapel edges, button placket, buttons and pocket flaps; quilted puffers with a zip; striped / check /
       // heather tops; denim grain + fading, trouser creases; hair strands; low-frequency cloth folds everywhere
-      bool gCut = false;
-      vec3 garment(vec3 c) {
+      bool gCut = false, gHairCut = false;
+      void garment(vec3 c, out vec3 garmentColor) {
+        garmentColor = c;
+        gHairCut = false;
         int R = int(vReg + 0.5); vec3 p = vRest; float ax = abs(p.x);
         if (R >= 13) {   // (peds r5) hair locks / fuzz shells: strand gaps cut out, wider toward the tip (region 13 -> 14
           // interpolates across the triangle); fewer gaps with distance so the outline doesn't shimmer
           float tip = clamp(vReg - 13.0, 0.0, 1.0), a_ = atan(p.x, p.z - 0.01);
           float st = pvn(vec3(a_ * 60.0, p.y * 10.0, 0.0)) * 0.55 + pvn(vec3(a_ * 150.0 + 3.0, p.y * 20.0, 1.7)) * 0.45;
-          if (st < (0.2 + 0.78 * tip) * mix(1.0, 0.5, smoothstep(12.0, 35.0, vPed.w))) discard;
+          if (st < (0.2 + 0.78 * tip) * mix(1.0, 0.5, smoothstep(12.0, 35.0, vPed.w))) gHairCut = true;
           R = 4;
         }
         int oc = int(mod(vCode, 8.0)); int pat = int(mod(floor(vCode / 8.0), 8.0)); int tie = int(floor(vCode / 64.0));
@@ -557,8 +559,8 @@ function makeMaterials(animTex, meta, pedTex, bakeTex) {
             if (front && ax < 0.005 && p.y > 0.86) c *= 0.4;                                  // zip
           }
         } else if (R == 1) {
-          if (tie > 0 && front && p.y < 1.455 && p.y > 1.12 && ax < 0.011 + (1.455 - p.y) * 0.028) return tieCol(tie) * vAOm;
-          if (oc == 1 || oc == 2 || oc == 4) { if (p.y > 1.43 && front) c *= 0.85; return c; }   // shirt under a jacket: plain, collar shade
+          if (tie > 0 && front && p.y < 1.455 && p.y > 1.12 && ax < 0.011 + (1.455 - p.y) * 0.028) { garmentColor = tieCol(tie) * vAOm; return; }
+          if (oc == 1 || oc == 2 || oc == 4) { if (p.y > 1.43 && front) c *= 0.85; garmentColor = c; return; }   // shirt under a jacket: plain, collar shade
           if (pat == 1) c = mix(c, vec3(0.6, 0.59, 0.56), 0.55 * smoothstep(0.45, 0.6, fract(p.y * 14.0)));
           else if (pat == 2) { float a = smoothstep(0.4, 0.6, fract(p.y * 9.0)), b = smoothstep(0.4, 0.6, fract(p.x * 9.0)); c *= 0.78 + 0.13 * (a + b); }
           else if (pat == 3) c *= 0.88 + 0.24 * pvn(p * vec3(45.0, 20.0, 45.0));
@@ -598,7 +600,7 @@ function makeMaterials(animTex, meta, pedTex, bakeTex) {
             float hl = smoothstep(1.668, 1.688, p.y + (pvn(p * 160.0) - 0.5) * 0.012) * (1.0 - smoothstep(0.075, 0.09, p.z));
             c = mix(c, vHairC * 0.9, hl * 0.85);
           }
-          if (R != 0) return c;
+          if (R != 0) { garmentColor = c; return; }
           c *= 0.96 + 0.08 * pvn(p * 25.0);
           if (p.y > 1.45) c *= mix(0.7, 1.0, smoothstep(1.53, 1.572, p.y + max(0.0, p.z) * 0.45));   // under the jaw / neck
           if (p.y > 1.5 && p.z < 0.03) { // (citylife r2) face modelling in paint ((peds r1) now only off the photo area) (heads read as smooth mannequin eggs): eye sockets, cheek /
@@ -612,13 +614,15 @@ function makeMaterials(animTex, meta, pedTex, bakeTex) {
             c *= 1.0 - 0.18 * smoothstep(1.7, 1.73, p.y);                                 // hairline shadow
           }
         }
-        return c;
+        garmentColor = c;
       }`,
       )
       .replace(
         "#include <color_fragment>",
         `#include <color_fragment>
-        diffuseColor.rgb = garment(vCol); if (gCut) discard;
+        vec3 garmentColor;
+        garment(vCol, garmentColor);
+        diffuseColor.rgb = garmentColor; if (gCut || gHairCut) discard;
         if (uBakeOn > 0.5) { gBake = texture(uBake, vBUv);   // (peds r2) baked occlusion replaces the per-vertex AO on base parts
           if (vOptF < 0.5) diffuseColor.rgb *= clamp((0.3 + 0.7 * gBake.a) / max(vAOm, 0.3), 0.35, 1.5); }`,
       )

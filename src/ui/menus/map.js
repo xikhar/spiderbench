@@ -43,7 +43,7 @@ export function createMapPage(sys) {
     <div class="card sys-panel cut hide"><small></small><h5></h5><p></p><div class="acts"></div></div>
     <div class="reveal-hint"><small>DISTRICT UNLOCKED</small><b></b><span><span class="sys-key">Esc</span>Continue</span></div>`;
   const cv = el.querySelector("canvas"),
-    g = cv.getContext("2d");
+    g = cv.getContext("2d", { willReadFrequently: true });
   const card = el.querySelector(".card"),
     rowsEl = el.querySelector(".rows");
   const filters = Object.fromEntries(CAT.map(([k]) => [k, true]));

@@ -1156,10 +1156,10 @@ vec3 interior(vec2 p, vec3 dir, float rw, float rh, float rd, float tile, float 
   return col * mix(0.55, 1.0, lit);
 }
 
-Surf facade() {
+void facade(out Surf o) {
   vec3 N = normalize(vWN);
   gDx = dFdx(vFac); gDy = dFdy(vFac);
-  Surf o;
+  o.alb = vec3(0.0); o.rough = 1.0; o.metal = 0.0; o.n = N; o.emis = vec3(0.0);
   float roofL = 8.0;
   float Lw = mod(vS.x, 16.0);
   float Lb = mod(floor(vS.x / 16.0 + 0.01), 16.0);
@@ -1262,9 +1262,9 @@ Surf facade() {
       o.alb *= (1.0 - 0.18 * pond) * (1.0 + 0.25 * tide);
       o.rough = mix(o.rough, 0.5, pond * 0.5);
     }
-    return o;
+    return;
   }
-  if (N.y < -0.5) { o = wallSurf(vFac, LwT, tint * 0.6); return o; } // (textures r2) LwT
+  if (N.y < -0.5) { o = wallSurf(vFac, LwT, tint * 0.6); return; } // (textures r2) LwT
   vec3 T = normalize(cross(vec3(0.0, 1.0, 0.0), N));
   vec3 Vt = vec3(dot(V, T), V.y, max(dot(V, N), 0.06));
   gVt = vec3(Vt.x, Vt.y, dot(V, N));
@@ -1366,7 +1366,7 @@ Surf facade() {
     s.emis = vec3(0.0);
     s.n = normalize(vec3(0.0, 0.3 * band - 0.4 * rim, 1.0));
     s.emis = tri * vec3(0.85, 0.92, 1.0) * 1.6 * uNightK; gGlass = tri; gF0 = 0.1; // (night) the sunburst's triangular windows glow white (Chrysler crown)
-    return s;
+    o = s; return;
   }
   if (style > 4.5) { // ---- party wall: common brick (whatever the street face is), weathering, demolished-neighbour
     // parge coat + flashing line, faded ghost-sign paint
@@ -1421,9 +1421,9 @@ Surf facade() {
       o.alb = mix(o.alb, wc, wm); o.rough = mix(o.rough, mix(0.2, o.rough, brk), wm); o.metal = mix(o.metal, 0.0, wm);
       o.alb = mix(o.alb, vec3(0.62, 0.6, 0.55) * (0.85 + 0.2 * nz2.r), sillM); o.n = normalize(mix(o.n, vec3(0.0, 0.6, 1.0), sillM));
     }
-    return o;
+    return;
   }
-  if (style < 0.5) return o;
+  if (style < 0.5) return;
 
   bool curtain = abs(style - 2.0) < 0.5;
   bool ribbon = abs(style - 3.0) < 0.5;
@@ -1441,7 +1441,7 @@ Surf facade() {
     float signY0 = gH - 1.55, signY1 = gH - 0.55;
     float inner = boxAA(fx2, pier, bw2 - pier, aw);
     o = base;
-    if (inner <= 0.0) return o;
+    if (inner <= 0.0) return;
     Surf s;
     float glassY0 = 0.55;
     if (y > signY1) { // cornice band
@@ -1515,7 +1515,7 @@ Surf facade() {
     o.alb = mix(o.alb, s.alb, inner); o.rough = mix(o.rough, s.rough, inner); o.metal = mix(o.metal, s.metal, inner);
     o.n = normalize(mix(o.n, s.n, inner)); o.emis = s.emis * inner;
     gGlass *= inner;
-    return o;
+    return;
   }
 
   // ----------------------------------------------------------- upper floors
@@ -2081,7 +2081,7 @@ Surf facade() {
     r.alb *= 1.0 - aoT; r.emis *= 1.0 - 0.6 * aoT; gGlass *= 1.0 - 0.5 * aoT;
     gAoT = aoT; // (night)
   }
-  return r;
+  o = r;
 }
 `;
 
@@ -2122,7 +2122,7 @@ export function createFacadeMaterial(T) {
       )
       .replace(
         "#include <map_fragment>",
-        "Surf FS = facade();\n#ifdef FAR_NIGHT\nFS.alb *= 1.0 - 0.8 * uNightK; // (night) far shores: dark silhouettes at night (critic r1: beige-peach masses read like dusk)\n#endif\ndiffuseColor.rgb = FS.alb;",
+        "Surf FS; facade(FS);\n#ifdef FAR_NIGHT\nFS.alb *= 1.0 - 0.8 * uNightK; // (night) far shores: dark silhouettes at night (critic r1: beige-peach masses read like dusk)\n#endif\ndiffuseColor.rgb = FS.alb;",
       )
       .replace(
         "#include <roughnessmap_fragment>",

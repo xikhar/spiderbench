@@ -327,9 +327,9 @@ export function createSidewalkMaterial(T) {
         "#include <common>",
         `#include <common>
       uniform sampler2D tCol; uniform sampler2D tNrm; uniform sampler2D tNoise; uniform sampler2D tCurb; varying vec4 vRect; varying vec3 vWP; varying vec3 vWN;
-      vec3 sN; float sR;
+      vec3 sN = vec3(0.0, 0.0, 1.0); float sR = 0.85;
       float curbJ(float a, float fw) { float x = abs(fract(a / 2.4) - 0.5) * 2.4, w = max(0.012, fw * 1.5); return 0.45 * smoothstep(1.2 - w, 1.2, x) * (0.012 / w); } // (textures r2) curbstone joints, AA
-      vec3 walk() {
+      void walk(out vec3 walkColor) {
         vec2 p = vWP.xz;
         vec2 fwP = fwidth(p); // (textures r2) uniform control flow
         vec3 nz = texture(tNoise, p / 53.0).rgb;
@@ -341,7 +341,7 @@ export function createSidewalkMaterial(T) {
           c *= 1.0 - curbJ(p.x + p.y, fwP.x + fwP.y); // 2.4 m stone joints
           c *= mix(0.55, 1.0, smoothstep(-0.02, 0.14, vWP.y));
           sR = 0.85; sN = vec3(0.0, 0.0, 1.0);
-          return c;
+          walkColor = c; return;
         }
         vec2 uv = p / 6.0; // (textures) imagegen sidewalk sheet holds 4 x 4 slabs -> 1.5 m (5 ft) NYC slabs
         vec3 c = texture(tCol, uv).rgb;
@@ -374,10 +374,10 @@ export function createSidewalkMaterial(T) {
         }
         sR = mix(n.b, 1.0, smoothstep(300.0, 1100.0, length(vWP - cameraPosition))); // (r13) matte from afar (no grazing glare strips)
         vec2 nxy = n.rg * 2.0 - 1.0; sN = normalize(vec3(nxy, sqrt(max(0.0, 1.0 - dot(nxy, nxy)))));
-        return c;
+        walkColor = c;
       }`,
       )
-      .replace("#include <map_fragment>", "diffuseColor.rgb = walk();")
+      .replace("#include <map_fragment>", "vec3 walkColor; walk(walkColor); diffuseColor.rgb = walkColor;")
       .replace(
         "#include <roughnessmap_fragment>",
         "float roughnessFactor = sR;",
