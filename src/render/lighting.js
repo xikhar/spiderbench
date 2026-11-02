@@ -400,6 +400,17 @@ export function createLighting({ renderer, scene }) {
       if (state.envDirty) {
         state.envTexture = sky.renderEnv();
         scene.environment = state.envTexture;
+
+
+          console.log("PMREM texture diagnostics:", {
+    mapping: state.envTexture.mapping,
+    width: state.envTexture.image?.width,
+    height: state.envTexture.image?.height,
+    isTexture: state.envTexture.isTexture,
+    isRenderTargetTexture: state.envTexture.isRenderTargetTexture,
+    image: state.envTexture.image
+  });
+
         scene.environmentIntensity = state.envIntensity;
         state.envDirty = false;
       }

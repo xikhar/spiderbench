@@ -9,27 +9,52 @@
 //   - opts out of the pipeline's SSR (the mirror replaces it; SSR's 220 m rays never reached the far shore)
 // Plus: wet bands (dark, algae-stained tidal strip) along every bulkhead / seawall / pier edge, and a horizon skirt
 // just inside the far plane.
-import * as THREE from 'three';
-import { G, distToShore, LAND_POLY } from './layout.js';
-import { FAR_LANDS } from './farshore.js';
+import * as THREE from "three";
+import { G, distToShore, LAND_POLY } from "./layout.js";
+import { FAR_LANDS } from "./farshore.js";
 
-export const REFL_LAYER = 27;       // meshes the planar reflection renders besides the big shadow casters
-const BIG_LAYER = 28;               // render/csm.js BIG_CASTER_LAYER (tagged large casters: towers, walls, bridges)
+export const REFL_LAYER = 27; // meshes the planar reflection renders besides the big shadow casters
+const BIG_LAYER = 28; // render/csm.js BIG_CASTER_LAYER (tagged large casters: towers, walls, bridges)
 
-export function createRiverMaterial(T, refl = null, { ssr = false, body = [0.06, 0.082, 0.09], shore = null } = {}) {
-  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.06, metalness: 0.0 });
-  if (!ssr) mat.defines = { NO_SSR: '' }; // (park ponds keep the pipeline SSR: their reflections are short range)
-  if (shore) mat.defines = { ...(mat.defines ?? {}), HAS_SHORE: '' };
-  const uni = { tWN: { value: T.waterNrm }, tWNoise: { value: T.noise }, uWTime: { value: 0 },
-    tRefl: { value: refl?.texture ?? null }, uTexMat: { value: refl?.texMat ?? new THREE.Matrix4() }, uReflOn: { value: 0 },
-    tShore: { value: shore?.texture ?? null }, uShoreBox: { value: shore?.box ?? new THREE.Vector4(0, 0, 1, 1) } };
+export function createRiverMaterial(
+  T,
+  refl = null,
+  { ssr = false, body = [0.06, 0.082, 0.09], shore = null } = {},
+) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.06,
+    metalness: 0.0,
+  });
+  if (!ssr) mat.defines = { NO_SSR: "" }; // (park ponds keep the pipeline SSR: their reflections are short range)
+  if (shore) mat.defines = { ...(mat.defines ?? {}), HAS_SHORE: "" };
+  const uni = {
+    tWN: { value: T.waterNrm },
+    tWNoise: { value: T.noise },
+    uWTime: { value: 0 },
+    tRefl: { value: refl?.texture ?? null },
+    uTexMat: { value: refl?.texMat ?? new THREE.Matrix4() },
+    uReflOn: { value: 0 },
+    tShore: { value: shore?.texture ?? null },
+    uShoreBox: { value: shore?.box ?? new THREE.Vector4(0, 0, 1, 1) },
+  };
   mat.userData.uniforms = uni;
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uni);
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPw; uniform mat4 uTexMat; varying vec4 vRefl;')
-      .replace('#include <fog_vertex>', `#include <fog_vertex>
-        vWPw = (modelMatrix * vec4(transformed, 1.0)).xyz; vRefl = uTexMat * vec4(vWPw, 1.0);`);
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+    sh.vertexShader = sh.vertexShader
+      .replace(
+        "#include <common>",
+        "#include <common>\nvarying vec3 vWPw; uniform mat4 uTexMat; varying vec4 vRefl;",
+      )
+      .replace(
+        "#include <fog_vertex>",
+        `#include <fog_vertex>
+        vWPw = (modelMatrix * vec4(transformed, 1.0)).xyz; vRefl = uTexMat * vec4(vWPw, 1.0);`,
+      );
+    sh.fragmentShader = sh.fragmentShader
+      .replace(
+        "#include <common>",
+        `#include <common>
       uniform sampler2D tWN; uniform sampler2D tWNoise; uniform float uWTime; varying vec3 vWPw;
       uniform sampler2D tRefl; uniform float uReflOn; varying vec4 vRefl;
       uniform sampler2D tShore; uniform vec4 uShoreBox;
@@ -89,7 +114,7 @@ export function createRiverMaterial(T, refl = null, { ssr = false, body = [0.06,
         #endif
         // body colour: deep muted green-grey, turbid variation; silty olive-brown along the shores, a little deeper /
         // bluer mid-channel (depth), current streaks along the rivers
-        vec3 c = vec3(${body.map(v => v.toFixed(4)).join(', ')});
+        vec3 c = vec3(${body.map((v) => v.toFixed(4)).join(", ")});
         c *= 0.85 + 0.3 * m1.r;
         c = mix(c, vec3(0.07, 0.085, 0.075), smoothstep(0.4, 0.8, m2.b) * 0.5);
         c = mix(c, vec3(0.06, 0.066, 0.055), nearS * 0.55);
@@ -107,16 +132,26 @@ export function createRiverMaterial(T, refl = null, { ssr = false, body = [0.06,
         }
         #endif
         return c;
-      }`)
-      .replace('#include <map_fragment>', 'diffuseColor.rgb = river();')
-      .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = wR;')
-      .replace('#include <normal_fragment_maps>', 'normal = normalize((viewMatrix * vec4(wN, 0.0)).xyz);')
+      }`,
+      )
+      .replace("#include <map_fragment>", "diffuseColor.rgb = river();")
+      .replace(
+        "#include <roughnessmap_fragment>",
+        "float roughnessFactor = wR;",
+      )
+      .replace(
+        "#include <normal_fragment_maps>",
+        "normal = normalize((viewMatrix * vec4(wN, 0.0)).xyz);",
+      )
       // (round 7) cast shadows on open water: a river mostly reflects the sky, so a tower's shadow only removes the
       // sun's glare / diffuse share -> soften the sun occlusion (was a hard dark-blue slab across the East River)
-      .replace('#include <lights_fragment_begin>', THREE.ShaderChunk.lights_fragment_begin
-        .replace('directLight.color *= ( directLight.visible && receiveShadow ) ? csmShadow() : 1.0;',
-          'wSh = ( directLight.visible && receiveShadow ) ? csmShadow() : 1.0; directLight.color *= mix(0.8, 1.0, wSh); /* (round 10: 0.62 -> 0.8, critic read tower shadows on the river as dark decal slabs) */')
-        + `
+      .replace(
+        "#include <lights_fragment_begin>",
+        THREE.ShaderChunk.lights_fragment_begin.replace(
+          "directLight.color *= ( directLight.visible && receiveShadow ) ? csmShadow() : 1.0;",
+          "wSh = ( directLight.visible && receiveShadow ) ? csmShadow() : 1.0; directLight.color *= mix(0.8, 1.0, wSh); /* (round 10: 0.62 -> 0.8, critic read tower shadows on the river as dark decal slabs) */",
+        ) +
+          `
         // (round 7) sun glitter: sparse sub-pixel facets on a finer, faster chop catch the sun (a sparkling glint path
         // toward the sun instead of one smooth lobe); fades with distance into the broad specular sheen
         #if ( NUM_DIR_LIGHTS > 0 )
@@ -131,8 +166,11 @@ export function createRiverMaterial(T, refl = null, { ssr = false, body = [0.06,
           float gfade = 1.0 - smoothstep(900.0, 4000.0, wDist);
           reflectedLight.directSpecular += directLight.color * gl * spark * gfade * 14.0 * wSh;
         }
-        #endif`)
-      .replace('#include <lights_fragment_maps>', `#include <lights_fragment_maps>
+        #endif`,
+      )
+      .replace(
+        "#include <lights_fragment_maps>",
+        `#include <lights_fragment_maps>
         // (atmosphere r2) sky reflection: the env map's lowest ~6 deg hold a generic city band (for the towers' IBL);
         // open water at grazing angles must mirror the horizon SKY instead (critic: 'flat grey sheet, no fresnel sky
         // gradient'). Re-fetch the env with the reflection lifted above that band; the planar mirror adds the real
@@ -172,9 +210,14 @@ export function createRiverMaterial(T, refl = null, { ssr = false, body = [0.06,
         // (atmosphere r1) critic: 'river reads flat'. Wind fields modulate the sky sheen at every distance: glassy slicks
         // mirror more of the (bright) sky, gust / ruffled patches scatter it into a duller, bluer grey -> visible large-
         // scale mottling and streaks like the refs' Hudson / East River, instead of one even grey-blue sheet
-        radiance *= mix(0.82, 1.22, wSlick) * (1.0 + 0.18 * wStreak) * mix(1.0, 0.86, smoothstep(0.14, 0.3, wR));`);
+        radiance *= mix(0.82, 1.22, wSlick) * (1.0 + 0.18 * wStreak) * mix(1.0, 0.86, smoothstep(0.14, 0.3, wR));`,
+      );
   };
-  mat.customProgramCacheKey = () => 'city-river-v11' + (ssr ? '-ssr' : '') + (shore ? '-sh' : '') + body.join(',');
+  mat.customProgramCacheKey = () =>
+    "city-river-v11" +
+    (ssr ? "-ssr" : "") +
+    (shore ? "-sh" : "") +
+    body.join(",");
   return mat;
 }
 
@@ -182,16 +225,43 @@ export function createRiverMaterial(T, refl = null, { ssr = false, body = [0.06,
 function createMirror(renderer) {
   const size = new THREE.Vector2();
   renderer.getDrawingBufferSize(size);
-  const rt = new THREE.WebGLRenderTarget(Math.max(256, Math.round(size.x / 3)), Math.max(144, Math.round(size.y / 3)), { type: THREE.HalfFloatType });
+  const rt = new THREE.WebGLRenderTarget(
+    Math.max(256, Math.round(size.x / 3)),
+    Math.max(144, Math.round(size.y / 3)),
+    { type: THREE.HalfFloatType },
+  );
   const texMat = new THREE.Matrix4();
   const vcam = new THREE.PerspectiveCamera();
-  vcam.layers.set(BIG_LAYER); vcam.layers.enable(REFL_LAYER);
-  const bias = new THREE.Matrix4().set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1);
-  const _p = new THREE.Vector3(), _d = new THREE.Vector3(), _t = new THREE.Vector3(), _c = new THREE.Color(), _u = new THREE.Vector3();
+  vcam.layers.set(BIG_LAYER);
+  vcam.layers.enable(REFL_LAYER);
+  const bias = new THREE.Matrix4().set(
+    0.5,
+    0,
+    0,
+    0.5,
+    0,
+    0.5,
+    0,
+    0.5,
+    0,
+    0,
+    0.5,
+    0.5,
+    0,
+    0,
+    0,
+    1,
+  );
+  const _p = new THREE.Vector3(),
+    _d = new THREE.Vector3(),
+    _t = new THREE.Vector3(),
+    _c = new THREE.Color(),
+    _u = new THREE.Vector3();
   const Y = G.WATER_Y;
   let frame = 0;
   return {
-    texture: rt.texture, texMat,
+    texture: rt.texture,
+    texMat,
     render(scene, camera, hide) {
       camera.updateMatrixWorld();
       _p.setFromMatrixPosition(camera.matrixWorld);
@@ -201,25 +271,34 @@ function createMirror(renderer) {
       camera.getWorldDirection(_d);
       _t.copy(_p).add(_d);
       vcam.position.set(_p.x, 2 * Y - _p.y, _p.z);
-      _u.set(0, 1, 0).applyQuaternion(camera.quaternion); _u.y = -_u.y; vcam.up.copy(_u);
+      _u.set(0, 1, 0).applyQuaternion(camera.quaternion);
+      _u.y = -_u.y;
+      vcam.up.copy(_u);
       vcam.lookAt(_t.x, 2 * Y - _t.y, _t.z);
       vcam.projectionMatrix.copy(camera.projectionMatrix);
       vcam.projectionMatrixInverse.copy(camera.projectionMatrixInverse);
       vcam.updateMatrixWorld();
-      texMat.copy(bias).multiply(vcam.projectionMatrix).multiply(vcam.matrixWorldInverse);
+      texMat
+        .copy(bias)
+        .multiply(vcam.projectionMatrix)
+        .multiply(vcam.matrixWorldInverse);
       frame++;
       for (const h of hide) h.visible = false;
       const prevRT = renderer.getRenderTarget();
-      const prevAlpha = renderer.getClearAlpha(); renderer.getClearColor(_c);
-      const prevAuto = renderer.shadowMap.autoUpdate, prevOn = renderer.shadowMap.enabled;
-      renderer.shadowMap.autoUpdate = false; renderer.shadowMap.enabled = false; // cascades are fitted to the main camera
+      const prevAlpha = renderer.getClearAlpha();
+      renderer.getClearColor(_c);
+      const prevAuto = renderer.shadowMap.autoUpdate,
+        prevOn = renderer.shadowMap.enabled;
+      renderer.shadowMap.autoUpdate = false;
+      renderer.shadowMap.enabled = false; // cascades are fitted to the main camera
       renderer.setClearColor(0x000000, 0);
       renderer.setRenderTarget(rt);
       renderer.clear();
       renderer.render(scene, vcam);
       renderer.setRenderTarget(prevRT);
       renderer.setClearColor(_c, prevAlpha);
-      renderer.shadowMap.autoUpdate = prevAuto; renderer.shadowMap.enabled = prevOn;
+      renderer.shadowMap.autoUpdate = prevAuto;
+      renderer.shadowMap.enabled = prevOn;
       for (const h of hide) h.visible = true;
       return true;
     },
@@ -230,38 +309,96 @@ function createMirror(renderer) {
 // distance-to-shore map (metres / 400 in R, 8 m/px) over the harbour: land polygons rasterised on a canvas, then a
 // two-pass chamfer distance transform. Drives the silty near-shore tone / sheltered slicks of the river shader.
 function shoreMap() {
-  const X0 = -6400, Z0 = -8000, X1 = 6400, Z1 = 9600, PX = 8;
-  const W = Math.round((X1 - X0) / PX), H = Math.round((Z1 - Z0) / PX);
-  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const g = cv.getContext('2d', { willReadFrequently: true });
-  g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.fillStyle = '#fff';
-  for (const pts of [LAND_POLY, ...FAR_LANDS.map(L => L.pts)]) {
-    g.beginPath(); pts.forEach(([x, z], i) => { const u = (Math.max(-1e5, Math.min(1e5, x)) - X0) / PX, v = (Math.max(-1e5, Math.min(1e5, z)) - Z0) / PX; if (i) g.lineTo(u, v); else g.moveTo(u, v); });
-    g.closePath(); g.fill();
+  const X0 = -6400,
+    Z0 = -8000,
+    X1 = 6400,
+    Z1 = 9600,
+    PX = 8;
+  const W = Math.round((X1 - X0) / PX),
+    H = Math.round((Z1 - Z0) / PX);
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const g = cv.getContext("2d", { willReadFrequently: true });
+  g.fillStyle = "#000";
+  g.fillRect(0, 0, W, H);
+  g.fillStyle = "#fff";
+  for (const pts of [LAND_POLY, ...FAR_LANDS.map((L) => L.pts)]) {
+    g.beginPath();
+    pts.forEach(([x, z], i) => {
+      const u = (Math.max(-1e5, Math.min(1e5, x)) - X0) / PX,
+        v = (Math.max(-1e5, Math.min(1e5, z)) - Z0) / PX;
+      if (i) g.lineTo(u, v);
+      else g.moveTo(u, v);
+    });
+    g.closePath();
+    g.fill();
   }
   const img = g.getImageData(0, 0, W, H).data;
   const D = new Float32Array(W * H);
   for (let i = 0; i < W * H; i++) D[i] = img[i * 4] > 127 ? 0 : 1e9;
-  const a = PX, b = PX * Math.SQRT2;
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; let d = D[i]; if (!d) continue;
-    if (x > 0) d = Math.min(d, D[i - 1] + a); if (y > 0) { d = Math.min(d, D[i - W] + a); if (x > 0) d = Math.min(d, D[i - W - 1] + b); if (x < W - 1) d = Math.min(d, D[i - W + 1] + b); } D[i] = d; }
-  for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) { const i = y * W + x; let d = D[i]; if (!d) continue;
-    if (x < W - 1) d = Math.min(d, D[i + 1] + a); if (y < H - 1) { d = Math.min(d, D[i + W] + a); if (x < W - 1) d = Math.min(d, D[i + W + 1] + b); if (x > 0) d = Math.min(d, D[i + W - 1] + b); } D[i] = d; }
+  const a = PX,
+    b = PX * Math.SQRT2;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      let d = D[i];
+      if (!d) continue;
+      if (x > 0) d = Math.min(d, D[i - 1] + a);
+      if (y > 0) {
+        d = Math.min(d, D[i - W] + a);
+        if (x > 0) d = Math.min(d, D[i - W - 1] + b);
+        if (x < W - 1) d = Math.min(d, D[i - W + 1] + b);
+      }
+      D[i] = d;
+    }
+  for (let y = H - 1; y >= 0; y--)
+    for (let x = W - 1; x >= 0; x--) {
+      const i = y * W + x;
+      let d = D[i];
+      if (!d) continue;
+      if (x < W - 1) d = Math.min(d, D[i + 1] + a);
+      if (y < H - 1) {
+        d = Math.min(d, D[i + W] + a);
+        if (x < W - 1) d = Math.min(d, D[i + W + 1] + b);
+        if (x > 0) d = Math.min(d, D[i + W - 1] + b);
+      }
+      D[i] = d;
+    }
   const out = new Uint8Array(W * H);
-  for (let i = 0; i < W * H; i++) out[i] = Math.min(255, Math.round(D[i] / 400 * 255));
-  const tex = new THREE.DataTexture(out, W, H, THREE.RedFormat, THREE.UnsignedByteType);
-  tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter; tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+  for (let i = 0; i < W * H; i++)
+    out[i] = Math.min(255, Math.round((D[i] / 400) * 255));
+  const tex = new THREE.DataTexture(
+    out,
+    W,
+    H,
+    THREE.RedFormat,
+    THREE.UnsignedByteType,
+  );
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearFilter;
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.needsUpdate = true;
   return { texture: tex, box: new THREE.Vector4(X0, Z0, X1 - X0, Z1 - Z0) };
 }
 
 export function buildWater({ scene, T, renderer = null }) {
   const mirror = renderer ? createMirror(renderer) : null;
-  let shore = null; try { shore = shoreMap(); } catch (e) { console.warn('[water] shore map', e); }
+  let shore = null;
+  try {
+    shore = shoreMap();
+  } catch (e) {
+    console.warn("[water] shore map", e);
+  }
   const mat = createRiverMaterial(T, mirror, { shore });
   const WS = 300000;
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(WS, WS, 16, 16).rotateX(-Math.PI / 2).translate(0, G.WATER_Y, 0), mat);
-  mesh.name = 'water';
+  const mesh = new THREE.Mesh(
+    new THREE.PlaneGeometry(WS, WS, 16, 16)
+      .rotateX(-Math.PI / 2)
+      .translate(0, G.WATER_Y, 0),
+    mat,
+  );
+  mesh.name = "water";
   mesh.receiveShadow = true;
   scene.add(mesh);
   // horizon skirt: the flat world would end at the camera's far plane in a line below the true horizon. A ring wall
@@ -270,77 +407,144 @@ export function buildWater({ scene, T, renderer = null }) {
   const skirt = horizonSkirt();
   scene.add(skirt);
   let t = 0;
-  const root = () => { let o = mesh; while (o.parent) o = o.parent; return o; };
+  const root = () => {
+    let o = mesh;
+    while (o.parent) o = o.parent;
+    return o;
+  };
   return {
-    mesh, material: mat, skirt,
+    mesh,
+    material: mat,
+    skirt,
     update(dt, camera) {
-      t += dt; mat.userData.uniforms.uWTime.value = t;
+      t += dt;
+      mat.userData.uniforms.uWTime.value = t;
       if (camera) {
         const R = camera.far * 0.94;
         skirt.position.set(camera.position.x, G.WATER_Y, camera.position.z);
         skirt.scale.set(R, Math.max(2, camera.position.y - G.WATER_Y + 1), R);
         skirt.updateMatrixWorld();
-        if (mirror) mat.userData.uniforms.uReflOn.value = mirror.render(root(), camera, [mesh, skirt]) ? 1 : 0;
+        if (mirror)
+          mat.userData.uniforms.uReflOn.value = mirror.render(root(), camera, [
+            mesh,
+            skirt,
+          ])
+            ? 1
+            : 0;
       }
     },
   };
 }
 
 function horizonSkirt(n = 180) {
-  const P = [], N = [], C = [], I = [];
-  const land = [0.3, 0.3, 0.29], water = [0.14, 0.17, 0.19];
+  const P = [],
+    N = [],
+    C = [],
+    I = [];
+  const land = [0.3, 0.3, 0.29],
+    water = [0.14, 0.17, 0.19];
   // direction classes (from the island): west (New Jersey), east (Long Island), north (Bronx / Westchester);
   // south: open ocean past the Narrows
-  const colAt = (a) => { const z = Math.sin(a); return z > 0.3 ? water : land; };
+  const colAt = (a) => {
+    const z = Math.sin(a);
+    return z > 0.3 ? water : land;
+  };
   for (let i = 0; i <= n; i++) {
-    const a = i / n * Math.PI * 2, x = Math.cos(a), z = Math.sin(a), c = colAt(a);
-    P.push(x, 0, z, x, 1, z); N.push(0, 1, 0, 0, 1, 0); C.push(...c, ...c);
-    if (i < n) { const b = i * 2; I.push(b, b + 1, b + 2, b + 1, b + 3, b + 2); }
+    const a = (i / n) * Math.PI * 2,
+      x = Math.cos(a),
+      z = Math.sin(a),
+      c = colAt(a);
+    P.push(x, 0, z, x, 1, z);
+    N.push(0, 1, 0, 0, 1, 0);
+    C.push(...c, ...c);
+    if (i < n) {
+      const b = i * 2;
+      I.push(b, b + 1, b + 2, b + 1, b + 3, b + 2);
+    }
   }
   const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
-  g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
-  g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+  g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3));
+  g.setAttribute("normal", new THREE.Float32BufferAttribute(N, 3));
+  g.setAttribute("color", new THREE.Float32BufferAttribute(C, 3));
   g.setIndex(I);
-  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide }));
-  m.name = 'horizonSkirt'; m.frustumCulled = false; m.matrixAutoUpdate = false;
+  const m = new THREE.Mesh(
+    g,
+    new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 1,
+      side: THREE.DoubleSide,
+    }),
+  );
+  m.name = "horizonSkirt";
+  m.frustumCulled = false;
+  m.matrixAutoUpdate = false;
   return m;
 }
 
 // Wet tidal band along vertical water edges (seawalls, bulkheads, pier decks, piles, anchorages): a dark, algae-stained
 // strip from just below the water line up ~1.1 m, fading out with a ragged top edge. segs: [{ax, az, bx, bz, nx, nz}]
 // (outward normal toward the water). One transparent mesh, 2 cm proud of the wall (no z-fight, no collision change).
-export function buildWetBands({ scene, T, segs, y0 = G.WATER_Y - 0.25, h = 1.35 }) {
-  const P = [], N = [], UV = [], I = [];
+export function buildWetBands({
+  scene,
+  T,
+  segs,
+  y0 = G.WATER_Y - 0.25,
+  h = 1.35,
+}) {
+  const P = [],
+    N = [],
+    UV = [],
+    I = [];
   let v = 0;
   for (const s of segs) {
-    const L = Math.hypot(s.bx - s.ax, s.bz - s.az); if (L < 0.05) continue;
+    const L = Math.hypot(s.bx - s.ax, s.bz - s.az);
+    if (L < 0.05) continue;
     const o = 0.02;
-    const ax = s.ax + s.nx * o, az = s.az + s.nz * o, bx = s.bx + s.nx * o, bz = s.bz + s.nz * o;
+    const ax = s.ax + s.nx * o,
+      az = s.az + s.nz * o,
+      bx = s.bx + s.nx * o,
+      bz = s.bz + s.nz * o;
     P.push(ax, y0, az, bx, y0, bz, bx, y0 + h, bz, ax, y0 + h, az);
     for (let k = 0; k < 4; k++) N.push(s.nx, 0, s.nz);
-    const u0 = (s.ax * 0.7 + s.az * 0.3), u1 = u0 + L;
+    const u0 = s.ax * 0.7 + s.az * 0.3,
+      u1 = u0 + L;
     UV.push(u0, 0, u1, 0, u1, 1, u0, 1);
     // wind so the face points along the normal
-    const cx = (bz - az) * h, cz = -(bx - ax) * h; // (b-a) x up
-    if (cx * s.nx + cz * s.nz <= 0) I.push(v, v + 1, v + 2, v, v + 2, v + 3); else I.push(v, v + 2, v + 1, v, v + 3, v + 2);
+    const cx = (bz - az) * h,
+      cz = -(bx - ax) * h; // (b-a) x up
+    if (cx * s.nx + cz * s.nz <= 0) I.push(v, v + 1, v + 2, v, v + 2, v + 3);
+    else I.push(v, v + 2, v + 1, v, v + 3, v + 2);
     v += 4;
   }
   if (!v) return null;
   const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
-  g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2));
+  g.setAttribute("position", new THREE.Float32BufferAttribute(P, 3));
+  g.setAttribute("normal", new THREE.Float32BufferAttribute(N, 3));
+  g.setAttribute("uv", new THREE.Float32BufferAttribute(UV, 2));
   g.setIndex(new THREE.Uint32BufferAttribute(I, 1));
   g.computeBoundingSphere();
-  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.35, transparent: true, depthWrite: false,
-    polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.35,
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -2,
+  });
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.tWetN = { value: T.noise };
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vWetUv;')
-      .replace('#include <uv_vertex>', '#include <uv_vertex>\nvWetUv = uv;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D tWetN; varying vec2 vWetUv;')
-      .replace('#include <map_fragment>', `{
+    sh.vertexShader = sh.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec2 vWetUv;")
+      .replace("#include <uv_vertex>", "#include <uv_vertex>\nvWetUv = uv;");
+    sh.fragmentShader = sh.fragmentShader
+      .replace(
+        "#include <common>",
+        "#include <common>\nuniform sampler2D tWetN; varying vec2 vWetUv;",
+      )
+      .replace(
+        "#include <map_fragment>",
+        `{
         float u = vWetUv.x, y = vWetUv.y;
         vec3 nz = texture(tWetN, vec2(u / 9.0, 0.37)).rgb, nz2 = texture(tWetN, vec2(u / 2.1, y * 0.4 + 0.1)).rgb;
         float top = 0.45 + 0.35 * nz.r + 0.15 * nz2.g;            // ragged high-water line
@@ -351,11 +555,14 @@ export function buildWetBands({ scene, T, segs, y0 = G.WATER_Y - 0.25, h = 1.35 
         // streaks running down from the high-water line
         a = max(a, (1.0 - smoothstep(0.0, 0.9, y)) * smoothstep(0.62, 0.8, texture(tWetN, vec2(u / 0.9, 0.71)).r) * 0.6);
         diffuseColor = vec4(c, a * 0.88);
-      }`);
+      }`,
+      );
   };
-  mat.customProgramCacheKey = () => 'wet-band-v1';
+  mat.customProgramCacheKey = () => "wet-band-v1";
   const m = new THREE.Mesh(g, mat);
-  m.name = 'wetBands'; m.receiveShadow = true; m.renderOrder = 1;
+  m.name = "wetBands";
+  m.receiveShadow = true;
+  m.renderOrder = 1;
   scene.add(m);
   return m;
 }

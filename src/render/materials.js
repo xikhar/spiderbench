@@ -32,7 +32,7 @@
 //    fresh white paint ~0.75). Don't compensate darkness with emissive; tell the render agent instead.
 //  * Don't set scene.fog / scene.background / scene.environment / tone mapping: the render pipeline owns them.
 //  * Shadows: set castShadow/receiveShadow on meshes; cascades are handled globally (no per-material setup).
-import * as THREE from 'three';
+import * as THREE from "three";
 
 // ------------------------------------------------------------------------------------------ patch chaining
 export function addShaderPatch(material, key, fn) {
@@ -42,12 +42,16 @@ export function addShaderPatch(material, key, fn) {
     const prev = material.onBeforeCompile;
     const prevKey = material.customProgramCacheKey;
     material.onBeforeCompile = (shader, renderer) => {
-      if (prev && prev !== THREE.Material.prototype.onBeforeCompile) prev.call(material, shader, renderer);
+      if (prev && prev !== THREE.Material.prototype.onBeforeCompile)
+        prev.call(material, shader, renderer);
       for (const f of ud.__patches.values()) f(shader, renderer);
     };
     material.customProgramCacheKey = () => {
-      const base = prevKey && prevKey !== THREE.Material.prototype.customProgramCacheKey ? prevKey.call(material) : '';
-      return base + '|' + [...ud.__patches.keys()].join(',');
+      const base =
+        prevKey && prevKey !== THREE.Material.prototype.customProgramCacheKey
+          ? prevKey.call(material)
+          : "";
+      return base + "|" + [...ud.__patches.keys()].join(",");
     };
   }
   ud.__patches.set(key, fn);
@@ -56,42 +60,78 @@ export function addShaderPatch(material, key, fn) {
 }
 
 // ------------------------------------------------------------------------------------------ glass
-export function makeGlassMaterial({ tint = 0x1b2530, roughness = 0.04, reflectivity = 0.22, envIntensity = 1.0 } = {}) {
+export function makeGlassMaterial({
+  tint = 0x1b2530,
+  roughness = 0.04,
+  reflectivity = 0.22,
+  envIntensity = 1.0,
+} = {}) {
   // ior chosen so that F0 ~= reflectivity (coated architectural glass reflects much more than 4%)
   const f0 = THREE.MathUtils.clamp(reflectivity, 0.02, 0.6);
   const s = Math.sqrt(f0);
   const ior = THREE.MathUtils.clamp((1 + s) / (1 - s), 1.0, 2.333);
   const m = new THREE.MeshPhysicalMaterial({
-    color: tint, roughness, metalness: 0.0, ior, specularIntensity: 1.0,
+    color: tint,
+    roughness,
+    metalness: 0.0,
+    ior,
+    specularIntensity: 1.0,
     envMapIntensity: envIntensity,
   });
-  m.name = 'glass';
+  m.name = "glass";
   return m;
 }
 
 // ------------------------------------------------------------------------------------------ suit rubber
-export function makeSuitRubber({ color = 0xa0141c, roughness = 0.42, clearcoat = 0.35, clearcoatRoughness = 0.35, sheen = 0.25 } = {}) {
+export function makeSuitRubber({
+  color = 0xa0141c,
+  roughness = 0.42,
+  clearcoat = 0.35,
+  clearcoatRoughness = 0.35,
+  sheen = 0.25,
+} = {}) {
   return new THREE.MeshPhysicalMaterial({
-    color, roughness, metalness: 0, clearcoat, clearcoatRoughness,
-    sheen, sheenRoughness: 0.6, sheenColor: new THREE.Color(color).lerp(new THREE.Color(1, 1, 1), 0.3),
+    color,
+    roughness,
+    metalness: 0,
+    clearcoat,
+    clearcoatRoughness,
+    sheen,
+    sheenRoughness: 0.6,
+    sheenColor: new THREE.Color(color).lerp(new THREE.Color(1, 1, 1), 0.3),
   });
 }
 
 // ------------------------------------------------------------------------------------------ detail normal
-export function enhanceStandard(material, { detailNormal = null, detailScale = 6, detailStrength = 0.4 } = {}) {
+export function enhanceStandard(
+  material,
+  { detailNormal = null, detailScale = 6, detailStrength = 0.4 } = {},
+) {
   if (!detailNormal) return material;
   detailNormal.wrapS = detailNormal.wrapT = THREE.RepeatWrapping;
-  const uniforms = { uDetailNormal: { value: detailNormal }, uDetailScale: { value: detailScale }, uDetailStrength: { value: detailStrength } };
+  const uniforms = {
+    uDetailNormal: { value: detailNormal },
+    uDetailScale: { value: detailScale },
+    uDetailStrength: { value: detailStrength },
+  };
   material.userData.detail = { uniforms };
-  addShaderPatch(material, 'detailNormal', (shader) => {
+  addShaderPatch(material, "detailNormal", (shader) => {
     Object.assign(shader.uniforms, uniforms);
-    if (!shader.vertexShader.includes('vDetailUv')) {
+    if (!shader.vertexShader.includes("vDetailUv")) {
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nvarying vec2 vDetailUv;')
-        .replace('#include <uv_vertex>', '#include <uv_vertex>\n#ifdef USE_UV\nvDetailUv = uv;\n#else\nvDetailUv = vec2(0.0);\n#endif');
+        .replace(
+          "#include <common>",
+          "#include <common>\nvarying vec2 vDetailUv;",
+        )
+        .replace(
+          "#include <uv_vertex>",
+          "#include <uv_vertex>\n#ifdef USE_UV\nvDetailUv = uv;\n#else\nvDetailUv = vec2(0.0);\n#endif",
+        );
     }
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>
+      .replace(
+        "#include <common>",
+        `#include <common>
 varying vec2 vDetailUv; uniform sampler2D uDetailNormal; uniform float uDetailScale, uDetailStrength;
 vec3 detailPerturb(vec3 n, vec3 viewPos, vec2 uv) {
   vec3 q0 = dFdx(viewPos), q1 = dFdy(viewPos); vec2 st0 = dFdx(uv), st1 = dFdy(uv);
@@ -100,9 +140,13 @@ vec3 detailPerturb(vec3 n, vec3 viewPos, vec2 uv) {
   float det = max(dot(T, T), dot(B, B)); float sc = det == 0.0 ? 0.0 : inversesqrt(det);
   vec3 d = texture2D(uDetailNormal, uv).xyz * 2.0 - 1.0; d.xy *= uDetailStrength;
   return normalize(T * (d.x * sc) + B * (d.y * sc) + n * d.z);
-}`)
-      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
-normal = detailPerturb(normal, -vViewPosition, vDetailUv * uDetailScale);`);
+}`,
+      )
+      .replace(
+        "#include <normal_fragment_maps>",
+        `#include <normal_fragment_maps>
+normal = detailPerturb(normal, -vViewPosition, vDetailUv * uDetailScale);`,
+      );
   });
   return material;
 }
@@ -110,29 +154,44 @@ normal = detailPerturb(normal, -vViewPosition, vDetailUv * uDetailScale);`);
 // ------------------------------------------------------------------------------------------ interior mapping
 export function makeInteriorWindowMaterial({
   base = { color: 0x8a7a68, roughness: 0.85 },
-  room = [3.8, 3.4, 5.0], window = [0.62, 0.58], sill = 0.22, lit = 0.22, frame = 0x2a2b2d,
-  glassTint = 0x0c1116, seed = 0,
+  room = [3.8, 3.4, 5.0],
+  window = [0.62, 0.58],
+  sill = 0.22,
+  lit = 0.22,
+  frame = 0x2a2b2d,
+  glassTint = 0x0c1116,
+  seed = 0,
 } = {}) {
   const m = base.isMaterial ? base : new THREE.MeshStandardMaterial(base);
   const uniforms = {
     uRoom: { value: new THREE.Vector3(...room) },
     uWin: { value: new THREE.Vector3(window[0], window[1], sill) },
-    uLit: { value: lit }, uSeed: { value: seed },
-    uFrame: { value: new THREE.Color(frame) }, uGlass: { value: new THREE.Color(glassTint) },
+    uLit: { value: lit },
+    uSeed: { value: seed },
+    uFrame: { value: new THREE.Color(frame) },
+    uGlass: { value: new THREE.Color(glassTint) },
   };
   m.userData.interior = { uniforms };
-  addShaderPatch(m, 'interior', (shader) => {
+  addShaderPatch(m, "interior", (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vIWPos; varying vec3 vIWNrm;')
-      .replace('#include <project_vertex>', `#include <project_vertex>
+      .replace(
+        "#include <common>",
+        "#include <common>\nvarying vec3 vIWPos; varying vec3 vIWNrm;",
+      )
+      .replace(
+        "#include <project_vertex>",
+        `#include <project_vertex>
 { vec4 ip = vec4(transformed, 1.0); vec3 inr = objectNormal;
 #ifdef USE_INSTANCING
   ip = instanceMatrix * ip; inr = mat3(instanceMatrix) * inr;
 #endif
-  vIWPos = (modelMatrix * ip).xyz; vIWNrm = normalize(mat3(modelMatrix) * inr); }`);
+  vIWPos = (modelMatrix * ip).xyz; vIWNrm = normalize(mat3(modelMatrix) * inr); }`,
+      );
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>
+      .replace(
+        "#include <common>",
+        `#include <common>
 varying vec3 vIWPos; varying vec3 vIWNrm;
 uniform vec3 uRoom, uWin; uniform float uLit, uSeed; uniform vec3 uFrame, uGlass;
 float iHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
@@ -191,19 +250,32 @@ vec2 interiorWindow(out vec3 interior, out float fres) {
   float cosv = clamp(dot(-V, N), 0.0, 1.0);
   fres = 0.04 + 0.96 * pow(1.0 - cosv, 5.0);
   return vec2(win, frameM);
-}`)
-      .replace('#include <map_fragment>', `#include <map_fragment>
+}`,
+      )
+      .replace(
+        "#include <map_fragment>",
+        `#include <map_fragment>
 vec3 iInterior; float iFres; vec2 iMask = interiorWindow(iInterior, iFres);
 diffuseColor.rgb = mix(diffuseColor.rgb, uFrame, iMask.y);
-diffuseColor.rgb = mix(diffuseColor.rgb, uGlass, iMask.x);`)
-      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+diffuseColor.rgb = mix(diffuseColor.rgb, uGlass, iMask.x);`,
+      )
+      .replace(
+        "#include <roughnessmap_fragment>",
+        `#include <roughnessmap_fragment>
 roughnessFactor = mix(roughnessFactor, 0.5, iMask.y);
-roughnessFactor = mix(roughnessFactor, 0.04, iMask.x);`)
-      .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
+roughnessFactor = mix(roughnessFactor, 0.04, iMask.x);`,
+      )
+      .replace(
+        "#include <metalnessmap_fragment>",
+        `#include <metalnessmap_fragment>
 metalnessFactor = mix(metalnessFactor, 0.6, iMask.y);
-metalnessFactor = mix(metalnessFactor, 0.0, iMask.x);`)
-      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-totalEmissiveRadiance += iInterior * iMask.x * (1.0 - iFres);`);
+metalnessFactor = mix(metalnessFactor, 0.0, iMask.x);`,
+      )
+      .replace(
+        "#include <emissivemap_fragment>",
+        `#include <emissivemap_fragment>
+totalEmissiveRadiance += iInterior * iMask.x * (1.0 - iFres);`,
+      );
   });
   return m;
 }

@@ -2,15 +2,16 @@
 // Physically based sky: single-scattering atmosphere (Rayleigh + Mie + ozone, approx multiple scattering)
 // baked into a small sky-view LUT, raymarched cumulus cloud layer (Perlin-Worley 3D noise), procedural distant
 // skyline, PMREM environment generation for IBL.
-import * as THREE from 'three';
-import { FSPass, makeRT, GLSL_DEPTH } from './common.js';
-import { GLSL_ATMOS, sunTransmittance } from './atmosphere.js';
+import * as THREE from "three";
+import { FSPass, makeRT, GLSL_DEPTH } from "./common.js";
+import { GLSL_ATMOS, sunTransmittance } from "./atmosphere.js";
 
-const LUT_W = 256, LUT_H = 128;
+const LUT_W = 256,
+  LUT_H = 128;
 
 // ---------------------------------------------------------------------------------------------------------
 // GLSL: sky LUT generation (radiance for unit sun illuminance), parameterised relative to the sun azimuth.
-const LUT_FRAG = /* glsl */`
+const LUT_FRAG = /* glsl */ `
 precision highp float;
 in vec2 vUv; out vec4 fragColor;
 uniform float uSunEl; uniform float uMie; uniform float uViewH; uniform float uMS; uniform vec3 uGroundAlbedo;
@@ -63,7 +64,7 @@ void main() {
 
 // ---------------------------------------------------------------------------------------------------------
 // GLSL: tileable Perlin-Worley 3D noise generation (R = perlin-worley, GBA = worley fbm at increasing freqs)
-const NOISE_FRAG = /* glsl */`
+const NOISE_FRAG = /* glsl */ `
 precision highp float;
 in vec2 vUv; out vec4 fragColor;
 uniform float uZ; uniform vec2 uPW;
@@ -105,7 +106,7 @@ void main() {
 
 // ---------------------------------------------------------------------------------------------------------
 // GLSL: shared sky evaluation (LUT lookup, clouds, skyline). Requires uniforms declared in SKY_UNIFORMS.
-export const GLSL_SKY_COMMON = /* glsl */`
+export const GLSL_SKY_COMMON = /* glsl */ `
 uniform sampler2D uSkyLUT;
 uniform vec3 uSunDir;
 uniform vec3 uSunColor;   // sun illuminance (scaled) at ground
@@ -150,7 +151,7 @@ vec3 skyLUT(vec3 dir) {
 }
 `;
 
-const GLSL_CLOUDS = /* glsl */`
+const GLSL_CLOUDS = /* glsl */ `
 uniform sampler3D uNoise;
 uniform float uCloudCoverage, uCloudDensity, uCloudBottom, uCloudTop, uCloudFade;
 uniform vec3 uCloudOffset;
@@ -312,9 +313,13 @@ export function createSky(renderer, quality) {
   // LUT target
   const lut = makeRT(LUT_W, LUT_H, { type: THREE.HalfFloatType });
   const lutPass = new FSPass({
-    name: 'skyLUT', fragmentShader: LUT_FRAG,
+    name: "skyLUT",
+    fragmentShader: LUT_FRAG,
     uniforms: {
-      uSunEl: { value: 0.6 }, uMie: { value: 2.2 }, uViewH: { value: 0.05 }, uMS: { value: 2.2 },
+      uSunEl: { value: 0.6 },
+      uMie: { value: 2.2 },
+      uViewH: { value: 0.05 },
+      uMS: { value: 2.2 },
       uGroundAlbedo: { value: new THREE.Vector3(0.12, 0.12, 0.11) },
     },
   });
@@ -322,14 +327,26 @@ export function createSky(renderer, quality) {
   // 3D noise (generated on GPU once)
   const NS = 128;
   const noiseRT = new THREE.WebGL3DRenderTarget(NS, NS, NS, {
-    type: THREE.UnsignedByteType, format: THREE.RGBAFormat, depthBuffer: false,
+    type: THREE.UnsignedByteType,
+    format: THREE.RGBAFormat,
+    depthBuffer: false,
   });
   const nt = noiseRT.texture;
   nt.wrapS = nt.wrapT = nt.wrapR = THREE.RepeatWrapping;
-  nt.minFilter = THREE.LinearFilter; nt.magFilter = THREE.LinearFilter; nt.generateMipmaps = false;
-  const noisePass = new FSPass({ name: 'cloudNoise', fragmentShader: NOISE_FRAG, uniforms: { uZ: { value: 0 }, uPW: { value: new THREE.Vector2(0.40, 0.22) } } });
+  nt.minFilter = THREE.LinearFilter;
+  nt.magFilter = THREE.LinearFilter;
+  nt.generateMipmaps = false;
+  const noisePass = new FSPass({
+    name: "cloudNoise",
+    fragmentShader: NOISE_FRAG,
+    uniforms: {
+      uZ: { value: 0 },
+      uPW: { value: new THREE.Vector2(0.4, 0.22) },
+    },
+  });
   const oc = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  function genNoise(pwx, pwy) { // (atmosphere r1) re-callable (tuning): perlin-worley remap offset / range
+  function genNoise(pwx, pwy) {
+    // (atmosphere r1) re-callable (tuning): perlin-worley remap offset / range
     noisePass.uniforms.uPW.value.set(pwx, pwy);
     for (let z = 0; z < NS; z++) {
       noisePass.uniforms.uZ.value = (z + 0.5) / NS;
@@ -338,47 +355,81 @@ export function createSky(renderer, quality) {
     }
     renderer.setRenderTarget(null);
   }
-  genNoise(0.40, 0.22);
+  genNoise(0.4, 0.22);
 
   const params = {
-    elevation: 44, azimuth: 70, // degrees; azimuth measured from +X toward +Z
-    mie: 1.4, ms: 2.2, skyScale: 16.0, envSaturation: 0.62,
-    cloudCoverage: 0.52, cloudDensity: 0.7, cloudBottom: 1.25, cloudTop: 2.8, cloudFade: 28.0,
-    cloudSun: 4.3, cloudAmb: 0.8, cloudScale: 0.13, cirrus: 0.6, cloudErode: 0.88, cloudDetailScale: 2.4, // (atmosphere r2) sun 6 -> 4.3 (key light x1.4), finer cauliflower detail
+    elevation: 44,
+    azimuth: 70, // degrees; azimuth measured from +X toward +Z
+    mie: 1.4,
+    ms: 2.2,
+    skyScale: 16.0,
+    envSaturation: 0.62,
+    cloudCoverage: 0.52,
+    cloudDensity: 0.7,
+    cloudBottom: 1.25,
+    cloudTop: 2.8,
+    cloudFade: 28.0,
+    cloudSun: 4.3,
+    cloudAmb: 0.8,
+    cloudScale: 0.13,
+    cirrus: 0.6,
+    cloudErode: 0.88,
+    cloudDetailScale: 2.4, // (atmosphere r2) sun 6 -> 4.3 (key light x1.4), finer cauliflower detail
     // (atmosphere r1) brighter, larger cumulus + cirrus veil
     cloudBaseDark: 0.9,
     skylineVisible: 1.0,
     // time-of-day controls (set by lighting.js presets)
-    lightScale: 1.0, lightTint: [1, 1, 1],   // scale/tint of the key light (sun, or moon at night)
-    skyTint: [1, 1, 1], skyGlow: [0, 0, 0],  // sky radiance multiplier / additive horizon glow
-    night: 0, stars: 0,
-    groundAlbedo: [0.2, 0.18, 0.155],        // env-map ground (sunlit street/sidewalk bounce)
-    envFacadeAlbedo: [0.34, 0.29, 0.23],     // env-map city band (sunlit limestone/brick bounce)
+    lightScale: 1.0,
+    lightTint: [1, 1, 1], // scale/tint of the key light (sun, or moon at night)
+    skyTint: [1, 1, 1],
+    skyGlow: [0, 0, 0], // sky radiance multiplier / additive horizon glow
+    night: 0,
+    stars: 0,
+    groundAlbedo: [0.2, 0.18, 0.155], // env-map ground (sunlit street/sidewalk bounce)
+    envFacadeAlbedo: [0.34, 0.29, 0.23], // env-map city band (sunlit limestone/brick bounce)
   };
 
   const sunDir = new THREE.Vector3();
   const sunColor = new THREE.Color();
   const skyUniforms = {
-    uSkyLUT: { value: lut.texture }, uSunDir: { value: sunDir }, uSunColor: { value: new THREE.Vector3() },
+    uSkyLUT: { value: lut.texture },
+    uSunDir: { value: sunDir },
+    uSunColor: { value: new THREE.Vector3() },
     uSkyScale: { value: params.skyScale },
     uNoise: { value: nt },
-    uCloudCoverage: { value: params.cloudCoverage }, uCloudDensity: { value: params.cloudDensity },
-    uCloudBottom: { value: params.cloudBottom }, uCloudTop: { value: params.cloudTop }, uCloudFade: { value: params.cloudFade },
+    uCloudCoverage: { value: params.cloudCoverage },
+    uCloudDensity: { value: params.cloudDensity },
+    uCloudBottom: { value: params.cloudBottom },
+    uCloudTop: { value: params.cloudTop },
+    uCloudFade: { value: params.cloudFade },
     uCloudOffset: { value: new THREE.Vector3(3.1, 0, 7.7) },
     uSkyline: { value: 1.0 },
-    uSkyTint: { value: new THREE.Vector3(1, 1, 1) }, uSkyGlow: { value: new THREE.Vector3(0, 0, 0) },
-    uFacadeAlb: { value: new THREE.Vector3(0.2, 0.185, 0.165) }, uNight: { value: 0 },
-    uCloudSun: { value: params.cloudSun }, uCloudAmb: { value: params.cloudAmb }, uCloudScale: { value: params.cloudScale },
+    uSkyTint: { value: new THREE.Vector3(1, 1, 1) },
+    uSkyGlow: { value: new THREE.Vector3(0, 0, 0) },
+    uFacadeAlb: { value: new THREE.Vector3(0.2, 0.185, 0.165) },
+    uNight: { value: 0 },
+    uCloudSun: { value: params.cloudSun },
+    uCloudAmb: { value: params.cloudAmb },
+    uCloudScale: { value: params.cloudScale },
     uHzK: { value: new THREE.Vector3(0.56, 0.63, 0.78) },
-    uCirrus: { value: params.cirrus }, uCloudErode: { value: params.cloudErode }, uCloudDetailScale: { value: params.cloudDetailScale },
+    uCirrus: { value: params.cirrus },
+    uCloudErode: { value: params.cloudErode },
+    uCloudDetailScale: { value: params.cloudDetailScale },
     uCloudBaseDark: { value: params.cloudBaseDark },
     uSunGlow: { value: new THREE.Vector4(0, 0, 0, 0) }, // (lighting2 r2)
     uOvercast: { value: 0 }, // (lighting2 r4)
   };
 
   function updateSun() {
-    const el = THREE.MathUtils.degToRad(params.elevation), az = THREE.MathUtils.degToRad(params.azimuth);
-    sunDir.set(Math.cos(el) * Math.cos(az), Math.sin(el), Math.cos(el) * Math.sin(az)).normalize();
+    const el = THREE.MathUtils.degToRad(params.elevation),
+      az = THREE.MathUtils.degToRad(params.azimuth);
+    sunDir
+      .set(
+        Math.cos(el) * Math.cos(az),
+        Math.sin(el),
+        Math.cos(el) * Math.sin(az),
+      )
+      .normalize();
     const T = sunTransmittance(Math.max(el, 0.009), params.mie); // (daynight) the LUT follows the sun below the horizon; the key light colour is faded by lightScale
     // "white" sun above the atmosphere, times transmittance, times global scale (lux-ish arbitrary units)
     const E = params.skyScale * 0.62 * params.lightScale;
@@ -403,23 +454,34 @@ export function createSky(renderer, quality) {
     skyUniforms.uCloudBottom.value = params.cloudBottom;
     skyUniforms.uCloudTop.value = params.cloudTop;
     skyUniforms.uCloudFade.value = params.cloudFade;
-    skyUniforms.uCloudSun.value = params.cloudSun; skyUniforms.uCloudAmb.value = params.cloudAmb;
-    skyUniforms.uCloudScale.value = params.cloudScale; skyUniforms.uCirrus.value = params.cirrus;
-    skyUniforms.uCloudErode.value = params.cloudErode; skyUniforms.uCloudDetailScale.value = params.cloudDetailScale;
+    skyUniforms.uCloudSun.value = params.cloudSun;
+    skyUniforms.uCloudAmb.value = params.cloudAmb;
+    skyUniforms.uCloudScale.value = params.cloudScale;
+    skyUniforms.uCirrus.value = params.cirrus;
+    skyUniforms.uCloudErode.value = params.cloudErode;
+    skyUniforms.uCloudDetailScale.value = params.cloudDetailScale;
     skyUniforms.uCloudBaseDark.value = params.cloudBaseDark;
   }
 
   // ---------------- half-res sky pass (screen) ----------------
   const skyPass = new FSPass({
-    name: 'skyPass',
-    defines: { CLOUD_STEPS: quality.cloudSteps, CLOUD_LIGHT_STEPS: quality.cloudLightSteps },
+    name: "skyPass",
+    defines: {
+      CLOUD_STEPS: quality.cloudSteps,
+      CLOUD_LIGHT_STEPS: quality.cloudLightSteps,
+    },
     uniforms: {
       ...skyUniforms,
-      uDepth: { value: null }, uProjInv: { value: new THREE.Matrix4() }, uReversed: { value: 0 },
-      uCamWorld: { value: new THREE.Matrix4() }, uCamPos: { value: new THREE.Vector3() },
-      uFullRes: { value: new THREE.Vector2(1, 1) }, uFrame: { value: 0 }, uStars: { value: 0 },
+      uDepth: { value: null },
+      uProjInv: { value: new THREE.Matrix4() },
+      uReversed: { value: 0 },
+      uCamWorld: { value: new THREE.Matrix4() },
+      uCamPos: { value: new THREE.Vector3() },
+      uFullRes: { value: new THREE.Vector2(1, 1) },
+      uFrame: { value: 0 },
+      uStars: { value: 0 },
     },
-    fragmentShader: /* glsl */`
+    fragmentShader: /* glsl */ `
 precision highp float;
 precision highp sampler3D;
 in vec2 vUv; out vec4 fragColor;
@@ -472,11 +534,21 @@ void main() {
   // ---------------- env cubemap ----------------
   const envScene = new THREE.Scene();
   const envMat = new THREE.ShaderMaterial({
-    name: 'envSky', glslVersion: THREE.GLSL3, side: THREE.BackSide, depthWrite: false, depthTest: false,
+    name: "envSky",
+    glslVersion: THREE.GLSL3,
+    side: THREE.BackSide,
+    depthWrite: false,
+    depthTest: false,
     defines: { CLOUD_STEPS: 48, CLOUD_LIGHT_STEPS: 4 },
-    uniforms: { ...skyUniforms, uCamPos: { value: new THREE.Vector3(0, 60, 0) }, uGround: { value: new THREE.Vector3(0.2, 0.18, 0.155) }, uEnvSat: { value: 0.62 }, uEnvFacade: { value: new THREE.Vector3(0.34, 0.29, 0.23) } },
-    vertexShader: /* glsl */`out vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: /* glsl */`
+    uniforms: {
+      ...skyUniforms,
+      uCamPos: { value: new THREE.Vector3(0, 60, 0) },
+      uGround: { value: new THREE.Vector3(0.2, 0.18, 0.155) },
+      uEnvSat: { value: 0.62 },
+      uEnvFacade: { value: new THREE.Vector3(0.34, 0.29, 0.23) },
+    },
+    vertexShader: /* glsl */ `out vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */ `
 precision highp float; precision highp sampler3D;
 in vec3 vDir; out vec4 fragColor;
 uniform vec3 uCamPos; uniform vec3 uGround; uniform float uEnvSat; uniform vec3 uEnvFacade;
@@ -509,7 +581,10 @@ void main() {
   const envMesh = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), envMat);
   envMesh.frustumCulled = false;
   envScene.add(envMesh);
-  const cubeRT = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType, generateMipmaps: false });
+  const cubeRT = new THREE.WebGLCubeRenderTarget(256, {
+    type: THREE.HalfFloatType,
+    generateMipmaps: false,
+  });
   const cubeCam = new THREE.CubeCamera(0.1, 100, cubeRT);
   envScene.add(cubeCam);
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -517,7 +592,8 @@ void main() {
 
   function renderEnv() {
     const oldTarget = renderer.getRenderTarget();
-    const oldTM = renderer.toneMapping; renderer.toneMapping = THREE.NoToneMapping;
+    const oldTM = renderer.toneMapping;
+    renderer.toneMapping = THREE.NoToneMapping;
     cubeCam.update(renderer, envScene);
     const next = pmrem.fromCubemap(cubeRT.texture, envRT ?? undefined);
     envRT = next;
@@ -528,9 +604,15 @@ void main() {
 
   // (daynight) env re-bake spread over frames (day-night cycle): one cube face per call, then the PMREM pre-filter
   function renderEnvFace(i) {
-    const ot = renderer.getRenderTarget(), of = renderer.getActiveCubeFace(), om = renderer.getActiveMipmapLevel();
-    const oldTM = renderer.toneMapping; renderer.toneMapping = THREE.NoToneMapping;
-    if (cubeCam.coordinateSystem !== renderer.coordinateSystem) { cubeCam.coordinateSystem = renderer.coordinateSystem; cubeCam.updateCoordinateSystem(); }
+    const ot = renderer.getRenderTarget(),
+      of = renderer.getActiveCubeFace(),
+      om = renderer.getActiveMipmapLevel();
+    const oldTM = renderer.toneMapping;
+    renderer.toneMapping = THREE.NoToneMapping;
+    if (cubeCam.coordinateSystem !== renderer.coordinateSystem) {
+      cubeCam.coordinateSystem = renderer.coordinateSystem;
+      cubeCam.updateCoordinateSystem();
+    }
     renderer.setRenderTarget(cubeRT, i);
     renderer.render(envScene, cubeCam.children[i]);
     renderer.toneMapping = oldTM;
@@ -543,19 +625,32 @@ void main() {
     return envRT.texture;
   }
 
-  updateSun(); syncCloudUniforms();
+  updateSun();
+  syncCloudUniforms();
 
   return {
-    params, sunDir, sunColor, lut, noise: nt, noiseRT, skyUniforms, skyPass, genNoise,
+    params,
+    sunDir,
+    sunColor,
+    lut,
+    noise: nt,
+    noiseRT,
+    skyUniforms,
+    skyPass,
+    genNoise,
     /** call after changing params.elevation/azimuth/mie/... ; re-bakes LUT (cheap). returns true */
     update() {
-      syncCloudUniforms(); updateSun(); skyUniforms.uSkyline.value = params.skylineVisible;
+      syncCloudUniforms();
+      updateSun();
+      skyUniforms.uSkyline.value = params.skylineVisible;
       envMat.uniforms.uEnvSat.value = params.envSaturation;
       envMat.uniforms.uGround.value.fromArray(params.groundAlbedo);
       envMat.uniforms.uEnvFacade.value.fromArray(params.envFacadeAlbedo);
       skyPass.uniforms.uStars.value = params.stars;
     },
-    renderEnv, renderEnvFace, finishEnv,
+    renderEnv,
+    renderEnvFace,
+    finishEnv,
     /** Evaluate horizon/zenith colors on the CPU is not supported; use GLSL_SKY_COMMON in shaders. */
     renderSkyPass(target, camera, depthTex, fullW, fullH, frame, reversed) {
       const u = skyPass.uniforms;

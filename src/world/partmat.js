@@ -1,29 +1,80 @@
 // OWNER: city agent. Shared material for props & vehicles: vertex colours + per-vertex "part" id selecting
 // roughness / metalness / emission, per-instance tint (aTint, for paint parts) and state (aState, traffic lights).
-import * as THREE from 'three';
-import { nightK } from '../render/daynight.js'; // (daynight)
+import * as THREE from "three";
+import { nightK } from "../render/daynight.js"; // (daynight)
 
 export const PART = {
-  BASE: 0, PAINT: 1, METAL: 2, GLASS: 3, LAMP: 4, RUBBER: 5, PLASTIC: 6, HEAD: 7, TAIL: 8, FABRIC: 9,
-  SIG_R: 10, SIG_Y: 11, SIG_G: 12, PED: 13, SCREEN: 14, TAXI: 15, SKIN: 16, SHIRT: 17, PANTS: 18, HAIR: 19, LEAF: 20, WOOD: 21, CONCRETE: 22,
+  BASE: 0,
+  PAINT: 1,
+  METAL: 2,
+  GLASS: 3,
+  LAMP: 4,
+  RUBBER: 5,
+  PLASTIC: 6,
+  HEAD: 7,
+  TAIL: 8,
+  FABRIC: 9,
+  SIG_R: 10,
+  SIG_Y: 11,
+  SIG_G: 12,
+  PED: 13,
+  SCREEN: 14,
+  TAXI: 15,
+  SKIN: 16,
+  SHIRT: 17,
+  PANTS: 18,
+  HAIR: 19,
+  LEAF: 20,
+  WOOD: 21,
+  CONCRETE: 22,
 };
 
-export function createPartMaterial({ name = 'part', instTint = true, instState = false, physical = false, extraVert = '', extraVertMain = '', map = null } = {}) {
-  const Mat = physical ? THREE.MeshPhysicalMaterial : THREE.MeshStandardMaterial;
-  const mat = new Mat({ vertexColors: !map, map, roughness: 0.7, metalness: 0 });
-  if (physical) { mat.clearcoat = 0.0; }
+export function createPartMaterial({
+  name = "part",
+  instTint = true,
+  instState = false,
+  physical = false,
+  extraVert = "",
+  extraVertMain = "",
+  map = null,
+} = {}) {
+  const Mat = physical
+    ? THREE.MeshPhysicalMaterial
+    : THREE.MeshStandardMaterial;
+  const mat = new Mat({
+    vertexColors: !map,
+    map,
+    roughness: 0.7,
+    metalness: 0,
+  });
+  if (physical) {
+    mat.clearcoat = 0.0;
+  }
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uNightK = nightK; // (daynight)
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', `#include <common>
+    sh.vertexShader = sh.vertexShader
+      .replace(
+        "#include <common>",
+        `#include <common>
       attribute float aPart; flat varying float vPart; varying vec3 vTintP; varying float vStateP;
-      ${instTint ? 'attribute vec3 aTint;' : ''} ${instState ? 'attribute float aState;' : ''}
-      ${extraVert}`)
-      .replace('#include <begin_vertex>', `#include <begin_vertex>
-      vPart = aPart; vTintP = ${instTint ? 'aTint' : 'vec3(1.0)'}; vStateP = ${instState ? 'aState' : '0.0'};
-      ${extraVertMain}`);
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-      flat varying float vPart; varying vec3 vTintP; varying float vStateP; uniform float uNightK;`)
-      .replace('#include <color_fragment>', `#include <color_fragment>
+      ${instTint ? "attribute vec3 aTint;" : ""} ${instState ? "attribute float aState;" : ""}
+      ${extraVert}`,
+      )
+      .replace(
+        "#include <begin_vertex>",
+        `#include <begin_vertex>
+      vPart = aPart; vTintP = ${instTint ? "aTint" : "vec3(1.0)"}; vStateP = ${instState ? "aState" : "0.0"};
+      ${extraVertMain}`,
+      );
+    sh.fragmentShader = sh.fragmentShader
+      .replace(
+        "#include <common>",
+        `#include <common>
+      flat varying float vPart; varying vec3 vTintP; varying float vStateP; uniform float uNightK;`,
+      )
+      .replace(
+        "#include <color_fragment>",
+        `#include <color_fragment>
       int P = int(vPart + 0.5);
       float pR = 0.7, pM = 0.0; vec3 pE = vec3(0.0);
       if (P == 1) { diffuseColor.rgb *= vTintP; pR = 0.32; }
@@ -60,11 +111,22 @@ export function createPartMaterial({ name = 'part', instTint = true, instState =
         else if (P == 8) pE += diffuseColor.rgb * 2.2 * max(hk, 0.35) * uNightK * lampOn;
         else if (P == 14 || P == 15) pE *= 1.0 + 1.5 * uNightK;
       }
-      `)
-      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = pR;')
-      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = pM;')
-      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += pE;');
+      `,
+      )
+      .replace(
+        "#include <roughnessmap_fragment>",
+        "#include <roughnessmap_fragment>\nroughnessFactor = pR;",
+      )
+      .replace(
+        "#include <metalnessmap_fragment>",
+        "#include <metalnessmap_fragment>\nmetalnessFactor = pM;",
+      )
+      .replace(
+        "#include <emissivemap_fragment>",
+        "#include <emissivemap_fragment>\ntotalEmissiveRadiance += pE;",
+      );
   };
-  mat.customProgramCacheKey = () => `city-part-${name}-${instTint}-${instState}`;
+  mat.customProgramCacheKey = () =>
+    `city-part-${name}-${instTint}-${instState}`;
   return mat;
 }

@@ -2,12 +2,14 @@
 export class GpuProfiler {
   constructor(renderer, enabled) {
     this.gl = renderer.getContext();
-    this.ext = enabled ? this.gl.getExtension('EXT_disjoint_timer_query_webgl2') : null;
+    this.ext = enabled
+      ? this.gl.getExtension("EXT_disjoint_timer_query_webgl2")
+      : null;
     this.enabled = !!this.ext;
-    this.pending = [];   // {name, q}
+    this.pending = []; // {name, q}
     this.free = [];
     this.current = null;
-    this.acc = {};       // name -> {sum, n}
+    this.acc = {}; // name -> {sum, n}
     this.last = {};
   }
   begin(name) {
@@ -36,14 +38,19 @@ export class GpuProfiler {
       this.free.push(p.q);
       if (disjoint) continue;
       const a = this.acc[p.name] || (this.acc[p.name] = { sum: 0, n: 0 });
-      a.sum += ns / 1e6; a.n++;
+      a.sum += ns / 1e6;
+      a.n++;
     }
   }
   /** average ms per pass since last reset */
   report(reset = false) {
     const out = {};
     let total = 0;
-    for (const k in this.acc) { const a = this.acc[k]; out[k] = +(a.sum / Math.max(1, a.n)).toFixed(3); total += a.sum / Math.max(1, a.n); }
+    for (const k in this.acc) {
+      const a = this.acc[k];
+      out[k] = +(a.sum / Math.max(1, a.n)).toFixed(3);
+      total += a.sum / Math.max(1, a.n);
+    }
     out.total = +total.toFixed(3);
     if (reset) this.acc = {};
     return out;
