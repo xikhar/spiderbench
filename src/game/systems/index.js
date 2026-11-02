@@ -24,6 +24,7 @@ import { createSkillFx } from './skillfx.js';
 import { createUI } from '../../ui/menus/ui.js';
 import { createPauseMenu } from '../../ui/menus/pause.js';
 import { createPhotoUI } from '../../ui/menus/photo.js';
+import { getRenderPixelRatio } from '../../render/quality.js';
 
 export function initSystems(ctx) {
   if (ctx.sys) return ctx.sys;
@@ -85,8 +86,8 @@ export function initSystems(ctx) {
     ctx.lighting?.setDryPuddles?.(s.puddles !== false); // (user r-nopuddles)
     if (s.renderScale !== appliedScale) {
       appliedScale = s.renderScale;
-      if (appliedScale !== 1 || ctx.renderer.getPixelRatio() !== Math.min(devicePixelRatio, 1.5)) {
-        ctx.renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5) * s.renderScale);
+      if (appliedScale !== 1 || ctx.renderer.getPixelRatio() !== getRenderPixelRatio(ctx.renderer)) {
+        ctx.renderer.setPixelRatio(getRenderPixelRatio(ctx.renderer, s.renderScale));
         ctx.renderer.setSize(innerWidth, innerHeight); ctx.pipeline.setSize?.(innerWidth, innerHeight);
       }
     }

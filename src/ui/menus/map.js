@@ -350,20 +350,19 @@ export function createMapPage(sys) {
       c.fillText(t, 0, 0);
       c.restore();
     }
-    // a silently failed allocation leaves the canvas transparent: read a few texels back (block centres) and retry
-    // smaller if nothing was drawn
-    const probe = (f.blocks || []).filter((_, i) => i % 37 === 0).slice(0, 6);
-    let ok = 0;
-    for (const bl of probe) {
+    // A single block-centre readback catches a silently failed canvas allocation without
+    // forcing the large map canvas into a readback-optimized backing store.
+    const blocks = f.blocks || [];
+    const probe = blocks[Math.floor(blocks.length / 2)];
+    if (probe) {
       const d = c.getImageData(
-        Math.floor(X((bl.x0 + bl.x1) / 2)),
-        Math.floor(Z((bl.z0 + bl.z1) / 2)),
+        Math.floor(X((probe.x0 + probe.x1) / 2)),
+        Math.floor(Z((probe.z0 + probe.z1) / 2)),
         1,
         1,
       ).data;
-      if (d[3] > 0 && d[0] + d[1] + d[2] > 20) ok++;
+      if (!(d[3] > 0 && d[0] + d[1] + d[2] > 20)) failBase();
     }
-    if (probe.length && ok === 0) failBase();
   }
   let baseFails = 0;
   function failBase() {

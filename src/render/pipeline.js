@@ -1706,93 +1706,98 @@ void main() { vec4 t = texture(uSrc, vUv); vec3 c = uMode > 0.5 ? vec3(t.a - 1.0
     }
 
     // --- SSR
-    const envTex = scene.environment;
-    const doSSR =
-      ssrOn && envTex && envTex.mapping === THREE.CubeUVReflectionMapping;
-    if (doSSR) {
-      prof.begin("ssr");
-      const u = ssr.uniforms;
-      const hgt = envTex.image.height;
-      if (ssr.material.userData.envH !== hgt) {
-        const maxMip = Math.log2(hgt) - 2;
-        ssr.material.defines.CUBEUV_TEXEL_HEIGHT = 1 / hgt;
-        ssr.material.defines.CUBEUV_TEXEL_WIDTH =
-          1 / (3 * Math.max(Math.pow(2, maxMip), 7 * 16));
-        ssr.material.defines.CUBEUV_MAX_MIP = maxMip.toFixed(1);
-        ssr.material.needsUpdate = true;
-        ssr.material.userData.envH = hgt;
-      }
-      u.envMap.value = envTex;
-      u.uEnvI.value = scene.environmentIntensity ?? 1;
-      u.uFloor.value = THREE.MathUtils.lerp(
-        0.5,
-        0.06,
-        lighting.nightHaze?.k ?? 0,
-      ); // (night r12)
-      u.uPrev.value = hist[1 - histIdx].texture;
-      u.uHavePrev.value = Q.taa && !resetHistory ? 1 : 0;
-      u.uProj.value.copy(cam.projectionMatrix);
-      u.uProjInv.value.copy(cam.projectionMatrixInverse);
-      u.uCamWorld.value.copy(cam.matrixWorld);
-      u.uPrevViewProj.value.copy(prevViewProj);
-      u.uRes.value.set(W, H);
-      u.uFrame.value = frame % 64;
-      ssr.render(renderer, ssrRT);
-    }
+    // const envTex = scene.environment;
+    // Three.js r187 uses cube-based PMREM textures.
+    // The custom SSR shader still expects the old CubeUV atlas.
+    const doSSR = false;
+    // const doSSR =
+    //   ssrOn && envTex && envTex.mapping === THREE.CubeUVReflectionMapping;
+    // if (doSSR) {
+    //   prof.begin("ssr");
+    //   const u = ssr.uniforms;
+    //   const hgt = envTex.image.height;
+    //   if (ssr.material.userData.envH !== hgt) {
+    //     const maxMip = Math.log2(hgt) - 2;
+    //     ssr.material.defines.CUBEUV_TEXEL_HEIGHT = 1 / hgt;
+    //     ssr.material.defines.CUBEUV_TEXEL_WIDTH =
+    //       1 / (3 * Math.max(Math.pow(2, maxMip), 7 * 16));
+    //     ssr.material.defines.CUBEUV_MAX_MIP = maxMip.toFixed(1);
+    //     ssr.material.needsUpdate = true;
+    //     ssr.material.userData.envH = hgt;
+    //   }
+    //   u.envMap.value = envTex;
+    //   u.uEnvI.value = scene.environmentIntensity ?? 1;
+    //   u.uFloor.value = THREE.MathUtils.lerp(
+    //     0.5,
+    //     0.06,
+    //     lighting.nightHaze?.k ?? 0,
+    //   ); // (night r12)
+    //   u.uPrev.value = hist[1 - histIdx].texture;
+    //   u.uHavePrev.value = Q.taa && !resetHistory ? 1 : 0;
+    //   u.uProj.value.copy(cam.projectionMatrix);
+    //   u.uProjInv.value.copy(cam.projectionMatrixInverse);
+    //   u.uCamWorld.value.copy(cam.matrixWorld);
+    //   u.uPrevViewProj.value.copy(prevViewProj);
+    //   u.uRes.value.set(W, H);
+    //   u.uFrame.value = frame % 64;
+    //   ssr.render(renderer, ssrRT);
+    // }
 
     // --- SSGI (lighting2 r1)
-    const doGI =
-      ssgiOn &&
-      envTex &&
-      envTex.mapping === THREE.CubeUVReflectionMapping &&
-      !!csm.lights[0].shadow.map?.depthTexture;
-    if (doGI) {
-      prof.begin("ssgi");
-      const u = ssgi.uniforms;
-      const hgt = envTex.image.height;
-      if (ssgi.material.userData.envH !== hgt) {
-        const maxMip = Math.log2(hgt) - 2;
-        ssgi.material.defines.CUBEUV_TEXEL_HEIGHT = 1 / hgt;
-        ssgi.material.defines.CUBEUV_TEXEL_WIDTH =
-          1 / (3 * Math.max(Math.pow(2, maxMip), 7 * 16));
-        ssgi.material.defines.CUBEUV_MAX_MIP = maxMip.toFixed(1);
-        ssgi.material.needsUpdate = true;
-        ssgi.material.userData.envH = hgt;
-      }
-      for (let i = 0; i < Math.min(NC, 4); i++) {
-        const l = csm.lights[i];
-        u["uSM" + i].value = l.shadow.map?.depthTexture ?? null;
-        u.uSMat.value[i].copy(l.shadow.matrix);
-      }
-      for (let i = NC; i < 4; i++) u["uSM" + i].value = u.uSM0.value;
-      const sp = csm.splits;
-      u.uSplits.value.set(
-        sp[1] ?? 1e9,
-        sp[2] ?? 1e9,
-        sp[3] ?? 1e9,
-        sp[4] ?? 1e9,
-      );
-      const A = lighting.amb;
-      u.envMap.value = envTex;
-      u.uEnvI.value =
-        (scene.environmentIntensity ?? 1) * (A.shape.z > 0 ? A.shape.z : 1);
-      u.uAmbBounce.value
-        .set(A.bounce.x, A.bounce.y, A.bounce.z)
-        .multiplyScalar(0.6 * (scene.environmentIntensity ?? 1));
-      u.uPrevRad.value = bloomDown[1].texture;
-      u.uHavePrev.value = !resetHistory && frame > 2 ? 1 : 0;
-      u.uProj.value.copy(cam.projectionMatrix);
-      u.uProjInv.value.copy(cam.projectionMatrixInverse);
-      u.uCamWorld.value.copy(cam.matrixWorld);
-      u.uPrevViewProj.value.copy(prevViewProj);
-      u.uRes.value.set(W, H);
-      u.uFrame.value = frame % 64;
-      const giN = lighting.nightHaze?.k ?? 0; // (night)
-      u.uStrength.value = grade.gi * (A.bounce.w ?? 1);
-      u.uAbs.value = giN;
-      u.uAbsK.value = grade.giNight;
-      ssgi.render(renderer, ssgiRT);
-    }
+    // The custom SSGI shader also samples the old CubeUV atlas.
+    const doGI = false;
+    // const doGI =
+    //   ssgiOn &&
+    //   envTex &&
+    //   envTex.mapping === THREE.CubeUVReflectionMapping &&
+    //   !!csm.lights[0].shadow.map?.depthTexture;
+    // if (doGI) {
+    //   prof.begin("ssgi");
+    //   const u = ssgi.uniforms;
+    //   const hgt = envTex.image.height;
+    //   if (ssgi.material.userData.envH !== hgt) {
+    //     const maxMip = Math.log2(hgt) - 2;
+    //     ssgi.material.defines.CUBEUV_TEXEL_HEIGHT = 1 / hgt;
+    //     ssgi.material.defines.CUBEUV_TEXEL_WIDTH =
+    //       1 / (3 * Math.max(Math.pow(2, maxMip), 7 * 16));
+    //     ssgi.material.defines.CUBEUV_MAX_MIP = maxMip.toFixed(1);
+    //     ssgi.material.needsUpdate = true;
+    //     ssgi.material.userData.envH = hgt;
+    //   }
+    //   for (let i = 0; i < Math.min(NC, 4); i++) {
+    //     const l = csm.lights[i];
+    //     u["uSM" + i].value = l.shadow.map?.depthTexture ?? null;
+    //     u.uSMat.value[i].copy(l.shadow.matrix);
+    //   }
+    //   for (let i = NC; i < 4; i++) u["uSM" + i].value = u.uSM0.value;
+    //   const sp = csm.splits;
+    //   u.uSplits.value.set(
+    //     sp[1] ?? 1e9,
+    //     sp[2] ?? 1e9,
+    //     sp[3] ?? 1e9,
+    //     sp[4] ?? 1e9,
+    //   );
+    //   const A = lighting.amb;
+    //   u.envMap.value = envTex;
+    //   u.uEnvI.value =
+    //     (scene.environmentIntensity ?? 1) * (A.shape.z > 0 ? A.shape.z : 1);
+    //   u.uAmbBounce.value
+    //     .set(A.bounce.x, A.bounce.y, A.bounce.z)
+    //     .multiplyScalar(0.6 * (scene.environmentIntensity ?? 1));
+    //   u.uPrevRad.value = bloomDown[1].texture;
+    //   u.uHavePrev.value = !resetHistory && frame > 2 ? 1 : 0;
+    //   u.uProj.value.copy(cam.projectionMatrix);
+    //   u.uProjInv.value.copy(cam.projectionMatrixInverse);
+    //   u.uCamWorld.value.copy(cam.matrixWorld);
+    //   u.uPrevViewProj.value.copy(prevViewProj);
+    //   u.uRes.value.set(W, H);
+    //   u.uFrame.value = frame % 64;
+    //   const giN = lighting.nightHaze?.k ?? 0; // (night)
+    //   u.uStrength.value = grade.gi * (A.bounce.w ?? 1);
+    //   u.uAbs.value = giN;
+    //   u.uAbsK.value = grade.giNight;
+    //   ssgi.render(renderer, ssgiRT);
+    // }
 
     // --- volumetric sun shafts
     const doShafts = shaftsOn && lighting.fog.shafts > 0 && sky.sunDir.y > 0.0;

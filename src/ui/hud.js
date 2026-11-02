@@ -206,7 +206,7 @@ export function createHud({ player, world, camera }) {
     off = document.createElement("canvas");
     off.width = OW;
     off.height = OH;
-    offCtx = off.getContext("2d");
+    offCtx = off.getContext("2d", { willReadFrequently: true });
     const g = offCtx;
     g.fillStyle = COL.street;
     g.fillRect(0, 0, OW, OH);

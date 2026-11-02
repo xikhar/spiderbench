@@ -402,6 +402,13 @@ export function installCityLightChunks(renderer = null, scene = null) {
   _scn = scene;
   if (_installed) return;
   _installed = true;
+  const uniformPath = _rnd?.capabilities?.maxTextures <= 16;
+  if (uniformPath) {
+    // Avoid the three city-light samplers up front. On 16-unit GPUs, texture-heavy
+    // materials can exceed the hardware limit before the retry-based fallback runs.
+    unifUsed = true;
+    cityLights.shadows = false;
+  }
   try {
     const q = new URLSearchParams(location.search);
     if (q.has("nocl")) cityLights.enabled = false;
@@ -412,7 +419,10 @@ export function installCityLightChunks(renderer = null, scene = null) {
   } // A/B: ?nocl all, ?noclsh shadows, ?noclvol lit haze
   const SC = THREE.ShaderChunk;
   if (!SC.lights_pars_begin.includes("CITYL_PARS"))
-    SC.lights_pars_begin = SC.lights_pars_begin + GLSL_PARS;
+    SC.lights_pars_begin =
+      SC.lights_pars_begin +
+      (uniformPath ? "\n#define CITYL_UNIF\n" : "") +
+      GLSL_PARS;
   const src = SC.lights_fragment_begin,
     at = src.indexOf("#if defined( RE_IndirectDiffuse )");
   if (at < 0) {

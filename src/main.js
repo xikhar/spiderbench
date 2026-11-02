@@ -17,6 +17,7 @@ import { createInput } from "./player/input.js";
 import { createHud } from "./ui/hud.js";
 import { SHOTS } from "./shots.js";
 import { createWarmup } from "./render/warmup.js"; // (perf r3)
+import { getRenderPixelRatio } from "./render/quality.js";
 import { REFL_LAYER } from "./world/water.js";
 import { BIG_CASTER_LAYER } from "./render/csm.js";
 
@@ -31,7 +32,7 @@ const renderer = new THREE.WebGLRenderer({
   stencil: false,
   reversedDepthBuffer: true,
 });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+renderer.setPixelRatio(getRenderPixelRatio(renderer));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -95,6 +96,8 @@ const ctx = {
 };
 ctx.systems = ctx.systems || []; // C5: game systems (src/game/**) push {update(dt)} here
 window.__ctx = ctx;
+// console.log("[DEBUG] Context initialized:", window.__ctx);
+// console.log("[DEBUG] Renderer:", window.__ctx.renderer);
 // (perf r3) queue every shader program the game can draw (main pass + the river mirror's unshadowed variant + the
 // post passes) before the first frame: they link in parallel on the driver's threads during the loading frame instead
 // of one by one later, each freezing the game for 0.2-6 s the first time its material came into view
@@ -150,24 +153,34 @@ if (shotName) {
   window.__shotInfo = `${renderer.info.render.calls} calls, ${renderer.info.render.triangles} tris`;
   window.__shotReady = true;
 } else {
-  const clock = new THREE.Clock();
+  // clock is , used timer
+  const timer = new THREE.Timer();
+
   function frame(realDt) {
     ctx.realDt = realDt;
     const dt = ctx.realDt * (ctx.timeScale ?? 1);
+
     player.update(dt);
     world.update(dt, camera);
     lighting.update(camera);
     hud.update(dt);
+
     for (const s of ctx.systems) s.update?.(dt);
+
     pipeline.render(dt);
-    warmup?.step(); // (perf r3)
-    if (++framesDrawn === 1) boot.sub(0.4); // the first frame (remaining uploads / links) is in
+    warmup?.step();
+
+    if (++framesDrawn === 1) boot.sub(0.4);
   }
   // tools (tools/film.mjs): ctx.manualStep = true pauses the real-time loop; ctx.stepFrame(dt) then advances exactly one
   // frame of dt seconds (deterministic frame-by-frame captures of fast motion)
   ctx.stepFrame = (dt) => frame(dt);
+
   renderer.setAnimationLoop(() => {
-    const d = Math.min(clock.getDelta(), 1 / 20);
+    timer.update();
+
+    const d = Math.min(timer.getDelta(), 1 / 20);
+
     if (!ctx.manualStep) frame(d);
   });
 }

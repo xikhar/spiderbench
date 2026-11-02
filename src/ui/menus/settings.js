@@ -18,10 +18,13 @@ export function createSettingsPage(sys) {
   let cat = "graphics";
   const S = () => save.state.settings;
   const main = el.querySelector(".main");
-  const curQ = new URLSearchParams(location.search).get("q") || "high";
+  const curQ =
+    new URLSearchParams(location.search).get("q") ||
+    sys.ctx?.lighting?.quality?.name ||
+    "high";
 
   const seg = (key, opts, label, sub) =>
-    `<div class="sys-opt"><label>${label}<small>${sub}</small></label><div class="sys-seg" data-k="${key}">${opts.map(([v, n]) => `<button data-v="${v}" class="${String(S()[key]) === String(v) ? "on" : ""}">${n}</button>`).join("")}</div></div>`;
+    `<div class="sys-opt"><label>${label}<small>${sub}</small></label><div class="sys-seg" data-k="${key}">${opts.map(([v, n]) => `<button data-v="${v}" class="${String(key === "quality" ? curQ : S()[key]) === String(v) ? "on" : ""}">${n}</button>`).join("")}</div></div>`;
   const range = (
     key,
     min,

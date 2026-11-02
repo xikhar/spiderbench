@@ -1,4 +1,5 @@
-// OWNER: render agent. Quality presets selected with ?q=low|med|high (default high).
+// OWNER: render agent. Quality presets selected with ?q=low|med|high. GPUs limited to
+// 16 fragment texture units use the low preset by default; an explicit ?q= still wins.
 const PRESETS = {
   low: {
     name: "low",
@@ -85,9 +86,9 @@ const PRESETS = {
 };
 
 let _q = null;
-export function getQuality() {
+export function getQuality(renderer = null) {
   if (_q) return _q;
-  let name = "high";
+  let name = renderer?.capabilities?.maxTextures <= 16 ? "low" : "high";
   try {
     const p = new URLSearchParams(location.search).get("q");
     if (p && PRESETS[p]) name = p;
@@ -116,4 +117,12 @@ export function getQuality() {
     /* non-browser */
   }
   return _q;
+}
+
+// Retina displays can multiply the render targets' pixel count by 2.25 at 1.5x DPR.
+// Keep 16-texture-unit GPUs at native resolution by default; renderScale remains a user multiplier.
+export function getRenderPixelRatio(renderer, renderScale = 1) {
+  const dpr = typeof devicePixelRatio === "number" ? devicePixelRatio : 1;
+  const cap = renderer?.capabilities?.maxTextures <= 16 ? 1 : 1.5;
+  return Math.min(dpr, cap) * renderScale;
 }
