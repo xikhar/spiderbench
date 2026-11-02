@@ -13,6 +13,7 @@
 //   per-tile detail meshes: no extra draw calls; it fades with the detail tiles). Ad faces + main steel are one opaque
 //   mesh per 512 m cell (+ one blended ghost-sign mesh per cell), distance culled. Every solid registers collision.
 import * as THREE from "three";
+import { assetUrl } from "../assets.js";
 import * as LAY from "./layout.js";
 const { district, mulberry32, streetsAt, SITES } = LAY;
 import { DP } from "./buildings.js";
@@ -28,7 +29,7 @@ import {
   uScrTop,
 } from "./screenlights.js"; // (night) LED screens / marquees as real lights
 
-const TEX = "/assets/city/tex/";
+const TEX = assetUrl("city/tex/");
 const CELL = 512;
 const Q =
   typeof location !== "undefined"

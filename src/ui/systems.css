@@ -14,7 +14,7 @@
   --sys-gold: #f5b82e;
   --sys-green: #47d88a;
   --sys-cut: 14px;
-  /* local fonts only (public/assets/ui/fonts/fonts.css); system fallbacks if the files are missing */
+  /* local fonts only (public/ui/fonts/fonts.css); system fallbacks if the files are missing */
   --sys-head:
     "Spiderbench Condensed", "Barlow Condensed", "Roboto Condensed",
     "Arial Narrow", "Liberation Sans Narrow", sans-serif;

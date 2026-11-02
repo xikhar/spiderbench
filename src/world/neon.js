@@ -13,9 +13,10 @@
 // Draw calls: 2. Tubes (+ LED strips) are ONE instanced rectangle-frame tube mesh (lit glass by day, emissive at night;
 // each instance is a rectangle / line in any plane, sides masked per instance, the radius widened to ~0.6 px with
 // distance so thin tubes never shimmer); words / icons are ONE additive instanced quad mesh on a baked atlas
-// (public/assets/city/tex/neon_words.webp, tools/imagegen/neon/pack.py), drawn only at night (nightOnly).
+// (public/city/tex/neon_words.webp, tools/imagegen/neon/pack.py), drawn only at night (nightOnly).
 // Tunables: window.__neon (NEON.gain, NEON.word, NEON.light ...; neon lights: __neon.relight()). ?noneon disables.
 import * as THREE from "three";
+import { assetUrl } from "../assets.js";
 import * as LAY from "./layout.js";
 import { SHOP_FRONTS } from "./facade.js";
 import { cityLights } from "../render/citylights.js";
@@ -326,7 +327,7 @@ function tubeMaterial() {
 // ------------------------------------------------------------------------------------------------ word mesh
 function wordMaterial() {
   const tex = new THREE.TextureLoader().load(
-    "/assets/city/tex/neon_words.webp",
+    assetUrl("city/tex/neon_words.webp"),
   );
   tex.colorSpace = THREE.NoColorSpace;
   tex.anisotropy = 4;

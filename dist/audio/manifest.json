@@ -3,41 +3,41 @@
  "sr": 44100,
  "music": {
   "pulseA": {
-   "url": "/assets/audio/music_pulseA.ogg",
+   "url": "audio/music_pulseA.ogg",
    "len": 9408000,
    "dur": 213.33333333333334
   },
   "day": {
-   "url": "/assets/audio/music_day.ogg",
+   "url": "audio/music_day.ogg",
    "len": 9408000,
    "dur": 213.33333333333334
   },
   "night": {
-   "url": "/assets/audio/music_night.ogg",
+   "url": "audio/music_night.ogg",
    "len": 9408000,
    "dur": 213.33333333333334
   },
   "pulseB": {
-   "url": "/assets/audio/music_pulseB.ogg",
+   "url": "audio/music_pulseB.ogg",
    "len": 9408000,
    "dur": 213.33333333333334
   }
  },
  "sprites": {
   "trav": {
-   "url": "/assets/audio/sfx_trav.ogg",
+   "url": "audio/sfx_trav.ogg",
    "ch": 2
   },
   "ui": {
-   "url": "/assets/audio/sfx_ui.ogg",
+   "url": "audio/sfx_ui.ogg",
    "ch": 2
   },
   "combat": {
-   "url": "/assets/audio/sfx_combat.ogg",
+   "url": "audio/sfx_combat.ogg",
    "ch": 2
   },
   "world": {
-   "url": "/assets/audio/sfx_world.ogg",
+   "url": "audio/sfx_world.ogg",
    "ch": 1
   }
  },
@@ -965,12 +965,12 @@
  },
  "loops": {
   "siren": {
-   "url": "/assets/audio/loop_siren.ogg",
+   "url": "audio/loop_siren.ogg",
    "len": 352800,
    "gain": 0.5
   },
   "alarm": {
-   "url": "/assets/audio/loop_alarm.ogg",
+   "url": "audio/loop_alarm.ogg",
    "len": 132300,
    "gain": 0.35
   }

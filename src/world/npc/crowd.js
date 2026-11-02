@@ -1,5 +1,5 @@
 // OWNER: citylife engineer. Pedestrian crowd: Blender-modelled people (tools/blender/city_npc.py ->
-// public/assets/city/npc/people.{json,bin}) rendered as instanced meshes with GPU skinning from a baked animation
+// public/city/npc/people.{json,bin}) rendered as instanced meshes with GPU skinning from a baked animation
 // texture (18 bones, 14 clips, per-instance clip cross-fades + head look-at), 3 LODs, per-instance outfit colours.
 //
 // Simulation (camera-streamed, deterministic per block):
@@ -11,6 +11,7 @@
 //    wave, cheer, point, clap; they step back when he lands close, dodge when he walks into them; world.alarm()
 //    makes them cower/flee.
 import * as THREE from "three";
+import { assetUrl } from "../../assets.js";
 import {
   G,
   mulberry32,
@@ -44,7 +45,7 @@ const STRIDE = 1.5; // metres per walk cycle at scale 1 (clip 'walk' is 32 frame
 const RUN_STRIDE = 2.6; // clip 'run' (19 frames)
 
 const SKIN = [0.62, 0.52, 0.38, 0.24, 0.13, 0.08];
-// (peds r1) photo faces: public/assets/city/tex/peds_atlas.webp (tools/imagegen/peds/build_atlas.py) holds 32 frontal
+// (peds r1) photo faces: public/city/tex/peds_atlas.webp (tools/imagegen/peds/build_atlas.py) holds 32 frontal
 // faces (4 cols x 8 rows of 128 px; men in cols 0/2, women in 1/3), hair strand tiles and fabric swatches. FACE_SKIN is
 // each face's clear-cheek colour (linear): the body skin uses it so neck / hands match the face. FACE_HAIR: d = dark hair
 // only, a = any natural colour, g = grey (older people)
@@ -1182,13 +1183,13 @@ export async function createCrowd({
   phase,
 }) {
   const [meta, bin, pedTex, bakeTex] = await Promise.all([
-    fetch("/assets/city/npc/people.json").then((r) => r.json()),
-    fetch("/assets/city/npc/people.bin").then((r) => r.arrayBuffer()),
+    fetch(assetUrl("city/npc/people.json")).then((r) => r.json()),
+    fetch(assetUrl("city/npc/people.bin")).then((r) => r.arrayBuffer()),
     new THREE.TextureLoader()
-      .loadAsync("/assets/city/tex/peds_atlas.webp")
+      .loadAsync(assetUrl("city/tex/peds_atlas.webp"))
       .catch(() => null), // (peds r1) faces / hair / fabric
     new THREE.TextureLoader()
-      .loadAsync("/assets/city/npc/people_bake.webp")
+      .loadAsync(assetUrl("city/npc/people_bake.webp"))
       .catch(() => null), // (peds r2) Cycles cloth normal + AO
   ]);
   if (

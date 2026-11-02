@@ -1,9 +1,10 @@
 // OWNER: rooftops agent (veg r1). Roof-garden planting: instanced shrubs, perennials and ornamental grasses made of
-// alpha-cut cards textured with the image-generated foliage atlas (public/assets/city/tex/roofplants.webp, 2x2 tiles:
+// alpha-cut cards textured with the image-generated foliage atlas (public/city/tex/roofplants.webp, 2x2 tiles:
 // 0 boxwood / privet shrub, 1 fountain grass, 2 sedum + rudbeckia perennials, 3 hosta / fern / hydrangea leaves).
 // Two pools (mound cards, grass cards) = 2 draws; distance-culled with a dithered fade out to ~200 m, shadows only in
 // the near cascade (<= 55 m). Replaces rooftops.js' lumpy CanopyBatch blobs in beds / planters.
 import * as THREE from "three";
+import { assetUrl } from "../assets.js";
 import { Pool } from "./pool.js";
 
 export const PLANT = { SHRUB: 0, GRASS: 1, FLOWER: 2, BROAD: 3 };
@@ -199,7 +200,7 @@ export class RoofPlants {
   build(scene) {
     if (!this.count) return;
     const tex = new THREE.TextureLoader().load(
-      "/assets/city/tex/roofplants.webp",
+      assetUrl("city/tex/roofplants.webp"),
     );
     tex.colorSpace = THREE.SRGBColorSpace;
     tex.anisotropy = 4;

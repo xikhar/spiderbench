@@ -1,4 +1,4 @@
-Source-Available, View-Only License
+# Source-Available, View-Only License
 
 Copyright (c) 2026 Shikhar. All rights reserved.
 
@@ -17,7 +17,7 @@ This repository is published only so that people can study it as a demonstration
    - This license covers only the original code and assets created for this project, and only to the extent that the copyright holder holds rights in them.
 
 4. **Bundled third-party components:**
-   - The fonts in `public/assets/ui/fonts/` are licensed under the SIL Open Font License 1.1; see the accompanying OFL files.
+   - The fonts in `public/ui/fonts/` are licensed under the SIL Open Font License 1.1; see the accompanying OFL files.
    - npm dependencies installed via package.json are under their own licenses.
 
 5. **No warranty:** the software is provided "AS IS", without warranty of any kind, express or implied. In no event shall the copyright holder be liable for any claim, damages or other liability arising from, out of or in connection with the software or its use.

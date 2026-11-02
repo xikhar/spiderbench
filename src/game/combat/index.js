@@ -18,6 +18,7 @@ import { createProps } from './props.js';
 import { createHud } from './hud.js';
 import { createCombatInput } from './input.js';
 import { clamp, smooth, damp, lerp, angWrap, yawTo, hdist, rnd, UP } from './util.js';
+import { assetUrl } from '../../assets.js';
 
 const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _v4 = new THREE.Vector3();
 const H = 0.95;
@@ -39,8 +40,8 @@ export function initCombat(ctx) {
   c.hud = createHud(c);
   c.spidey = createSpidey(c);
   const me = c.spidey;
-  // brute texture (public/assets/enemies, built by tools/blender/enemy_tex.py); tint fallback if missing
-  new THREE.TextureLoader().load('/assets/enemies/brute_basecolor.webp', t => { t.colorSpace = THREE.SRGBColorSpace; t.flipY = false; t.anisotropy = 4; c.bruteTex = t; }, undefined, () => {});
+  // brute texture (public/enemies, built by tools/blender/enemy_tex.py); tint fallback if missing
+  new THREE.TextureLoader().load(assetUrl('enemies/brute_basecolor.webp'), t => { t.colorSpace = THREE.SRGBColorSpace; t.flipY = false; t.anisotropy = 4; c.bruteTex = t; }, undefined, () => {});
 
   c.sfx = (k, a) => { try { const s = sys?.audio?.sfx; if (!s) return; if (k === 'land') s.land(a); else if (k === 'whoosh') s.whoosh(a); else if (k === 'thwip') s.thwip(a); else if (k === 'deny') s.deny?.(); else s[k]?.(a); } catch (e) { /* audio optional */ } }; // (audio r1) + hit / hurt / shot / slam
   c.shake = a => P.cam?.shake?.(a);

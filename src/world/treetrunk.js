@@ -3,9 +3,10 @@
 // on into the main crown lobe, and scaffold limbs / branches / twigs that PEEL OFF their parent (each starts on the
 // parent's axis, heading along the parent's tangent, and curves out) -> smooth Y forks with a branch collar instead
 // of cylinders butted together. Near LOD: bark ridges in the silhouette (radial plates / furrows). UVs in metres for
-// the image-generated bark array (public/assets/city/tex/bark_col.webp / bark_nrm.webp, 3 layers: plane, oak, dark).
+// the image-generated bark array (public/city/tex/bark_col.webp / bark_nrm.webp, 3 layers: plane, oak, dark).
 // The same skeleton gives the cheaper mid / far LODs and the trunk collision capsule.
 import * as THREE from "three";
+import { assetUrl } from "../assets.js";
 import { mulberry32 } from "./layout.js";
 
 export const BARK = { PLANE: 0, OAK: 1, DARK: 2 };
@@ -456,8 +457,8 @@ function arrayTexFromStrip(url, srgb, fill) {
 }
 export function barkTextures() {
   BARK_TEX ??= {
-    col: arrayTexFromStrip("/assets/city/tex/bark_col.webp", true, 110),
-    nrm: arrayTexFromStrip("/assets/city/tex/bark_nrm.webp", false, 128),
+    col: arrayTexFromStrip(assetUrl("city/tex/bark_col.webp"), true, 110),
+    nrm: arrayTexFromStrip(assetUrl("city/tex/bark_nrm.webp"), false, 128),
   };
   return BARK_TEX;
 }

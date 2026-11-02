@@ -133,7 +133,7 @@ export function createHud({ player, world, camera }) {
       <div><b>Space</b>Jump (hold = charged high jump) · in a swing: release + launch · double-tap in air: flip · at zip arrival: launch off the point · wall jump · point-launch from perch</div>
       <div><b>E / M-Mouse</b>Web-zip to <span style="color:#fff">&#9711;</span> point &amp; perch · air web-dash</div>
       <div><b>T</b>While perched: web tightrope to the <span style="color:#fff">&#9711;</span> point · W / S walk the line · A / D sway · Space jump off</div><div><b>E on wall</b>Wall zip upward</div><div><b>Q</b>Quick web boost (in air)</div><div><b>W</b>Hold while falling: head-first dive</div><div><b>Ctrl+Mouse</b>On ground, Ctrl + Left / Right Mouse: web slingshot</div>
-      <div><b>C / Ctrl</b>Dive (hold in air) · drop off wall / perch</div><div><b>H</b>Toggle this help</div></div>
+      <div><b>C / Ctrl</b>Dive (hold in air) · drop off wall / perch</div><div><b>H</b>Toggle this help</div><div><b>=</b>Toggle FPS counter</div></div>
     <div class="dbg"></div>`;
   const compassC = root.querySelector(".mm-compass canvas"),
     mapC = root.querySelector(".mm-map canvas");

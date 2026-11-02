@@ -18,11 +18,12 @@
 // plus ladders, lamps / benches (props.js pools via COAST.lamps / .benches), lawns and trees on the wide bump-outs,
 // grime / wet / algae bands in the shader. The far banks get the same system (lighter: no pickets, rails on parks only).
 // Textures: tools/imagegen/coast/ (granite / riprap / planks / bulkhead, Codex imagegen) packed by pack.py into
-// public/assets/city/tex/coast_atlas.webp (2 x 2 tiles). One material; geometry merged per 1024 m cell (2048 m far) into
+// public/city/tex/coast_atlas.webp (2 x 2 tiles). One material; geometry merged per 1024 m cell (2048 m far) into
 // a main mesh + a picket-card mesh (alpha pattern by discard, no shadow, hidden beyond 320 m).
 // Collision (C4): coastHeight(x, z) (ground.terrainHeight) is exact over the fill quads (promenade height), so the player
 // stands / runs on the new esplanade; off the outer edge it is water again and traversal's waterBounce still works.
 import * as THREE from "three";
+import { assetUrl } from "../assets.js";
 import {
   G,
   LAND_POLY,
@@ -515,7 +516,7 @@ export function buildWaterfront({
   const ph = new THREE.DataTexture(new Uint8Array([128, 126, 122, 255]), 1, 1);
   ph.needsUpdate = true;
   const mat = createCoastMaterial(T, ph);
-  loadImageRetry("/assets/city/tex/coast_atlas.webp")
+  loadImageRetry(assetUrl("city/tex/coast_atlas.webp"))
     .then((im) => {
       const tx = new THREE.Texture(im);
       tx.colorSpace = THREE.SRGBColorSpace;

@@ -13,6 +13,7 @@
 //    a little (creases).
 // Only active for the Advanced suit: game/systems/suits.js turns it off for Iron / Symbiote (setSuitFabric).
 import * as THREE from "three";
+import { assetUrl } from "../assets.js";
 import { addShaderPatch } from "../render/materials.js";
 import { nightK } from "../render/daynight.js";
 import { cityAmbient } from "../render/citylights.js";
@@ -75,8 +76,8 @@ export function applySuitFabric(root) {
   });
   if (!mat || mat.userData.__patches?.has("suitFabric")) return mat;
   if (!uniforms.uFabHex.value && loaded === 0) {
-    loadDetail("/assets/tex/suit_weave_hex.png", "uFabHex");
-    loadDetail("/assets/tex/suit_weave_knit.png", "uFabKnit");
+    loadDetail(assetUrl("tex/suit_weave_hex.png"), "uFabHex");
+    loadDetail(assetUrl("tex/suit_weave_knit.png"), "uFabKnit");
   }
   addShaderPatch(mat, "suitFabric", (sh) => {
     Object.assign(sh.uniforms, uniforms);

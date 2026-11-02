@@ -15,6 +15,7 @@
 // Contract: buildRooftops({ scene, gen, facadeMat, T }) -> Promise<{ update(camera), stats }>. Must run BEFORE the tile
 // facade meshes are built (it appends to gen.tiles' builders) and before props (props avoid our solids).
 import * as THREE from "three";
+import { assetUrl } from "../assets.js";
 import { mulberry32, district, blockAt, ZFIX } from "./layout.js";
 import { STYLE, LAYER } from "./facade.js";
 import { KIND } from "./collision.js";
@@ -1088,8 +1089,8 @@ export async function buildRooftops({
   void facadeMat;
   const aniso = Math.min(8, renderer?.capabilities?.getMaxAnisotropy?.() ?? 4);
   const [imC, imN] = await Promise.all([
-    loadImage("/assets/city/tex/roof_col.png"),
-    loadImage("/assets/city/tex/roof_nrm.png"),
+    loadImage(assetUrl("city/tex/roof_col.png")),
+    loadImage(assetUrl("city/tex/roof_nrm.png")),
   ]);
   const mat = createRoofMaterial(
     arrayTex(imC, true, aniso),

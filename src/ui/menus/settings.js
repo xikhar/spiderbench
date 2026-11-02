@@ -59,7 +59,18 @@ export function createSettingsPage(sys) {
         "Quality Preset",
         `Shadows, AO, clouds, DoF samples. Applying reloads the game (current: ${curQ}).`,
       )}
-      ${range("renderScale", 0.6, 1.25, 0.05, "Render Resolution", "Internal resolution scale. Lower for more FPS.", FMT.renderScale)}
+      ${range("renderScale", 0.35, 1.25, 0.05, "Render Resolution", "Older GPUs are capped at 80% at 100% scale. Lower this more to reduce GPU memory use; try 60%.", FMT.renderScale)}
+      ${seg(
+        "fpsLimit",
+        [
+          ["auto", "Auto"],
+          ["30", "30 FPS"],
+          ["60", "60 FPS"],
+          ["0", "Unlimited"],
+        ],
+        "Frame Rate Limit",
+        "Auto uses 30 FPS on low-end GPUs and 60 FPS otherwise. A cap reduces GPU load and heat.",
+      )}
       ${seg(
         "timeOfDay",
         [

@@ -1,0 +1,2 @@
+var e=new Map;function t(t,n){let r=e.get(t);return r||e.set(t,r=new Set),r.add(n),()=>r.delete(n)}function n(t,n){e.get(t)?.delete(n)}function r(e,n){let r=t(e,(e,t)=>{r(),n(e,t)});return r}function i(t,n){let r=[...e.get(t)||[],...e.get(`*`)||[]];for(let e of r)try{e(n,t)}catch(e){console.error(`[events] handler for "${t}" failed`,e)}return r.length}function a(t){return e.get(t)?.size||0}var o={on:t,off:n,once:r,emit:i,listenerCount:a};export{o as n,t as r,i as t};
+//# sourceMappingURL=events-C_lqH4J9.js.map

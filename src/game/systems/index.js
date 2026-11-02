@@ -82,6 +82,10 @@ export function initSystems(ctx) {
   sys.applySettings = () => {
     const s = save.state.settings;
     audio.setVolumes(s);
+    const fpsLimit = s.fpsLimit === 'auto'
+      ? (ctx.renderer.capabilities.maxTextures <= 16 ? 30 : 60)
+      : Number(s.fpsLimit);
+    ctx.setFpsLimit?.(fpsLimit);
     { const t = s.timeOfDay === 'cycle' || !s.timeOfDay ? 'day' : s.timeOfDay; ctx.lighting?.setTimeMode?.(t === 'day' ? ({ b: 'dayB', c: 'dayC' }[s.daySun] ?? 'day') : t); } // (user r-daysun) Day Sun variant // (lighting2 r3) fixed preset (old saves: 'cycle' -> day)
     ctx.lighting?.setDryPuddles?.(s.puddles !== false); // (user r-nopuddles)
     if (s.renderScale !== appliedScale) {

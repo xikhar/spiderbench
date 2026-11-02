@@ -1,13 +1,14 @@
 // OWNER: billboards agent. (r3) ONE shared GPU copy of the ad atlas ts_ads.webp (4096^2, ~85 MB with mips): Times Square,
 // city signage and street-prop ad faces all sample the same texture instead of uploading it three times.
 import * as THREE from "three";
+import { assetUrl } from "../assets.js";
 let tex = null,
   texImg = null;
 export function adsTexture() {
   if (!tex) {
     texImg = new Promise((res) => {
       tex = new THREE.TextureLoader().load(
-        "/assets/city/tex/ts_ads.webp",
+        assetUrl("city/tex/ts_ads.webp"),
         (t) => res(t.image),
         undefined,
         () => res(null),
@@ -73,7 +74,7 @@ export function signsTexture() {
   if (!signs) {
     signsImg = new Promise((res) => {
       signs = new THREE.TextureLoader().load(
-        "/assets/city/tex/ts_signs.webp",
+        assetUrl("city/tex/ts_signs.webp"),
         (t) => res(t.image),
         undefined,
         () => res(null),

@@ -1,6 +1,7 @@
 // OWNER: citylife engineer. Street furniture + rooftop clutter: geometry (procedural low-poly, vertex coloured, part ids) + placement + pools.
 // Local prop frame: +x along the curb, +z toward the roadway, y=0 at the sidewalk surface.
 import * as THREE from "three";
+import { assetUrl } from "../assets.js";
 import {
   G,
   avenues,
@@ -1328,7 +1329,7 @@ async function loadPropModels() {
   try {
     const { GLTFLoader } =
       await import("three/examples/jsm/loaders/GLTFLoader.js");
-    const gltf = await new GLTFLoader().loadAsync("/assets/city/props.glb");
+    const gltf = await new GLTFLoader().loadAsync(assetUrl("city/props.glb"));
     const geos = {};
     gltf.scene.traverse((o) => {
       if (!o.isMesh) return;
@@ -4091,7 +4092,7 @@ function bladeFaces(scene, items) {
       }
       for (let i = 0; i < items.length; i++) bladeSignCol[i] = avg[cellOf[i]];
     };
-    im.src = "/assets/city/tex/ts_signs.webp";
+    im.src = assetUrl("city/tex/ts_signs.webp");
   }
   return mesh;
 }

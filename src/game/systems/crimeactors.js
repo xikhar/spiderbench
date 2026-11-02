@@ -1,5 +1,5 @@
-// OWNER: systems engineer. Street-crime actors: thugs + civilians built from public/assets/thug.glb (same skeleton as
-// Spider-Man, so the clips of spiderman.glb play on it directly, see public/assets/SPIDERMAN.md).
+// OWNER: systems engineer. Street-crime actors: thugs + civilians built from public/thug.glb (same skeleton as
+// Spider-Man, so the clips of spiderman.glb play on it directly, see public/SPIDERMAN.md).
 //   const A = createActors(ctx); await A.ready();  const a = A.spawn({ pos, yaw, variant: 'a'|'b'|'c', role: 'thug'|'victim' })
 //   a.play('thugIdle') · a.face(vec3) · a.runTo(vec3, speed) · a.hit() · a.knockDown() · a.dispose()
 // Actors are plain objects so the combat module can take them over (crime.enemies[i].actor / .object):
@@ -8,8 +8,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
+import { assetUrl } from '../../assets.js';
 
-const VARIANT_TEX = { b: '/assets/tex/thug_basecolor_b.webp', c: '/assets/tex/thug_basecolor_c.webp' };
+const VARIANT_TEX = { b: assetUrl('tex/thug_basecolor_b.webp'), c: assetUrl('tex/thug_basecolor_c.webp') };
 const LOOPS = new Set(['idle', 'idleLook', 'walk', 'jog', 'run', 'sprint', 'fightIdle', 'jumpCrouch', 'thugIdle', 'thugWebbedStruggle', 'thugGunAim']);
 // thug.glb's own clips whose hips travel (stumbles, knockdown, get-up): the played copy is IN PLACE (hips X/Z pinned at
 // the standing offset) and the travel is handed to the owner as root motion (a.rootDelta), so the body moves with the
@@ -60,7 +61,7 @@ export function createActors(ctx) {
   function load() {
     if (loading) return loading;
     const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
-    loading = loader.loadAsync('/assets/thug.glb').then(g => {
+    loading = loader.loadAsync(assetUrl('thug.glb')).then(g => {
       gltf = g; clipList();
       g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
       return true;

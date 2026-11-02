@@ -508,7 +508,9 @@ export async function buildCity({ scene, renderer }) {
   });
   const tFit2 = performance.now();
   trees.addSolids?.(gen.solids); // (veg r1) trunk collision (after the refit: it culls solids inside prop footprints)
-  const grid = new CollisionGrid(gen.solids, 24);
+  const grid = new CollisionGrid(gen.solids, 24, { releaseSource: true });
+  // The finalized grid owns typed collision copies; runtime map features only need footprints.
+  gen.solids = null;
   const zips = gen.zips.finalize(grid);
   const { groundHeight, raycast, surfaceAt } = makeQueries(grid, terrainHeight);
   const geoDebug = createGeoDebug(root, grid, zips, collisionDebugLines);
@@ -516,6 +518,7 @@ export async function buildCity({ scene, renderer }) {
 
   const spawn = new THREE.Vector3(250, 0, 160 + G.ST_HALF + 2.3); // on the centre line, in the south crosswalk
   const viewpoints = makeViewpoints(gen, spawn, hero);
+  const mapFootprints = gen.footprints;
 
   const params = new URLSearchParams(location.search);
   const camParam = params.get("cam");
@@ -542,8 +545,8 @@ export async function buildCity({ scene, renderer }) {
     collision: grid,
     geoDebug,
     buildings: gen.boxes,
-    footprints: gen.footprints,
-    getMapFeatures: () => mapFeatures(blocks, gen),
+    footprints: mapFootprints,
+    getMapFeatures: () => mapFeatures(blocks, mapFootprints),
     textures: T,
     materials: { facade: facadeMat },
     update(dt, camera) {
@@ -913,7 +916,7 @@ function diagTreeSpots(spots, blocks, gen) {
   }
 }
 
-function mapFeatures(blocks, gen) {
+function mapFeatures(blocks, footprints) {
   const P = G.PARK;
   const E = 4000,
     zN = G.Z_MIN,
@@ -930,7 +933,7 @@ function mapFeatures(blocks, gen) {
     land: [LAND_POLY],
     farLand: FAR_LANDS.map((L) => L.pts),
     blocks: blocks.map((b) => ({ x0: b.x0, z0: b.z0, x1: b.x1, z1: b.z1 })),
-    buildings: gen.footprints,
+    buildings: footprints,
     streets: [
       ...roadRects().map((r) => ({
         x0: r.x0,

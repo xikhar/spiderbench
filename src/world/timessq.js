@@ -3,11 +3,12 @@
 //       red pedestrian plaza lots along both sides of the avenue (rows -240 / -160), screen-clad podium towers on the
 //       lots behind them, and screen-clad corner towers at the north (-320) and south (-80) ends of the "bow tie".
 //   buildTimesSquare({scene, gen}) -> after generateBuildings, before the tile meshes are built:
-//       LED screens (one merged emissive mesh, ad atlas public/assets/city/tex/ts_ads.webp from tools/gen_ts_ads.py),
+//       LED screens (one merged emissive mesh, ad atlas public/city/tex/ts_ads.webp from tools/gen_ts_ads.py),
 //       screen frames / marquee light trims / storefront sign bands, red paver plaza surfaces, the red TKTS-like
 //       steps, the One-Times-Square-like tower standing on the closed avenue segment (layout.CLOSED_AV x=0, -80..0),
 //       planters with hedges and bollards. Every solid registers its collision (gen.solids) in the same call.
 import * as THREE from "three";
+import { assetUrl } from "../assets.js";
 import { G, mulberry32, ZFIX } from "./layout.js"; // (zfix) ZFIX: ?nozfix A/B
 import { STYLE, LAYER } from "./facade.js";
 import { MB } from "./geom.js";
@@ -27,7 +28,7 @@ import {
 
 const CH = G.CURB_H;
 const TS_SPILL = 1.3; // (r5) was 1.0 // (r4) strength of the screens' coloured light spill cards
-const TEX = "/assets/city/tex/";
+const TEX = assetUrl("city/tex/");
 // block rows (street z at the north edge of the row) and x extents
 export const TS = {
   plazaRows: [-240, -160], // rows with the pedestrian plazas

@@ -120,9 +120,9 @@ export function getQuality(renderer = null) {
 }
 
 // Retina displays can multiply the render targets' pixel count by 2.25 at 1.5x DPR.
-// Keep 16-texture-unit GPUs at native resolution by default; renderScale remains a user multiplier.
+// Keep 16-texture-unit GPUs at 80% resolution by default; renderScale remains a user multiplier.
 export function getRenderPixelRatio(renderer, renderScale = 1) {
   const dpr = typeof devicePixelRatio === "number" ? devicePixelRatio : 1;
-  const cap = renderer?.capabilities?.maxTextures <= 16 ? 1 : 1.5;
+  const cap = renderer?.capabilities?.maxTextures <= 16 ? 0.8 : 1.5;
   return Math.min(dpr, cap) * renderScale;
 }

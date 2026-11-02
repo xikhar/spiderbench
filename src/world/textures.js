@@ -1,8 +1,9 @@
 // OWNER: citygeo. Loads the baked city textures (tools/blender/city_textures.py) and builds array textures.
 // Colour maps are sRGB, every data map (normal/roughness, height/AO/weathering, noise) is linear; max anisotropy.
 import * as THREE from "three";
+import { assetUrl } from "../assets.js";
 
-const BASE = "/assets/city/tex/";
+const BASE = assetUrl("city/tex/");
 
 // Retries with back-off: under load Chromium can refuse a request (net::ERR_INSUFFICIENT_RESOURCES), which must not
 // abort the whole city build.

@@ -409,7 +409,7 @@ export function fitInstancedSolids(
 }
 
 export class CollisionGrid {
-  constructor(solids, cell = 24) {
+  constructor(solids, cell = 24, { releaseSource = false } = {}) {
     const n = solids.count;
     this.n = n;
     this.cell = cell;
@@ -419,6 +419,15 @@ export class CollisionGrid {
     this.flags = Uint8Array.from(solids.f);
     this.kind = Uint8Array.from(solids.k);
     this.fields = solids.fields || [];
+    // The caller can drop the large JS-number arrays as soon as their typed copies exist,
+    // before the spatial index allocates its own buckets. Height fields stay shared.
+    if (releaseSource) {
+      solids.t = [];
+      solids.b = [];
+      solids.p = [];
+      solids.f = [];
+      solids.k = [];
+    }
     let x0 = Infinity,
       z0 = Infinity,
       x1 = -Infinity,
@@ -439,18 +448,13 @@ export class CollisionGrid {
     this.nx = Math.ceil((x1 - this.ox + 1) / cell);
     this.nz = Math.ceil((z1 - this.oz + 1) / cell);
     const counts = new Uint32Array(this.nx * this.nz + 1);
-    const range = (i) => {
-      const j = i * 6;
-      return [
-        Math.floor((this.bb[j] - this.ox) / cell),
-        Math.floor((this.bb[j + 3] - this.ox) / cell),
-        Math.floor((this.bb[j + 2] - this.oz) / cell),
-        Math.floor((this.bb[j + 5] - this.oz) / cell),
-      ];
-    };
     for (let i = 0; i < n; i++) {
       if (this.flags[i] & DEAD) continue;
-      const [a, b, c, d] = range(i);
+      const j = i * 6,
+        a = Math.floor((this.bb[j] - this.ox) / cell),
+        b = Math.floor((this.bb[j + 3] - this.ox) / cell),
+        c = Math.floor((this.bb[j + 2] - this.oz) / cell),
+        d = Math.floor((this.bb[j + 5] - this.oz) / cell);
       for (let cz = c; cz <= d; cz++)
         for (let cx = a; cx <= b; cx++) counts[cz * this.nx + cx]++;
     }
@@ -461,13 +465,18 @@ export class CollisionGrid {
       this.start[i + 1] = acc;
     }
     this.items = new Uint32Array(this.start[this.nx * this.nz]);
-    const fill = this.start.slice();
+    // Reuse counts as write cursors instead of allocating a second grid-sized array.
+    for (let i = 0; i < this.nx * this.nz; i++) counts[i] = this.start[i];
     for (let i = 0; i < n; i++) {
       if (this.flags[i] & DEAD) continue;
-      const [a, b, c, d] = range(i);
+      const j = i * 6,
+        a = Math.floor((this.bb[j] - this.ox) / cell),
+        b = Math.floor((this.bb[j + 3] - this.ox) / cell),
+        c = Math.floor((this.bb[j + 2] - this.oz) / cell),
+        d = Math.floor((this.bb[j + 5] - this.oz) / cell);
       for (let cz = c; cz <= d; cz++)
         for (let cx = a; cx <= b; cx++)
-          this.items[fill[cz * this.nx + cx]++] = i;
+          this.items[counts[cz * this.nx + cx]++] = i;
     }
     this.stamp = new Uint32Array(n);
     this.frame = 1;

@@ -35,7 +35,7 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setPixelRatio(getRenderPixelRatio(renderer));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NoToneMapping; // tone mapping done in pipeline
 // (zfix) three r186 negates only polygonOffsetFactor for the reversed depth buffer, so every decal's negative
@@ -155,6 +155,47 @@ if (shotName) {
 } else {
   // clock is , used timer
   const timer = new THREE.Timer();
+  let fpsLimit = renderer.capabilities.maxTextures <= 16 ? 30 : 60;
+  let nextFrameAt = 0;
+  let fpsVisible = false;
+  let fpsFrameCount = 0;
+  let fpsWindowStart = performance.now();
+  const fpsReadout = document.createElement("div");
+  fpsReadout.id = "fps-readout";
+  fpsReadout.textContent = "FPS: --";
+  fpsReadout.style.cssText =
+    "position:fixed;top:10px;right:12px;z-index:10000;display:none;pointer-events:none;padding:5px 8px;border:1px solid rgba(180,210,255,.35);border-radius:4px;background:rgba(5,10,24,.78);color:#d9ffad;font:600 13px/1.2 ui-monospace,Consolas,monospace;text-shadow:0 1px 2px #000";
+  document.body.appendChild(fpsReadout);
+
+  addEventListener("keydown", (e) => {
+    if (e.repeat || (e.code !== "Equal" && e.code !== "NumpadEqual")) return;
+    if (e.target?.closest?.("input, textarea, select, [contenteditable='true']")) return;
+    fpsVisible = !fpsVisible;
+    fpsReadout.style.display = fpsVisible ? "block" : "none";
+    fpsFrameCount = 0;
+    fpsWindowStart = performance.now();
+    if (fpsVisible) fpsReadout.textContent = "FPS: --";
+  });
+
+  function updateFpsReadout() {
+    if (!fpsVisible) return;
+    fpsFrameCount++;
+    const now = performance.now();
+    const elapsed = now - fpsWindowStart;
+    if (elapsed < 500) return;
+    fpsReadout.textContent = `FPS: ${Math.round((fpsFrameCount * 1000) / elapsed)}`;
+    fpsFrameCount = 0;
+    fpsWindowStart = now;
+  }
+
+  ctx.setFpsLimit = (value) => {
+    const next = Number(value);
+    const limit = Number.isFinite(next) && next > 0 ? next : 0;
+    if (limit !== fpsLimit) {
+      fpsLimit = limit;
+      nextFrameAt = 0;
+    }
+  };
 
   function frame(realDt) {
     ctx.realDt = realDt;
@@ -169,6 +210,7 @@ if (shotName) {
 
     pipeline.render(dt);
     warmup?.step();
+    updateFpsReadout();
 
     if (++framesDrawn === 1) boot.sub(0.4);
   }
@@ -177,6 +219,11 @@ if (shotName) {
   ctx.stepFrame = (dt) => frame(dt);
 
   renderer.setAnimationLoop(() => {
+    if (fpsLimit > 0) {
+      const now = performance.now();
+      if (now < nextFrameAt) return;
+      nextFrameAt = now + 1000 / fpsLimit;
+    }
     timer.update();
 
     const d = Math.min(timer.getDelta(), 1 / 20);

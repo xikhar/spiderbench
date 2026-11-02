@@ -5,7 +5,7 @@ const KEY = 'spiderbench.save.v1';
 const OLD_KEYS = ['spidey.save.v1']; // saves from before the project was renamed (Spidey -> Spiderbench) are carried over once
 
 export const DEFAULT_SETTINGS = {
-  quality: 'high', renderScale: 1, mouseSensitivity: 1, invertY: false,
+  quality: 'high', renderScale: 1, fpsLimit: 'auto', mouseSensitivity: 1, invertY: false,
   // (user r-mixdefaults) the user's tuned mix (80 / 4 / 16 / 10 / 6 %) is baked into audio.js TRIM: it is now 100 / 70 / 70 / 70 / 70
   masterVolume: 1, musicVolume: 0.7, sfxVolume: 0.7, ambienceVolume: 0.7, uiVolume: 0.7,
   audioV: 3, // settings older than 3 used the old volume scale: the audio sliders are reset to these defaults once on load

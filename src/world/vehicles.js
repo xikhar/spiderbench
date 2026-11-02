@@ -2,6 +2,7 @@
 // cheap lane-following traffic with IDM car-following and traffic-light stops. All instanced (1 draw per model).
 // Model frame: +x forward, y up, wheels on y=0.
 import * as THREE from "three";
+import { assetUrl } from "../assets.js";
 
 import { MB } from "./geom.js";
 import { createPartMaterial, PART } from "./partmat.js";
@@ -414,7 +415,7 @@ export function loadVehicleModels(renderer) {
       const { GLTFLoader } =
         await import("three/examples/jsm/loaders/GLTFLoader.js");
       const gltf = await new GLTFLoader().loadAsync(
-        "/assets/city/vehicles.glb",
+        assetUrl("city/vehicles.glb"),
       );
       const geos = {};
       gltf.scene.traverse((o) => {
@@ -439,7 +440,7 @@ export function loadVehicleModels(renderer) {
         geos[o.name] = /^van(_l\d)?$/.test(o.name) ? vanRear(g) : g;
       });
       const atlas = await new THREE.TextureLoader().loadAsync(
-        "/assets/city/tex/vehicles_atlas2.webp",
+        assetUrl("city/tex/vehicles_atlas2.webp"),
       );
       atlas.colorSpace = THREE.SRGBColorSpace;
       atlas.flipY = false;

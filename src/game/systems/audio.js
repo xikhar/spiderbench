@@ -11,8 +11,9 @@
 // Loading is lazy (first user gesture), async and never blocks the game; calls before load are silently dropped.
 import * as THREE from 'three';
 import { nightK } from '../../render/daynight.js';
+import { assetUrl } from '../../assets.js';
 
-const BASE = '/assets/audio/';
+const BASE = assetUrl('audio/');
 const STEMS = ['day', 'night', 'pulseA', 'pulseB'];
 // (user r-orch) orchestral superhero score (tools/audio/orchestral_v2.py --game): three synchronised 20 s loops on one
 // grid (D minor, 96 BPM, 8 bars, same progression), switched at bar lines so every change lands in harmony:
@@ -73,11 +74,11 @@ export function createAudio() {
   }
   async function load() {
     try {
-      man = await (await fetch(BASE + 'manifest.json')).json();
+      man = await (await fetch(assetUrl('audio/manifest.json'))).json();
       // small sprites first (UI / traversal are heard right away), then the loops, then the music stems
-      await Promise.all(Object.entries(man.sprites).map(async ([k, s]) => { bufs[k] = await fetchBuf(s.url); }));
-      await Promise.all(Object.entries(man.loops).map(async ([k, s]) => { lbufs[k] = await fetchBuf(s.url); }));
-      for (const k of STEMS) if (man.music[k]) mbufs[k] = await fetchBuf(man.music[k].url);
+      await Promise.all(Object.entries(man.sprites).map(async ([k, s]) => { bufs[k] = await fetchBuf(assetUrl(s.url)); }));
+      await Promise.all(Object.entries(man.loops).map(async ([k, s]) => { lbufs[k] = await fetchBuf(assetUrl(s.url)); }));
+      for (const k of STEMS) if (man.music[k]) mbufs[k] = await fetchBuf(assetUrl(man.music[k].url));
       startMusic();
       try { for (const [k, f] of Object.entries(ORCH)) orch.bufs[k] = await fetchBuf(BASE + f); startOrch(); }
       catch (e) { console.warn('[audio] orchestral score missing (python3 tools/audio/orchestral_v2.py --game):', e?.message || e); }

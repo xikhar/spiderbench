@@ -1,0 +1,2020 @@
+{
+ "bones": [
+  {
+   "name": "hips",
+   "parent": -1,
+   "head": [
+    0.0,
+    0.9358999729156494,
+    0.0
+   ]
+  },
+  {
+   "name": "spine",
+   "parent": 0,
+   "head": [
+    0.0,
+    1.055899977684021,
+    0.0
+   ]
+  },
+  {
+   "name": "chest",
+   "parent": 1,
+   "head": [
+    0.0,
+    1.2359000444412231,
+    0.0
+   ]
+  },
+  {
+   "name": "neck",
+   "parent": 2,
+   "head": [
+    0.0,
+    1.4258999824523926,
+    0.0
+   ]
+  },
+  {
+   "name": "head",
+   "parent": 3,
+   "head": [
+    0.0,
+    1.5109000205993652,
+    0.004999999888241291
+   ]
+  },
+  {
+   "name": "upperArmL",
+   "parent": 2,
+   "head": [
+    0.1850000023841858,
+    1.3809000253677368,
+    -0.009999999776482582
+   ]
+  },
+  {
+   "name": "forearmL",
+   "parent": 5,
+   "head": [
+    0.21199999749660492,
+    1.1059000492095947,
+    -0.03500000014901161
+   ]
+  },
+  {
+   "name": "handL",
+   "parent": 6,
+   "head": [
+    0.2280000001192093,
+    0.8642749786376953,
+    -0.004999999888241291
+   ]
+  },
+  {
+   "name": "upperArmR",
+   "parent": 2,
+   "head": [
+    -0.1850000023841858,
+    1.3809000253677368,
+    -0.009999999776482582
+   ]
+  },
+  {
+   "name": "forearmR",
+   "parent": 8,
+   "head": [
+    -0.21199999749660492,
+    1.1059000492095947,
+    -0.03500000014901161
+   ]
+  },
+  {
+   "name": "handR",
+   "parent": 9,
+   "head": [
+    -0.2280000001192093,
+    0.8642749786376953,
+    -0.004999999888241291
+   ]
+  },
+  {
+   "name": "thighL",
+   "parent": 0,
+   "head": [
+    0.09300000220537186,
+    0.912024974822998,
+    0.0
+   ]
+  },
+  {
+   "name": "shinL",
+   "parent": 11,
+   "head": [
+    0.09700000286102295,
+    0.49182501435279846,
+    0.012000000104308128
+   ]
+  },
+  {
+   "name": "footL",
+   "parent": 12,
+   "head": [
+    0.10000000149011612,
+    0.08117499947547913,
+    -0.029999999329447746
+   ]
+  },
+  {
+   "name": "thighR",
+   "parent": 0,
+   "head": [
+    -0.09300000220537186,
+    0.912024974822998,
+    0.0
+   ]
+  },
+  {
+   "name": "shinR",
+   "parent": 14,
+   "head": [
+    -0.09700000286102295,
+    0.49182501435279846,
+    0.012000000104308128
+   ]
+  },
+  {
+   "name": "footR",
+   "parent": 15,
+   "head": [
+    -0.10000000149011612,
+    0.08117499947547913,
+    -0.029999999329447746
+   ]
+  },
+  {
+   "name": "prop",
+   "parent": 10,
+   "head": [
+    -0.2280000001192093,
+    0.8642749786376953,
+    -0.004999999888241291
+   ]
+  }
+ ],
+ "regions": {
+  "SKIN": 0,
+  "TOP": 1,
+  "BOTTOM": 2,
+  "SHOES": 3,
+  "HAIR": 4,
+  "OUTER": 5,
+  "ACC": 6,
+  "DARK": 7,
+  "WHITE": 8,
+  "SCREEN": 9,
+  "PHONE": 10,
+  "LIP": 11,
+  "EYE": 12,
+  "HAIRF": 13,
+  "HAIRT": 14
+ },
+ "clips": {
+  "walk": {
+   "row": 0,
+   "len": 32,
+   "fps": 30,
+   "loop": true,
+   "stride": 1.1543
+  },
+  "run": {
+   "row": 32,
+   "len": 19,
+   "fps": 30,
+   "loop": true,
+   "stride": 3.4181
+  },
+  "idle": {
+   "row": 51,
+   "len": 120,
+   "fps": 30,
+   "loop": true
+  },
+  "talk": {
+   "row": 171,
+   "len": 120,
+   "fps": 30,
+   "loop": true
+  },
+  "phone": {
+   "row": 291,
+   "len": 60,
+   "fps": 30,
+   "loop": true
+  },
+  "photo": {
+   "row": 351,
+   "len": 60,
+   "fps": 30,
+   "loop": true
+  },
+  "wave": {
+   "row": 411,
+   "len": 27,
+   "fps": 30,
+   "loop": true
+  },
+  "cheer": {
+   "row": 438,
+   "len": 23,
+   "fps": 30,
+   "loop": true
+  },
+  "point": {
+   "row": 461,
+   "len": 90,
+   "fps": 30,
+   "loop": true
+  },
+  "lookUp": {
+   "row": 551,
+   "len": 120,
+   "fps": 30,
+   "loop": true
+  },
+  "cower": {
+   "row": 671,
+   "len": 18,
+   "fps": 30,
+   "loop": true
+  },
+  "sit": {
+   "row": 689,
+   "len": 150,
+   "fps": 30,
+   "loop": true
+  },
+  "clap": {
+   "row": 839,
+   "len": 14,
+   "fps": 30,
+   "loop": true
+  },
+  "flee": {
+   "row": 853,
+   "len": 19,
+   "fps": 30,
+   "loop": true,
+   "stride": 3.4181
+  },
+  "walkF": {
+   "row": 872,
+   "len": 30,
+   "fps": 30,
+   "loop": true,
+   "stride": 1.0433
+  },
+  "walkCarry": {
+   "row": 902,
+   "len": 32,
+   "fps": 30,
+   "loop": true,
+   "stride": 1.1543
+  },
+  "idlePockets": {
+   "row": 934,
+   "len": 150,
+   "fps": 30,
+   "loop": true
+  },
+  "idleCrossed": {
+   "row": 1084,
+   "len": 150,
+   "fps": 30,
+   "loop": true
+  },
+  "idleHip": {
+   "row": 1234,
+   "len": 150,
+   "fps": 30,
+   "loop": true
+  },
+  "walkPhone": {
+   "row": 1384,
+   "len": 34,
+   "fps": 30,
+   "loop": true,
+   "stride": 0.908
+  },
+  "walkBrisk": {
+   "row": 1418,
+   "len": 29,
+   "fps": 30,
+   "loop": true,
+   "stride": 1.3665
+  },
+  "walkStroll": {
+   "row": 1447,
+   "len": 38,
+   "fps": 30,
+   "loop": true,
+   "stride": 0.8771
+  },
+  "walkOld": {
+   "row": 1485,
+   "len": 40,
+   "fps": 30,
+   "loop": true,
+   "stride": 0.6953
+  },
+  "idleOld": {
+   "row": 1525,
+   "len": 180,
+   "fps": 30,
+   "loop": true
+  },
+  "idleShift": {
+   "row": 1705,
+   "len": 210,
+   "fps": 30,
+   "loop": true
+  },
+  "listen": {
+   "row": 1915,
+   "len": 150,
+   "fps": 30,
+   "loop": true
+  },
+  "talk2": {
+   "row": 2065,
+   "len": 120,
+   "fps": 30,
+   "loop": true
+  }
+ },
+ "variants": [
+  {
+   "name": "m_tee",
+   "female": false,
+   "outer": null,
+   "hat": null,
+   "acc": null,
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 5307,
+     "nt": 5294,
+     "pos": 0,
+     "nrm": 63684,
+     "reg": 127368,
+     "ao": 132676,
+     "si": 137984,
+     "sw": 159212,
+     "uv": 180440,
+     "opt": 201668,
+     "idx": 206976
+    },
+    {
+     "nv": 1682,
+     "nt": 1150,
+     "pos": 238740,
+     "nrm": 258924,
+     "reg": 279108,
+     "ao": 280792,
+     "si": 282476,
+     "sw": 289204,
+     "uv": 295932,
+     "opt": 302660,
+     "idx": 304344
+    },
+    {
+     "nv": 539,
+     "nt": 214,
+     "pos": 311244,
+     "nrm": 317712,
+     "reg": 324180,
+     "ao": 324720,
+     "si": 325260,
+     "sw": 327416,
+     "uv": 329572,
+     "opt": 331728,
+     "idx": 332268
+    }
+   ],
+   "walk": "walk",
+   "scarf": false,
+   "belt": false,
+   "hair": "short",
+   "hairs": [
+    "short",
+    "buzz",
+    "curly"
+   ],
+   "glasses": false,
+   "optHat": "beanie",
+   "optBag": "backpack",
+   "optScarf": false,
+   "tile": 0,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "m_jacket",
+   "female": false,
+   "outer": "jacket",
+   "hat": null,
+   "acc": null,
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 5119,
+     "nt": 5290,
+     "pos": 333552,
+     "nrm": 394980,
+     "reg": 456408,
+     "ao": 461528,
+     "si": 466648,
+     "sw": 487124,
+     "uv": 507600,
+     "opt": 528076,
+     "idx": 533196
+    },
+    {
+     "nv": 1583,
+     "nt": 1150,
+     "pos": 564936,
+     "nrm": 583932,
+     "reg": 602928,
+     "ao": 604512,
+     "si": 606096,
+     "sw": 612428,
+     "uv": 618760,
+     "opt": 625092,
+     "idx": 626676
+    },
+    {
+     "nv": 509,
+     "nt": 215,
+     "pos": 633576,
+     "nrm": 639684,
+     "reg": 645792,
+     "ao": 646304,
+     "si": 646816,
+     "sw": 648852,
+     "uv": 650888,
+     "opt": 652924,
+     "idx": 653436
+    }
+   ],
+   "walk": "walk",
+   "scarf": false,
+   "belt": false,
+   "hair": "short",
+   "hairs": [
+    "short",
+    "buzz",
+    "curly"
+   ],
+   "glasses": false,
+   "optHat": "cap",
+   "optBag": "shoulderbag",
+   "optScarf": true,
+   "tile": 1,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "m_coat",
+   "female": false,
+   "outer": "coat",
+   "hat": null,
+   "acc": null,
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 6174,
+     "nt": 5950,
+     "pos": 654728,
+     "nrm": 728816,
+     "reg": 802904,
+     "ao": 809080,
+     "si": 815256,
+     "sw": 839952,
+     "uv": 864648,
+     "opt": 889344,
+     "idx": 895520
+    },
+    {
+     "nv": 1792,
+     "nt": 1150,
+     "pos": 931220,
+     "nrm": 952724,
+     "reg": 974228,
+     "ao": 976020,
+     "si": 977812,
+     "sw": 984980,
+     "uv": 992148,
+     "opt": 999316,
+     "idx": 1001108
+    },
+    {
+     "nv": 539,
+     "nt": 214,
+     "pos": 1008008,
+     "nrm": 1014476,
+     "reg": 1020944,
+     "ao": 1021484,
+     "si": 1022024,
+     "sw": 1024180,
+     "uv": 1026336,
+     "opt": 1028492,
+     "idx": 1029032
+    }
+   ],
+   "walk": "walk",
+   "scarf": false,
+   "belt": false,
+   "hair": "short",
+   "hairs": [
+    "short",
+    "buzz",
+    "curly"
+   ],
+   "glasses": false,
+   "optHat": "beanie",
+   "optBag": "backpack",
+   "optScarf": true,
+   "tile": 2,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "m_hoodie",
+   "female": false,
+   "outer": null,
+   "hat": "cap",
+   "acc": "backpack",
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 5249,
+     "nt": 5250,
+     "pos": 1030316,
+     "nrm": 1093304,
+     "reg": 1156292,
+     "ao": 1161544,
+     "si": 1166796,
+     "sw": 1187792,
+     "uv": 1208788,
+     "opt": 1229784,
+     "idx": 1235036
+    },
+    {
+     "nv": 1681,
+     "nt": 1150,
+     "pos": 1266536,
+     "nrm": 1286708,
+     "reg": 1306880,
+     "ao": 1308564,
+     "si": 1310248,
+     "sw": 1316972,
+     "uv": 1323696,
+     "opt": 1330420,
+     "idx": 1332104
+    },
+    {
+     "nv": 543,
+     "nt": 215,
+     "pos": 1339004,
+     "nrm": 1345520,
+     "reg": 1352036,
+     "ao": 1352580,
+     "si": 1353124,
+     "sw": 1355296,
+     "uv": 1357468,
+     "opt": 1359640,
+     "idx": 1360184
+    }
+   ],
+   "walk": "walk",
+   "scarf": false,
+   "belt": false,
+   "hair": "short",
+   "hairs": [
+    "short",
+    "buzz",
+    "curly"
+   ],
+   "glasses": false,
+   "optHat": "cap",
+   "optBag": null,
+   "optScarf": false,
+   "tile": 3,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "m_heavy",
+   "female": false,
+   "outer": "puffer",
+   "hat": "beanie",
+   "acc": null,
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 4935,
+     "nt": 5098,
+     "pos": 1361476,
+     "nrm": 1420696,
+     "reg": 1479916,
+     "ao": 1484852,
+     "si": 1489788,
+     "sw": 1509528,
+     "uv": 1529268,
+     "opt": 1549008,
+     "idx": 1553944
+    },
+    {
+     "nv": 1565,
+     "nt": 1149,
+     "pos": 1584532,
+     "nrm": 1603312,
+     "reg": 1622092,
+     "ao": 1623660,
+     "si": 1625228,
+     "sw": 1631488,
+     "uv": 1637748,
+     "opt": 1644008,
+     "idx": 1645576
+    },
+    {
+     "nv": 505,
+     "nt": 215,
+     "pos": 1652472,
+     "nrm": 1658532,
+     "reg": 1664592,
+     "ao": 1665100,
+     "si": 1665608,
+     "sw": 1667628,
+     "uv": 1669648,
+     "opt": 1671668,
+     "idx": 1672176
+    }
+   ],
+   "walk": "walk",
+   "scarf": false,
+   "belt": false,
+   "hair": "bald",
+   "hairs": [
+    "buzz",
+    "short",
+    "bald"
+   ],
+   "glasses": false,
+   "optHat": "beanie",
+   "optBag": "shoulderbag",
+   "optScarf": true,
+   "tile": 4,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "m_suit",
+   "female": false,
+   "outer": "suit",
+   "hat": null,
+   "acc": "briefcase",
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 5145,
+     "nt": 5272,
+     "pos": 1673468,
+     "nrm": 1735208,
+     "reg": 1796948,
+     "ao": 1802096,
+     "si": 1807244,
+     "sw": 1827824,
+     "uv": 1848404,
+     "opt": 1868984,
+     "idx": 1874132
+    },
+    {
+     "nv": 1610,
+     "nt": 1149,
+     "pos": 1905764,
+     "nrm": 1925084,
+     "reg": 1944404,
+     "ao": 1946016,
+     "si": 1947628,
+     "sw": 1954068,
+     "uv": 1960508,
+     "opt": 1966948,
+     "idx": 1968560
+    },
+    {
+     "nv": 518,
+     "nt": 214,
+     "pos": 1975456,
+     "nrm": 1981672,
+     "reg": 1987888,
+     "ao": 1988408,
+     "si": 1988928,
+     "sw": 1991000,
+     "uv": 1993072,
+     "opt": 1995144,
+     "idx": 1995664
+    }
+   ],
+   "walk": "walkCarry",
+   "scarf": false,
+   "belt": false,
+   "hair": "short",
+   "hairs": [
+    "short",
+    "buzz",
+    "curly"
+   ],
+   "glasses": false,
+   "optHat": "cap",
+   "optBag": null,
+   "optScarf": true,
+   "tile": 5,
+   "old": false,
+   "optCup": false
+  },
+  {
+   "name": "m_shorts",
+   "female": false,
+   "outer": null,
+   "hat": "cap",
+   "acc": null,
+   "skirt": null,
+   "legs": "shorts",
+   "lods": [
+    {
+     "nv": 5577,
+     "nt": 5322,
+     "pos": 1996948,
+     "nrm": 2063872,
+     "reg": 2130796,
+     "ao": 2136376,
+     "si": 2141956,
+     "sw": 2164264,
+     "uv": 2186572,
+     "opt": 2208880,
+     "idx": 2214460
+    },
+    {
+     "nv": 1791,
+     "nt": 1150,
+     "pos": 2246392,
+     "nrm": 2267884,
+     "reg": 2289376,
+     "ao": 2291168,
+     "si": 2292960,
+     "sw": 2300124,
+     "uv": 2307288,
+     "opt": 2314452,
+     "idx": 2316244
+    },
+    {
+     "nv": 542,
+     "nt": 215,
+     "pos": 2323144,
+     "nrm": 2329648,
+     "reg": 2336152,
+     "ao": 2336696,
+     "si": 2337240,
+     "sw": 2339408,
+     "uv": 2341576,
+     "opt": 2343744,
+     "idx": 2344288
+    }
+   ],
+   "walk": "walk",
+   "scarf": false,
+   "belt": false,
+   "hair": "short",
+   "hairs": [
+    "short",
+    "buzz",
+    "curly"
+   ],
+   "glasses": false,
+   "optHat": "cap",
+   "optBag": "backpack",
+   "optScarf": false,
+   "tile": 6,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "f_casual",
+   "female": true,
+   "outer": null,
+   "hat": null,
+   "acc": "shoulderbag",
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 5695,
+     "nt": 5484,
+     "pos": 2345580,
+     "nrm": 2413920,
+     "reg": 2482260,
+     "ao": 2487956,
+     "si": 2493652,
+     "sw": 2516432,
+     "uv": 2539212,
+     "opt": 2561992,
+     "idx": 2567688
+    },
+    {
+     "nv": 1774,
+     "nt": 1150,
+     "pos": 2600592,
+     "nrm": 2621880,
+     "reg": 2643168,
+     "ao": 2644944,
+     "si": 2646720,
+     "sw": 2653816,
+     "uv": 2660912,
+     "opt": 2668008,
+     "idx": 2669784
+    },
+    {
+     "nv": 557,
+     "nt": 215,
+     "pos": 2676684,
+     "nrm": 2683368,
+     "reg": 2690052,
+     "ao": 2690612,
+     "si": 2691172,
+     "sw": 2693400,
+     "uv": 2695628,
+     "opt": 2697856,
+     "idx": 2698416
+    }
+   ],
+   "walk": "walkF",
+   "scarf": false,
+   "belt": false,
+   "hair": "long",
+   "hairs": [
+    "long",
+    "curly",
+    "bun"
+   ],
+   "glasses": false,
+   "optHat": "beanie",
+   "optBag": null,
+   "optScarf": false,
+   "tile": 7,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "f_coat",
+   "female": true,
+   "outer": "coat",
+   "hat": null,
+   "acc": "handbag",
+   "skirt": null,
+   "legs": "tights",
+   "lods": [
+    {
+     "nv": 6514,
+     "nt": 5950,
+     "pos": 2699708,
+     "nrm": 2777876,
+     "reg": 2856044,
+     "ao": 2862560,
+     "si": 2869076,
+     "sw": 2895132,
+     "uv": 2921188,
+     "opt": 2947244,
+     "idx": 2953760
+    },
+    {
+     "nv": 1949,
+     "nt": 1150,
+     "pos": 2989460,
+     "nrm": 3012848,
+     "reg": 3036236,
+     "ao": 3038188,
+     "si": 3040140,
+     "sw": 3047936,
+     "uv": 3055732,
+     "opt": 3063528,
+     "idx": 3065480
+    },
+    {
+     "nv": 563,
+     "nt": 214,
+     "pos": 3072380,
+     "nrm": 3079136,
+     "reg": 3085892,
+     "ao": 3086456,
+     "si": 3087020,
+     "sw": 3089272,
+     "uv": 3091524,
+     "opt": 3093776,
+     "idx": 3094340
+    }
+   ],
+   "walk": "walkCarry",
+   "scarf": false,
+   "belt": false,
+   "hair": "bun",
+   "hairs": [
+    "bun",
+    "long",
+    "ponytail"
+   ],
+   "glasses": false,
+   "optHat": "beanie",
+   "optBag": null,
+   "optScarf": true,
+   "tile": 8,
+   "old": false,
+   "optCup": false
+  },
+  {
+   "name": "f_skirt",
+   "female": true,
+   "outer": null,
+   "hat": null,
+   "acc": "shoulderbag",
+   "skirt": "skirt",
+   "legs": "bare",
+   "lods": [
+    {
+     "nv": 5662,
+     "nt": 5628,
+     "pos": 3095624,
+     "nrm": 3163568,
+     "reg": 3231512,
+     "ao": 3237176,
+     "si": 3242840,
+     "sw": 3265488,
+     "uv": 3288136,
+     "opt": 3310784,
+     "idx": 3316448
+    },
+    {
+     "nv": 1762,
+     "nt": 1150,
+     "pos": 3350216,
+     "nrm": 3371360,
+     "reg": 3392504,
+     "ao": 3394268,
+     "si": 3396032,
+     "sw": 3403080,
+     "uv": 3410128,
+     "opt": 3417176,
+     "idx": 3418940
+    },
+    {
+     "nv": 533,
+     "nt": 213,
+     "pos": 3425840,
+     "nrm": 3432236,
+     "reg": 3438632,
+     "ao": 3439168,
+     "si": 3439704,
+     "sw": 3441836,
+     "uv": 3443968,
+     "opt": 3446100,
+     "idx": 3446636
+    }
+   ],
+   "walk": "walkF",
+   "scarf": false,
+   "belt": false,
+   "hair": "ponytail",
+   "hairs": [
+    "ponytail",
+    "bun",
+    "bob"
+   ],
+   "glasses": false,
+   "optHat": "cap",
+   "optBag": null,
+   "optScarf": false,
+   "tile": 9,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "f_puffer",
+   "female": true,
+   "outer": "puffer",
+   "hat": "beanie",
+   "acc": null,
+   "skirt": null,
+   "legs": "tights",
+   "lods": [
+    {
+     "nv": 6033,
+     "nt": 5950,
+     "pos": 3447916,
+     "nrm": 3520312,
+     "reg": 3592708,
+     "ao": 3598744,
+     "si": 3604780,
+     "sw": 3628912,
+     "uv": 3653044,
+     "opt": 3677176,
+     "idx": 3683212
+    },
+    {
+     "nv": 1793,
+     "nt": 1150,
+     "pos": 3718912,
+     "nrm": 3740428,
+     "reg": 3761944,
+     "ao": 3763740,
+     "si": 3765536,
+     "sw": 3772708,
+     "uv": 3779880,
+     "opt": 3787052,
+     "idx": 3788848
+    },
+    {
+     "nv": 539,
+     "nt": 215,
+     "pos": 3795748,
+     "nrm": 3802216,
+     "reg": 3808684,
+     "ao": 3809224,
+     "si": 3809764,
+     "sw": 3811920,
+     "uv": 3814076,
+     "opt": 3816232,
+     "idx": 3816772
+    }
+   ],
+   "walk": "walkF",
+   "scarf": false,
+   "belt": false,
+   "hair": "long",
+   "hairs": [
+    "long",
+    "bob",
+    "curly"
+   ],
+   "glasses": false,
+   "optHat": "beanie",
+   "optBag": "shoulderbag",
+   "optScarf": true,
+   "tile": 10,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "f_dress",
+   "female": true,
+   "outer": null,
+   "hat": null,
+   "acc": "handbag",
+   "skirt": "dress",
+   "legs": "bare",
+   "lods": [
+    {
+     "nv": 5836,
+     "nt": 5780,
+     "pos": 3818064,
+     "nrm": 3888096,
+     "reg": 3958128,
+     "ao": 3963964,
+     "si": 3969800,
+     "sw": 3993144,
+     "uv": 4016488,
+     "opt": 4039832,
+     "idx": 4045668
+    },
+    {
+     "nv": 1773,
+     "nt": 1150,
+     "pos": 4080348,
+     "nrm": 4101624,
+     "reg": 4122900,
+     "ao": 4124676,
+     "si": 4126452,
+     "sw": 4133544,
+     "uv": 4140636,
+     "opt": 4147728,
+     "idx": 4149504
+    },
+    {
+     "nv": 555,
+     "nt": 215,
+     "pos": 4156404,
+     "nrm": 4163064,
+     "reg": 4169724,
+     "ao": 4170280,
+     "si": 4170836,
+     "sw": 4173056,
+     "uv": 4175276,
+     "opt": 4177496,
+     "idx": 4178052
+    }
+   ],
+   "walk": "walkCarry",
+   "scarf": false,
+   "belt": false,
+   "hair": "bob",
+   "hairs": [
+    "bob",
+    "curly",
+    "long"
+   ],
+   "glasses": false,
+   "optHat": "beanie",
+   "optBag": null,
+   "optScarf": false,
+   "tile": 11,
+   "old": false,
+   "optCup": false
+  },
+  {
+   "name": "f_jacket",
+   "female": true,
+   "outer": "jacket",
+   "hat": null,
+   "acc": "backpack",
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 6476,
+     "nt": 5950,
+     "pos": 4179344,
+     "nrm": 4257056,
+     "reg": 4334768,
+     "ao": 4341244,
+     "si": 4347720,
+     "sw": 4373624,
+     "uv": 4399528,
+     "opt": 4425432,
+     "idx": 4431908
+    },
+    {
+     "nv": 1944,
+     "nt": 1150,
+     "pos": 4467608,
+     "nrm": 4490936,
+     "reg": 4514264,
+     "ao": 4516208,
+     "si": 4518152,
+     "sw": 4525928,
+     "uv": 4533704,
+     "opt": 4541480,
+     "idx": 4543424
+    },
+    {
+     "nv": 561,
+     "nt": 215,
+     "pos": 4550324,
+     "nrm": 4557056,
+     "reg": 4563788,
+     "ao": 4564352,
+     "si": 4564916,
+     "sw": 4567160,
+     "uv": 4569404,
+     "opt": 4571648,
+     "idx": 4572212
+    }
+   ],
+   "walk": "walkF",
+   "scarf": false,
+   "belt": false,
+   "hair": "ponytail",
+   "hairs": [
+    "ponytail",
+    "long",
+    "bun"
+   ],
+   "glasses": false,
+   "optHat": "cap",
+   "optBag": null,
+   "optScarf": true,
+   "tile": 12,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "m_vest",
+   "female": false,
+   "outer": "vest",
+   "hat": null,
+   "acc": null,
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 5455,
+     "nt": 5222,
+     "pos": 4573504,
+     "nrm": 4638964,
+     "reg": 4704424,
+     "ao": 4709880,
+     "si": 4715336,
+     "sw": 4737156,
+     "uv": 4758976,
+     "opt": 4780796,
+     "idx": 4786252
+    },
+    {
+     "nv": 1740,
+     "nt": 1149,
+     "pos": 4817584,
+     "nrm": 4838464,
+     "reg": 4859344,
+     "ao": 4861084,
+     "si": 4862824,
+     "sw": 4869784,
+     "uv": 4876744,
+     "opt": 4883704,
+     "idx": 4885444
+    },
+    {
+     "nv": 535,
+     "nt": 214,
+     "pos": 4892340,
+     "nrm": 4898760,
+     "reg": 4905180,
+     "ao": 4905716,
+     "si": 4906252,
+     "sw": 4908392,
+     "uv": 4910532,
+     "opt": 4912672,
+     "idx": 4913208
+    }
+   ],
+   "walk": "walk",
+   "scarf": false,
+   "belt": false,
+   "hair": "buzz",
+   "hairs": [
+    "buzz",
+    "short",
+    "curly"
+   ],
+   "glasses": false,
+   "optHat": "cap",
+   "optBag": "shoulderbag",
+   "optScarf": false,
+   "tile": 13,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "m_glasses",
+   "female": false,
+   "outer": null,
+   "hat": null,
+   "acc": "shoulderbag",
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 4726,
+     "nt": 4814,
+     "pos": 4914492,
+     "nrm": 4971204,
+     "reg": 5027916,
+     "ao": 5032644,
+     "si": 5037372,
+     "sw": 5056276,
+     "uv": 5075180,
+     "opt": 5094084,
+     "idx": 5098812
+    },
+    {
+     "nv": 1619,
+     "nt": 1150,
+     "pos": 5127696,
+     "nrm": 5147124,
+     "reg": 5166552,
+     "ao": 5168172,
+     "si": 5169792,
+     "sw": 5176268,
+     "uv": 5182744,
+     "opt": 5189220,
+     "idx": 5190840
+    },
+    {
+     "nv": 506,
+     "nt": 215,
+     "pos": 5197740,
+     "nrm": 5203812,
+     "reg": 5209884,
+     "ao": 5210392,
+     "si": 5210900,
+     "sw": 5212924,
+     "uv": 5214948,
+     "opt": 5216972,
+     "idx": 5217480
+    }
+   ],
+   "walk": "walk",
+   "scarf": false,
+   "belt": false,
+   "hair": "curly",
+   "hairs": [
+    "curly",
+    "short",
+    "buzz"
+   ],
+   "glasses": true,
+   "optHat": "beanie",
+   "optBag": null,
+   "optScarf": false,
+   "tile": 14,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "f_trench",
+   "female": true,
+   "outer": "coat",
+   "hat": null,
+   "acc": "handbag",
+   "skirt": null,
+   "legs": "tights",
+   "lods": [
+    {
+     "nv": 6116,
+     "nt": 5950,
+     "pos": 5218772,
+     "nrm": 5292164,
+     "reg": 5365556,
+     "ao": 5371672,
+     "si": 5377788,
+     "sw": 5402252,
+     "uv": 5426716,
+     "opt": 5451180,
+     "idx": 5457296
+    },
+    {
+     "nv": 1821,
+     "nt": 1150,
+     "pos": 5492996,
+     "nrm": 5514848,
+     "reg": 5536700,
+     "ao": 5538524,
+     "si": 5540348,
+     "sw": 5547632,
+     "uv": 5554916,
+     "opt": 5562200,
+     "idx": 5564024
+    },
+    {
+     "nv": 542,
+     "nt": 215,
+     "pos": 5570924,
+     "nrm": 5577428,
+     "reg": 5583932,
+     "ao": 5584476,
+     "si": 5585020,
+     "sw": 5587188,
+     "uv": 5589356,
+     "opt": 5591524,
+     "idx": 5592068
+    }
+   ],
+   "walk": "walkCarry",
+   "scarf": false,
+   "belt": true,
+   "hair": "bob",
+   "hairs": [
+    "bob",
+    "curly",
+    "long"
+   ],
+   "glasses": true,
+   "optHat": "cap",
+   "optBag": null,
+   "optScarf": true,
+   "tile": 15,
+   "old": false,
+   "optCup": false
+  },
+  {
+   "name": "f_curly",
+   "female": true,
+   "outer": null,
+   "hat": null,
+   "acc": "backpack",
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 6268,
+     "nt": 5950,
+     "pos": 5593360,
+     "nrm": 5668576,
+     "reg": 5743792,
+     "ao": 5750060,
+     "si": 5756328,
+     "sw": 5781400,
+     "uv": 5806472,
+     "opt": 5831544,
+     "idx": 5837812
+    },
+    {
+     "nv": 1878,
+     "nt": 1150,
+     "pos": 5873512,
+     "nrm": 5896048,
+     "reg": 5918584,
+     "ao": 5920464,
+     "si": 5922344,
+     "sw": 5929856,
+     "uv": 5937368,
+     "opt": 5944880,
+     "idx": 5946760
+    },
+    {
+     "nv": 580,
+     "nt": 215,
+     "pos": 5953660,
+     "nrm": 5960620,
+     "reg": 5967580,
+     "ao": 5968160,
+     "si": 5968740,
+     "sw": 5971060,
+     "uv": 5973380,
+     "opt": 5975700,
+     "idx": 5976280
+    }
+   ],
+   "walk": "walkF",
+   "scarf": false,
+   "belt": false,
+   "hair": "curly",
+   "hairs": [
+    "curly",
+    "long",
+    "bun"
+   ],
+   "glasses": false,
+   "optHat": "beanie",
+   "optBag": null,
+   "optScarf": false,
+   "tile": 16,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "m_suit2",
+   "female": false,
+   "outer": "suit",
+   "hat": null,
+   "acc": null,
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 6142,
+     "nt": 5902,
+     "pos": 5977572,
+     "nrm": 6051276,
+     "reg": 6124980,
+     "ao": 6131124,
+     "si": 6137268,
+     "sw": 6161836,
+     "uv": 6186404,
+     "opt": 6210972,
+     "idx": 6217116
+    },
+    {
+     "nv": 1793,
+     "nt": 1149,
+     "pos": 6252528,
+     "nrm": 6274044,
+     "reg": 6295560,
+     "ao": 6297356,
+     "si": 6299152,
+     "sw": 6306324,
+     "uv": 6313496,
+     "opt": 6320668,
+     "idx": 6322464
+    },
+    {
+     "nv": 549,
+     "nt": 215,
+     "pos": 6329360,
+     "nrm": 6335948,
+     "reg": 6342536,
+     "ao": 6343088,
+     "si": 6343640,
+     "sw": 6345836,
+     "uv": 6348032,
+     "opt": 6350228,
+     "idx": 6350780
+    }
+   ],
+   "walk": "walk",
+   "scarf": false,
+   "belt": false,
+   "hair": "short",
+   "hairs": [
+    "short",
+    "buzz",
+    "curly"
+   ],
+   "glasses": false,
+   "optHat": "cap",
+   "optBag": "backpack",
+   "optScarf": true,
+   "tile": 17,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "m_overcoat",
+   "female": false,
+   "outer": "coat",
+   "hat": null,
+   "acc": null,
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 6174,
+     "nt": 5950,
+     "pos": 6352072,
+     "nrm": 6426160,
+     "reg": 6500248,
+     "ao": 6506424,
+     "si": 6512600,
+     "sw": 6537296,
+     "uv": 6561992,
+     "opt": 6586688,
+     "idx": 6592864
+    },
+    {
+     "nv": 1792,
+     "nt": 1150,
+     "pos": 6628564,
+     "nrm": 6650068,
+     "reg": 6671572,
+     "ao": 6673364,
+     "si": 6675156,
+     "sw": 6682324,
+     "uv": 6689492,
+     "opt": 6696660,
+     "idx": 6698452
+    },
+    {
+     "nv": 541,
+     "nt": 214,
+     "pos": 6705352,
+     "nrm": 6711844,
+     "reg": 6718336,
+     "ao": 6718880,
+     "si": 6719424,
+     "sw": 6721588,
+     "uv": 6723752,
+     "opt": 6725916,
+     "idx": 6726460
+    }
+   ],
+   "walk": "walk",
+   "scarf": true,
+   "belt": false,
+   "hair": "buzz",
+   "hairs": [
+    "buzz",
+    "short",
+    "curly"
+   ],
+   "glasses": true,
+   "optHat": "beanie",
+   "optBag": "backpack",
+   "optScarf": false,
+   "tile": 18,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "f_blazer",
+   "female": true,
+   "outer": "suit",
+   "hat": null,
+   "acc": "handbag",
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 5931,
+     "nt": 5950,
+     "pos": 6727744,
+     "nrm": 6798916,
+     "reg": 6870088,
+     "ao": 6876020,
+     "si": 6881952,
+     "sw": 6905676,
+     "uv": 6929400,
+     "opt": 6953124,
+     "idx": 6959056
+    },
+    {
+     "nv": 1756,
+     "nt": 1150,
+     "pos": 6994756,
+     "nrm": 7015828,
+     "reg": 7036900,
+     "ao": 7038656,
+     "si": 7040412,
+     "sw": 7047436,
+     "uv": 7054460,
+     "opt": 7061484,
+     "idx": 7063240
+    },
+    {
+     "nv": 540,
+     "nt": 215,
+     "pos": 7070140,
+     "nrm": 7076620,
+     "reg": 7083100,
+     "ao": 7083640,
+     "si": 7084180,
+     "sw": 7086340,
+     "uv": 7088500,
+     "opt": 7090660,
+     "idx": 7091200
+    }
+   ],
+   "walk": "walkCarry",
+   "scarf": false,
+   "belt": false,
+   "hair": "bun",
+   "hairs": [
+    "bun",
+    "curly",
+    "long"
+   ],
+   "glasses": false,
+   "optHat": "beanie",
+   "optBag": null,
+   "optScarf": true,
+   "tile": 19,
+   "old": false,
+   "optCup": false
+  },
+  {
+   "name": "f_umbrella",
+   "female": true,
+   "outer": "coat",
+   "hat": null,
+   "acc": "umbrella",
+   "skirt": null,
+   "legs": "tights",
+   "lods": [
+    {
+     "nv": 6221,
+     "nt": 5950,
+     "pos": 7092492,
+     "nrm": 7167144,
+     "reg": 7241796,
+     "ao": 7248020,
+     "si": 7254244,
+     "sw": 7279128,
+     "uv": 7304012,
+     "opt": 7328896,
+     "idx": 7335120
+    },
+    {
+     "nv": 1858,
+     "nt": 1150,
+     "pos": 7370820,
+     "nrm": 7393116,
+     "reg": 7415412,
+     "ao": 7417272,
+     "si": 7419132,
+     "sw": 7426564,
+     "uv": 7433996,
+     "opt": 7441428,
+     "idx": 7443288
+    },
+    {
+     "nv": 560,
+     "nt": 213,
+     "pos": 7450188,
+     "nrm": 7456908,
+     "reg": 7463628,
+     "ao": 7464188,
+     "si": 7464748,
+     "sw": 7466988,
+     "uv": 7469228,
+     "opt": 7471468,
+     "idx": 7472028
+    }
+   ],
+   "walk": "walkCarry",
+   "scarf": false,
+   "belt": true,
+   "hair": "long",
+   "hairs": [
+    "long",
+    "bun",
+    "ponytail"
+   ],
+   "glasses": false,
+   "optHat": "beanie",
+   "optBag": null,
+   "optScarf": true,
+   "tile": 20,
+   "old": false,
+   "optCup": false
+  },
+  {
+   "name": "m_rain",
+   "female": false,
+   "outer": "jacket",
+   "hat": null,
+   "acc": "umbrella",
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 4910,
+     "nt": 5082,
+     "pos": 7473308,
+     "nrm": 7532228,
+     "reg": 7591148,
+     "ao": 7596060,
+     "si": 7600972,
+     "sw": 7620612,
+     "uv": 7640252,
+     "opt": 7659892,
+     "idx": 7664804
+    },
+    {
+     "nv": 1581,
+     "nt": 1150,
+     "pos": 7695296,
+     "nrm": 7714268,
+     "reg": 7733240,
+     "ao": 7734824,
+     "si": 7736408,
+     "sw": 7742732,
+     "uv": 7749056,
+     "opt": 7755380,
+     "idx": 7756964
+    },
+    {
+     "nv": 509,
+     "nt": 214,
+     "pos": 7763864,
+     "nrm": 7769972,
+     "reg": 7776080,
+     "ao": 7776592,
+     "si": 7777104,
+     "sw": 7779140,
+     "uv": 7781176,
+     "opt": 7783212,
+     "idx": 7783724
+    }
+   ],
+   "walk": "walkCarry",
+   "scarf": false,
+   "belt": false,
+   "hair": "short",
+   "hairs": [
+    "short",
+    "buzz",
+    "curly"
+   ],
+   "glasses": false,
+   "optHat": "cap",
+   "optBag": null,
+   "optScarf": true,
+   "tile": 21,
+   "old": false,
+   "optCup": false
+  },
+  {
+   "name": "f_tote",
+   "female": true,
+   "outer": null,
+   "hat": null,
+   "acc": "tote",
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 5580,
+     "nt": 5580,
+     "pos": 7785008,
+     "nrm": 7851968,
+     "reg": 7918928,
+     "ao": 7924508,
+     "si": 7930088,
+     "sw": 7952408,
+     "uv": 7974728,
+     "opt": 7997048,
+     "idx": 8002628
+    },
+    {
+     "nv": 1722,
+     "nt": 1149,
+     "pos": 8036108,
+     "nrm": 8056772,
+     "reg": 8077436,
+     "ao": 8079160,
+     "si": 8080884,
+     "sw": 8087772,
+     "uv": 8094660,
+     "opt": 8101548,
+     "idx": 8103272
+    },
+    {
+     "nv": 532,
+     "nt": 215,
+     "pos": 8110168,
+     "nrm": 8116552,
+     "reg": 8122936,
+     "ao": 8123468,
+     "si": 8124000,
+     "sw": 8126128,
+     "uv": 8128256,
+     "opt": 8130384,
+     "idx": 8130916
+    }
+   ],
+   "walk": "walkF",
+   "scarf": true,
+   "belt": false,
+   "hair": "ponytail",
+   "hairs": [
+    "ponytail",
+    "bob",
+    "curly"
+   ],
+   "glasses": false,
+   "optHat": "beanie",
+   "optBag": null,
+   "optScarf": false,
+   "tile": 22,
+   "old": false,
+   "optCup": true
+  },
+  {
+   "name": "m_elder",
+   "female": false,
+   "outer": "coat",
+   "hat": "cap",
+   "acc": null,
+   "skirt": null,
+   "legs": "pants",
+   "lods": [
+    {
+     "nv": 6151,
+     "nt": 5950,
+     "pos": 8132208,
+     "nrm": 8206020,
+     "reg": 8279832,
+     "ao": 8285984,
+     "si": 8292136,
+     "sw": 8316740,
+     "uv": 8341344,
+     "opt": 8365948,
+     "idx": 8372100
+    },
+    {
+     "nv": 1800,
+     "nt": 1150,
+     "pos": 8407800,
+     "nrm": 8429400,
+     "reg": 8451000,
+     "ao": 8452800,
+     "si": 8454600,
+     "sw": 8461800,
+     "uv": 8469000,
+     "opt": 8476200,
+     "idx": 8478000
+    },
+    {
+     "nv": 557,
+     "nt": 215,
+     "pos": 8484900,
+     "nrm": 8491584,
+     "reg": 8498268,
+     "ao": 8498828,
+     "si": 8499388,
+     "sw": 8501616,
+     "uv": 8503844,
+     "opt": 8506072,
+     "idx": 8506632
+    }
+   ],
+   "walk": "walk",
+   "scarf": false,
+   "belt": false,
+   "hair": "short",
+   "hairs": [
+    "short",
+    "buzz",
+    "curly"
+   ],
+   "glasses": true,
+   "optHat": "cap",
+   "optBag": "backpack",
+   "optScarf": true,
+   "tile": 23,
+   "old": true,
+   "optCup": true
+  }
+ ],
+ "frames": 2185,
+ "nb": 18,
+ "legK": 0.955,
+ "legY": 0.98,
+ "bake": {
+  "file": "people_bake",
+  "nc": 6,
+  "nr": 4,
+  "tile": 320
+ },
+ "dog": {
+  "lods": [
+   {
+    "nv": 512,
+    "nt": 948,
+    "pos": 8507924,
+    "nrm": 8514068,
+    "reg": 8520212,
+    "ao": 8520724,
+    "si": 8521236,
+    "sw": 8523284,
+    "idx": 8525332
+   },
+   {
+    "nv": 180,
+    "nt": 284,
+    "pos": 8531020,
+    "nrm": 8533180,
+    "reg": 8535340,
+    "ao": 8535520,
+    "si": 8535700,
+    "sw": 8536420,
+    "idx": 8537140
+   }
+  ],
+  "parts": {
+   "body": 0,
+   "legFL": 11,
+   "legFR": 14,
+   "legBL": 12,
+   "legBR": 15,
+   "tail": 13,
+   "head": 4
+  },
+  "pivots": {
+   "legFL": [
+    0.085,
+    0.43,
+    0.2
+   ],
+   "legFR": [
+    -0.085,
+    0.43,
+    0.2
+   ],
+   "legBL": [
+    0.08,
+    0.45,
+    -0.24
+   ],
+   "legBR": [
+    -0.08,
+    0.45,
+    -0.24
+   ],
+   "tail": [
+    0,
+    0.5,
+    -0.33
+   ],
+   "head": [
+    0,
+    0.55,
+    0.3
+   ]
+  }
+ },
+ "anim": 8538844
+}

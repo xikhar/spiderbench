@@ -1,0 +1,7 @@
+/* OWNER: systems engineer. Local UI fonts: nothing is fetched from the internet.
+   Spiderbench Condensed = Barlow Condensed ExtraBold (upright, de-slanted from the OFL italic master; see OFL-Barlow.txt).
+   Spiderbench Sans      = Manrope variable 200-800 (OFL, see OFL-Manrope.txt).
+   'Barlow Condensed' is declared too so older stacks (HUD / canvas labels) resolve to the local file. */
+@font-face { font-family: 'Spiderbench Condensed'; src: url('spiderbench-condensed-800.ttf') format('truetype'); font-weight: 100 900; font-style: normal; font-display: block; }
+@font-face { font-family: 'Barlow Condensed'; src: local('Barlow Condensed ExtraBold'), url('spiderbench-condensed-800.ttf') format('truetype'); font-weight: 100 900; font-style: normal; font-display: block; }
+@font-face { font-family: 'Spiderbench Sans'; src: url('manrope-variable.ttf') format('truetype'); font-weight: 200 800; font-style: normal; font-display: block; }
