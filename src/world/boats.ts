@@ -10,7 +10,7 @@ import * as THREE from "three";
 import { G, onLand, shoreX, mulberry32 } from "./layout.ts";
 import { farShoreHeight } from "./farshore.ts";
 import { REFL_LAYER } from "./waterLayers.ts";
-import { nightK } from "../render/dayNight.ts";
+import { nightK } from "../render/daynight.ts";
 
 const boatsShader = lazyShaderSections(() => boatsShaderSource);
 

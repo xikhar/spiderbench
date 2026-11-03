@@ -47,8 +47,8 @@ import {
 } from "./layout.ts";
 import { createGrassMaterial } from "./ground.ts"; // (r2) the park lawn shader (lawn variant) for every coast / plaza / Battery lawn
 import { STYLE, LAYER } from "./facade.ts";
-import { nightK, nightOnly } from "../render/dayNight.ts"; // (r2) esplanade lamp pools at night
-import { cityLights } from "../render/cityLights.ts"; // (night) the esplanade lamps are real lights (props.ts lamp pool items)
+import { nightK, nightOnly } from "../render/daynight.ts"; // (r2) esplanade lamp pools at night
+import { cityLights } from "../render/citylights.ts"; // (night) the esplanade lamps are real lights (props.ts lamp pool items)
 import { approachRects } from "./bridges.ts";
 import { highwayRuns, HW } from "./highway.ts";
 import { FAR_LANDS, FAR_Y, farShoreHeight } from "./farshore.ts";

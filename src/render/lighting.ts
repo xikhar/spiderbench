@@ -25,7 +25,7 @@ import { getQuality } from "./quality.ts";
 import { createSky } from "./sky.ts";
 import { CascadedShadowMaps } from "./cascadedShadows.ts";
 import { installSurfaceChunks, ambShared } from "./surface.ts";
-import { cityLights, installCityLightChunks } from "./cityLights.ts"; // (night) real local lights
+import { cityLights, installCityLightChunks } from "./citylights.ts"; // (night) real local lights
 import { sunTransmittance } from "./atmosphere.ts";
 
 // (daynight) ONE shared global for the night city (src/render/dayNight.ts): 0 = day .. 1 = full night. Also exposed as
@@ -36,7 +36,7 @@ import {
   screenK,
   syncNightMeshes,
   tickNightMeshes,
-} from "./dayNight.ts";
+} from "./daynight.ts";
 
 const lightingShader = lazyShaderSections(() => lightingShaderSource);
 

@@ -1,7 +1,7 @@
 // Shared material for props and vehicles. Vertex part IDs select surface
 // properties; instance attributes provide paint tint and traffic-light state.
 import * as THREE from "three";
-import { nightK } from "../render/dayNight.ts";
+import { nightK } from "../render/daynight.ts";
 import { injectShader } from "../render/shaderInjection.ts";
 import { lazyShaderSections } from "../shaderSections.ts";
 import partMaterialShaderSource from "./shaders/glsl/part-materials.glsl?raw";

@@ -13,13 +13,13 @@ import facadeFragmentShaderDeclarations from "./shaders/fragment/facade-frag_dec
 //  - reflective glass (low roughness / curtain-wall metalness so scene.environment reflections apply),
 //  - ground-floor storefronts (piers, lit shop interiors, signage band from atlas, roll-down shutters),
 //  - sills / lintels / belt courses / rain streaks, distance-based anti-aliasing to average colour.
-import { nightK, dnTime } from "../render/dayNight.ts"; // (daynight)
+import { nightK, dnTime } from "../render/daynight.ts"; // (daynight)
 import {
   glassMirrorShared,
   GLSL_GLASS_MIRROR_DECL,
 } from "../render/glassmirror.ts"; // (render r-refl) player / web / near peds in the glass
 import * as THREE from "three";
-import { cityLights } from "../render/cityLights.ts";
+import { cityLights } from "../render/citylights.ts";
 
 const facadeShader = lazyShaderSections(() => facadeShaderSource);
 // (night) shop fronts light the sidewalk

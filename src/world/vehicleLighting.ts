@@ -110,7 +110,7 @@ export function createVehicleContactShadows(scene, max = 1500) {
 // (daynight, lighting2 r4) headlight light pools on the road ahead of moving cars at night: one additive instanced decal
 // (a soft cone-shaped gradient), drawn only while nightK > 0 (no draw call by day). Same push API as the contact AO.
 //   const hl = createHeadlightPools(scene, max); per frame: hl.begin(); hl.push(x, z, ry, len); hl.end();
-import { nightK, nightOnly } from "../render/dayNight.ts";
+import { nightK, nightOnly } from "../render/daynight.ts";
 function beamTexture() {
   const W = 64,
     H = 128,

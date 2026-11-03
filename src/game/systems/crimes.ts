@@ -22,7 +22,7 @@ import { on, emit } from "./events.ts";
 import { roadGraph } from "./route.ts";
 import { loadVehicleModels } from "../../world/vehicles.ts";
 import { createPartMaterial } from "../../world/partMaterials.ts";
-import { createActors } from "./crimeActors.ts";
+import { createActors } from "./crimeactors.ts";
 
 const TYPES = {
   mugging: {

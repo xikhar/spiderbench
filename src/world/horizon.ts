@@ -13,7 +13,7 @@ import { mulberry32, hash2, onLand, G } from "./layout.ts";
 import { farShoreHeight } from "./farshore.ts";
 
 import { REFL_LAYER } from "./waterLayers.ts";
-import { nightK } from "../render/dayNight.ts";
+import { nightK } from "../render/daynight.ts";
 
 const horizonShader = lazyShaderSections(() => horizonShaderSource);
 // (night)

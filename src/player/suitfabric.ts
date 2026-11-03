@@ -18,8 +18,8 @@ import suitfabricShaderSource from "./shaders/glsl/suitfabric.glsl?raw";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
 import { addShaderPatch } from "../render/materials.ts";
-import { nightK } from "../render/dayNight.ts";
-import { cityAmbient } from "../render/cityLights.ts";
+import { nightK } from "../render/daynight.ts";
+import { cityAmbient } from "../render/citylights.ts";
 
 const suitfabricShader = lazyShaderSections(() => suitfabricShaderSource);
 

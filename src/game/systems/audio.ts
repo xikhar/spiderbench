@@ -11,7 +11,7 @@
 // Buses: master -> {music (duck + pause low-pass), world (pause muffle) -> {sfx, ambience}, ui}; volumes from settings.
 // Loading is lazy (first user gesture), async and never blocks the game; calls before load are silently dropped.
 import * as THREE from "three";
-import { nightK } from "../../render/dayNight.ts";
+import { nightK } from "../../render/daynight.ts";
 import { assetUrl } from "../../assets.ts";
 
 const BASE = assetUrl("audio/");

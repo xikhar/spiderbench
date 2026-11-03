@@ -24,8 +24,8 @@ import { registry, curbBlocked } from "./registry.ts";
 import { createVehicleContactShadows, createHeadlightPools } from "../vehicleLighting.ts"; // (daynight) + headlight pools // (street r7) contact AO decals under cars
 import { cascadedShadowState, SHADOW_PROXY_LAYER } from "../../render/cascadedShadows.ts"; // (perf r2) shadow proxies
 import { isPerformanceFeatureDisabled } from "../performanceFlags.ts"; // (perf r2) A/B switch
-import { cityLights } from "../../render/cityLights.ts"; // (night) real headlight / tail-light lighting
-import { nightK } from "../../render/dayNight.ts"; // (night)
+import { cityLights } from "../../render/citylights.ts"; // (night) real headlight / tail-light lighting
+import { nightK } from "../../render/daynight.ts"; // (night)
 
 const RA = 640; // streaming radius (m)
 const PARK_R = 500; // parked cars exist on links within this radius ((citylife r2) 420 -> 500: no pop-in seen from rooftops, inside the haze)

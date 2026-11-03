@@ -23,8 +23,8 @@
 import { lazyShaderSections } from "../shaderSections.ts";
 import bridgesShaderSource from "./shaders/glsl/bridges.glsl?raw";
 import { injectShader } from "../render/shaderInjection.ts";
-import { nightK, nightOnly } from "../render/dayNight.ts"; // (daynight)
-import { cityLights } from "../render/cityLights.ts"; // (night) real deck-lamp lighting
+import { nightK, nightOnly } from "../render/daynight.ts"; // (daynight)
+import { cityLights } from "../render/citylights.ts"; // (night) real deck-lamp lighting
 import * as THREE from "three";
 import { G, BRIDGES, shoreX, onRoad, streetsAt, addCurbCut } from "./layout.ts";
 import { FAR_LANDS, FAR_Y } from "./farshore.ts";

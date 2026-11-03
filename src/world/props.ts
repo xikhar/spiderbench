@@ -27,13 +27,13 @@ import { buildRoads, streetDir, mapPhase } from "./npc/roads.ts"; // (citylife j
 import { registry } from "./npc/registry.ts";
 import { MeshBuilder, createTransformMatrix, linearColorFromHex } from "./meshBuilder.ts";
 import { Pool } from "./pool.ts";
-import { nightK, nightOnly } from "../render/dayNight.ts"; // (daynight)
-import { cityLights } from "../render/cityLights.ts"; // (night) real street-lamp lighting
+import { nightK, nightOnly } from "../render/daynight.ts"; // (daynight)
+import { cityLights } from "../render/citylights.ts"; // (night) real street-lamp lighting
 import {
   getAdvertisingAtlasTexture,
   getSignAtlasTexture,
 } from "./advertisingTextures.ts"; // shared atlases for advertising and blade signs
-import { screenK } from "../render/dayNight.ts"; // (night r5)
+import { screenK } from "../render/daynight.ts"; // (night r5)
 import { screenLightSet } from "./screenlights.ts"; // (night r9) billboard / lightbox faces light the street
 import { createPartMaterial, MATERIAL_PART } from "./partMaterials.ts";
 import { COAST } from "./waterfront.ts"; // (coast r1) waterfront lamps / benches / trees

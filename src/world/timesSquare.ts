@@ -28,8 +28,8 @@ import {
   getAdvertisingAtlasTexture,
   getSignAtlasTexture,
 } from "./advertisingTextures.ts"; // shared ad and sign textures
-import { nightK } from "../render/dayNight.ts"; // (daynight)
-import { cityLights } from "../render/cityLights.ts"; // (night) screens are real light sources
+import { nightK } from "../render/daynight.ts"; // (daynight)
+import { cityLights } from "../render/citylights.ts"; // (night) screens are real light sources
 import {
   screenLightSet,
   scrUniforms,

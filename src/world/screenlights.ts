@@ -15,8 +15,8 @@ import { lazyShaderSections } from "../shaderSections.ts";
 import screenlightsShaderSource from "./shaders/glsl/screenlights.glsl?raw";
 import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
-import { cityLights } from "../render/cityLights.ts";
-import { nightK, screenK } from "../render/dayNight.ts";
+import { cityLights } from "../render/citylights.ts";
+import { nightK, screenK } from "../render/daynight.ts";
 import {
   getAdvertisingColorGrid,
   type AtlasColorGrid,

@@ -30,7 +30,7 @@ import { FacadeBuilder, STYLE, LAYER } from "./facade.ts";
 import { MeshBuilder, linearColorFromHex, createTransformMatrix } from "./meshBuilder.ts";
 import { Solids, OVERHANG, NOZIP } from "./collision.ts"; // (layout2 r3) NOZIP
 import { hash2, islands, ZFIX } from "./layout.ts"; // (layout2 r3) block-variety hash stream; (layout2 r9) islands: refuge furnishing
-import { ZipPoints } from "./zipPoints.ts";
+import { ZipPoints } from "./zippoints.ts";
 import { residentialArch, residentialSplit } from "./residential.ts";
 
 const buildingsShader = lazyShaderSections(() => buildingsShaderSource);

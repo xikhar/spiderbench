@@ -24,9 +24,9 @@ import { mulberry32, district, blockAt, ZFIX } from "./layout.ts";
 import { STYLE, LAYER } from "./facade.ts";
 import { KIND } from "./collision.ts";
 import { CanopyBatch } from "./canopy.ts";
-import { RoofPlants, PLANT } from "./roofPlants.ts"; // (veg r1) leaf-card shrubs / grasses / perennials
+import { RoofPlants, PLANT } from "./roofplants.ts"; // (veg r1) leaf-card shrubs / grasses / perennials
 import { GY } from "./ground.ts";
-import { batchTiles } from "./tileBatch.ts"; // (perf)
+import { batchTiles } from "./tilebatch.ts"; // (perf)
 import { loadImageRetry } from "./textures.ts";
 
 const rooftopsShader = lazyShaderSections(() => rooftopsShaderSource);

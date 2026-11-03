@@ -10,7 +10,7 @@ import * as THREE from "three";
 import events, { on, emit } from "./events.ts";
 import { createSave } from "./save.ts";
 import { createProgression, SKILLS } from "./progression.ts";
-import { buildWorldData } from "./worldData.ts";
+import { buildWorldData } from "./worlddata.ts";
 import { createMarkers } from "./markers.ts";
 import { createAudio } from "./audio.ts";
 import { createFlow } from "./flow.ts";

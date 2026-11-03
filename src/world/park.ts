@@ -16,8 +16,8 @@ import { PARK_MEADOWS, PARK_ROCKS, PARK_SITES, meadowDist } from "./parkData.ts"
 import { FacadeBuilder, STYLE, LAYER } from "./facade.ts";
 import { MeshBuilder } from "./meshBuilder.ts";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { nightK } from "../render/dayNight.ts"; // (night) lamp globes glow at night
-import { cityLights } from "../render/cityLights.ts"; // (night) park lamps are real lights
+import { nightK } from "../render/daynight.ts"; // (night) lamp globes glow at night
+import { cityLights } from "../render/citylights.ts"; // (night) park lamps are real lights
 
 export { PARK_ROCKS, PARK_SITES } from "./parkData.ts";
 

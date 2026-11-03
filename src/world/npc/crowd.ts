@@ -34,7 +34,7 @@ import { PLAZA_CROWD_SPOTS } from "../props.ts"; // (street r7) forecourt-plaza 
 import { PARK_CROWD_SPOTS } from "../park.ts"; // (peds r6) lawn + park-edge people (were box figures in park.ts)
 import { GC_CROWD_SPOTS } from "../grandcentral.ts"; // (street r7) Park Av podium roof garden + colonnade people
 import { isPerformanceFeatureDisabled } from "../performanceFlags.ts"; // (perf r2) A/B switch
-import { cityLights } from "../../render/cityLights.ts";
+import { cityLights } from "../../render/citylights.ts";
 
 const crowdShader = lazyShaderSections(() => crowdShaderSource);
 // (night) people cast city-light shadows

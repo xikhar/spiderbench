@@ -13,7 +13,7 @@ import {
   pushOutCapsule,
   pushOutRays,
 } from "./collide.ts";
-import { createZipPoints, createZipTargeting } from "./zipPoints.ts";
+import { createZipPoints, createZipTargeting } from "./zippoints.ts";
 import { createAnchorFinder } from "./anchors.ts";
 import { makeAnim, writeAnim } from "./anim.ts";
 import { ROPE, makeRope, ropePoint, stepRopeSpring } from "./rope.ts";

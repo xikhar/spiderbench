@@ -10,7 +10,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { Animator } from "./anim/animator.ts";
 import { legacyAnim } from "./anim/legacy.ts";
-import { applySuitFabric } from "./suitFabric.ts";
+import { applySuitFabric } from "./suitfabric.ts";
 
 const LOGICAL = [
   "hips",

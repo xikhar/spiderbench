@@ -31,7 +31,7 @@ import { injectShader } from "./shaderInjection.ts";
 //      { value: cityLightsShared }), then `cityLightIrradiance(worldPos, worldNormal)` returns the diffuse irradiance
 // ?nocl disables the whole system (A/B).
 import * as THREE from "three";
-import { nightK } from "./dayNight.ts";
+import { nightK } from "./daynight.ts";
 
 const citylightsShader = lazyShaderSections(() => citylightsShaderSource);
 

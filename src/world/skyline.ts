@@ -12,7 +12,7 @@
 //   wtc1     One-WTC-like: fin-clad cube base, tapering antiprism (x+z chamfer growing with height, stepped per tier),
 //            ring + 118 m spire
 import { STYLE, LAYER, addCrownFlood } from "./facade.ts";
-import { cityLights } from "../render/cityLights.ts"; // (night) crown floodlights light nearby actors / props too
+import { cityLights } from "../render/citylights.ts"; // (night) crown floodlights light nearby actors / props too
 import { lmBox, lmCyl } from "./landmarks.ts";
 
 const snapA = (A, y) =>

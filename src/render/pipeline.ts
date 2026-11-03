@@ -44,7 +44,7 @@ import {
   cityLightsShared,
   cityLightsGLSL,
   CL_SLOTS,
-} from "./cityLights.ts"; // (night) local city lights: lit haze
+} from "./citylights.ts"; // (night) local city lights: lit haze
 import { createGlassMirror } from "./glassmirror.ts"; // (render r-refl) player / cars / peds mirrored in facade glass
 
 export function createPipeline({ renderer, scene, camera, lighting }) {

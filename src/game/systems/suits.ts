@@ -8,7 +8,7 @@ import { lazyShaderSections } from "../../shaderSections.ts";
 import suitsShaderSource from "./shaders/glsl/suits.glsl?raw";
 import * as THREE from "three";
 import { addShaderPatch } from "../../render/materials.ts";
-import { setSuitFabric } from "../../player/suitFabric.ts";
+import { setSuitFabric } from "../../player/suitfabric.ts";
 import { setWebVenom } from "../../player/webRendering.ts";
 
 const suitsShader = lazyShaderSections(() => suitsShaderSource);

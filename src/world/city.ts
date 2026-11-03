@@ -66,7 +66,7 @@ import {
   collisionDebugLines,
   fitInstancedSolids,
 } from "./collision.ts";
-import { addPropAnchors, createGeoDebug } from "./zipPoints.ts";
+import { addPropAnchors, createGeoDebug } from "./zippoints.ts";
 import { buildProps } from "./props.ts";
 import { buildTrees } from "./trees.ts";
 import { meadowDist } from "./parkData.ts";
@@ -79,7 +79,7 @@ import { buildSignage } from "./signage.ts"; // billboards: city-wide signage
 import { buildNeon } from "./neon.ts"; // (night) exterior neon + LED strips on shops, awnings, canopies
 import { attachLife } from "./npc/life.ts";
 import { applyDistanceFade } from "./pool.ts";
-import { batchTiles } from "./tileBatch.ts"; // (perf)
+import { batchTiles } from "./tilebatch.ts"; // (perf)
 
 export async function buildCity({ scene, renderer }) {
   const t0 = performance.now();

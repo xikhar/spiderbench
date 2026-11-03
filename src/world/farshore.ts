@@ -14,7 +14,7 @@
 import { lazyShaderSections } from "../shaderSections.ts";
 import farshoreShaderSource from "./shaders/glsl/farshore.glsl?raw";
 import { injectShader } from "../render/shaderInjection.ts";
-import { nightK } from "../render/dayNight.ts"; // (daynight)
+import { nightK } from "../render/daynight.ts"; // (daynight)
 import * as THREE from "three";
 import { mulberry32, hash2, pointInPoly, onLand, shoreX, G } from "./layout.ts";
 import { FacadeBuilder, STYLE, LAYER, deriveFacadeMaterial } from "./facade.ts";

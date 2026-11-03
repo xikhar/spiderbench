@@ -18,7 +18,7 @@ import {
   TRUNK_LOD,
   barkMaterial,
   BARK,
-} from "./treeTrunk.ts";
+} from "./treetrunk.ts";
 
 const treesShader = lazyShaderSections(() => treesShaderSource);
 // (veg r1) natural trunks + bark

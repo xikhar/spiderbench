@@ -29,7 +29,7 @@ import {
   TAU,
   noise1,
 } from "./builder.ts";
-import { RigData, armTarget } from "./rigData.ts";
+import { RigData, armTarget } from "./rigdata.ts";
 import { Gait } from "./gait.ts";
 import { ClipLib } from "./clips.ts";
 import { ropeGrip } from "../webRendering.ts";

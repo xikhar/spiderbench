@@ -27,7 +27,7 @@ import {
   LANDSCAPE_AD_AVERAGE_LINEAR_RGB as landscapeAdAverageLinearRgb,
   PORTRAIT_AD_AVERAGE_LINEAR_RGB as portraitAdAverageLinearRgb,
 } from "./advertisingAtlasMetadata.ts";
-import { nightK, screenK } from "../render/dayNight.ts"; // (daynight)
+import { nightK, screenK } from "../render/daynight.ts"; // (daynight)
 import {
   getAdvertisingAtlasTexture,
   getSignAtlasTexture,

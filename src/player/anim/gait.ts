@@ -7,7 +7,7 @@
 // counter-rotating shoulders, arm swing with elbow bend, head stabilisation, forward lean.
 import * as THREE from "three";
 import { X, Y, Z, clamp, lerp, smooth, remap, bez, TAU } from "./builder.ts";
-import { armTarget } from "./rigData.ts";
+import { armTarget } from "./rigdata.ts";
 
 // speed keys (m/s) and per-key parameters
 const KEYS = [

@@ -23,8 +23,8 @@ import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
 import * as LAY from "./layout.ts";
 import { SHOP_FRONTS } from "./facade.ts";
-import { cityLights } from "../render/cityLights.ts";
-import { nightK, dnTime, screenK, nightOnly } from "../render/dayNight.ts";
+import { cityLights } from "../render/citylights.ts";
+import { nightK, dnTime, screenK, nightOnly } from "../render/daynight.ts";
 
 const neonShader = lazyShaderSections(() => neonShaderSource);
 
