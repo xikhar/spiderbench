@@ -1,0 +1,1 @@
+vec3 walkColor; walk(walkColor); diffuseColor.rgb = walkColor;

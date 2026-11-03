@@ -1,0 +1,1 @@
+export{t as GLTFLoader}from"./three~index~shots~index~GLTFLoader-DLicXGnK.js";

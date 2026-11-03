@@ -1,0 +1,1 @@
+diffuseColor.rgb = min(diffuseColor.rgb * vec3(0.27, 0.285, 0.3), vec3(0.12)); pR = 0.07;

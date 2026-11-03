@@ -1,0 +1,1 @@
+normal = normalize((viewMatrix * vec4(wN, 0.0)).xyz);

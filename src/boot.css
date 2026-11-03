@@ -1,0 +1,317 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+canvas {
+  display: block;
+}
+/* ---- loading screen (shown before any script runs; driven by window.__boot, see below) ----
+Everything that moves is transform / opacity, so it keeps animating on the compositor while the city build blocks
+the main thread: the slideshow is pure CSS keyframes, the bar a long CSS transition toward the expected end of the
+current stage (durations remembered from the previous load on this machine). */
+#boot {
+  --red: #e3262f;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #040509;
+  color: #f4f6fb;
+  overflow: hidden;
+  font-family: "Spiderbench Sans", Manrope, system-ui, sans-serif;
+  transition: opacity 0.9s ease;
+  cursor: progress;
+  user-select: none;
+}
+#boot.out {
+  opacity: 0;
+  pointer-events: none;
+}
+#boot .slides {
+  position: absolute;
+  inset: 0;
+}
+#boot figure {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  animation: bootFade var(--T) linear infinite;
+  animation-delay: calc(var(--i) * var(--S));
+}
+#boot figure img {
+  position: absolute;
+  inset: -2%;
+  width: 104%;
+  height: 104%;
+  object-fit: cover;
+  animation: bootKB var(--T) linear infinite;
+  animation-delay: calc(var(--i) * var(--S));
+  transform-origin: var(--o, 50% 50%);
+  will-change: transform;
+}
+#boot figure:nth-child(even) img {
+  animation-name: bootKB2;
+}
+#boot figcaption {
+  position: absolute;
+  right: clamp(20px, 4vw, 64px);
+  top: clamp(20px, 4.5vh, 54px);
+  font:
+    800 12px/1 "Spiderbench Sans",
+    sans-serif;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: rgba(244, 246, 251, 0.9);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.55),
+    0 0 18px rgba(0, 0, 0, 0.45);
+}
+#boot figcaption::before {
+  content: "";
+  width: 26px;
+  height: 1px;
+  background: rgba(244, 246, 251, 0.7);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+}
+/* each slide: fade in 1.2 s, hold, fade out while the next one fades in (N slides x S s, loop) */
+@keyframes bootFade {
+  0% {
+    opacity: 0;
+  }
+  3.2% {
+    opacity: 1;
+  }
+  16.7% {
+    opacity: 1;
+  }
+  19.9% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes bootKB {
+  0% {
+    transform: scale(1.1) translate3d(1.2%, 0.6%, 0);
+  }
+  20% {
+    transform: scale(1) translate3d(-0.6%, -0.3%, 0);
+  }
+  100% {
+    transform: scale(1) translate3d(-0.6%, -0.3%, 0);
+  }
+}
+@keyframes bootKB2 {
+  0% {
+    transform: scale(1) translate3d(-1%, 0.4%, 0);
+  }
+  20% {
+    transform: scale(1.09) translate3d(0.8%, -0.5%, 0);
+  }
+  100% {
+    transform: scale(1.09) translate3d(0.8%, -0.5%, 0);
+  }
+}
+/* legibility shading lives in each slide, under its caption (a global layer above the slides dimmed the captions) */
+#boot figure::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      0deg,
+      rgba(3, 4, 9, 0.92) 0%,
+      rgba(3, 4, 9, 0.55) 18%,
+      rgba(3, 4, 9, 0) 42%
+    ),
+    linear-gradient(180deg, rgba(3, 4, 9, 0.5) 0%, rgba(3, 4, 9, 0) 20%),
+    radial-gradient(
+      ellipse at 50% 45%,
+      rgba(0, 0, 0, 0) 55%,
+      rgba(0, 0, 0, 0.55) 100%
+    );
+}
+#boot figcaption {
+  z-index: 1;
+}
+#boot .grain {
+  position: absolute;
+  inset: -50%;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  animation: bootGrain 0.9s steps(6) infinite;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@keyframes bootGrain {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  20% {
+    transform: translate3d(-6%, 4%, 0);
+  }
+  40% {
+    transform: translate3d(5%, -7%, 0);
+  }
+  60% {
+    transform: translate3d(-3%, 8%, 0);
+  }
+  80% {
+    transform: translate3d(7%, 2%, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+#boot .ui {
+  position: absolute;
+  left: clamp(20px, 4vw, 64px);
+  right: clamp(20px, 4vw, 64px);
+  bottom: clamp(26px, 6vh, 64px);
+}
+#boot .brand {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: clamp(18px, 3.2vh, 30px);
+}
+#boot .brand b {
+  font:
+    800 clamp(44px, 7vw, 92px)/0.82 "Spiderbench Condensed",
+    "Barlow Condensed",
+    "Arial Narrow",
+    sans-serif;
+  letter-spacing: 0.01em;
+  text-shadow: 0 6px 30px rgba(0, 0, 0, 0.45);
+}
+#boot .brand b i {
+  font-style: normal;
+  color: var(--red);
+}
+#boot .brand span {
+  font:
+    700 11px/1.5 "Spiderbench Sans",
+    sans-serif;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: rgba(244, 246, 251, 0.6);
+  padding-bottom: 0.35em;
+  border-left: 1px solid rgba(244, 246, 251, 0.3);
+  padding-left: 14px;
+}
+#boot .row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font:
+    600 12px/1 "Spiderbench Sans",
+    sans-serif;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(244, 246, 251, 0.82);
+  margin-bottom: 12px;
+}
+#boot .row .lbl {
+  transition: opacity 0.25s;
+}
+#boot .msg {
+  display: none;
+  margin-top: 12px;
+  font:
+    500 13px/1.45 "Spiderbench Sans",
+    sans-serif;
+  color: rgba(244, 246, 251, 0.78);
+  max-width: min(720px, 100%);
+  overflow-wrap: anywhere;
+}
+#boot.err .msg {
+  display: block;
+}
+#boot.err .row {
+  color: #ff8a8f;
+}
+#boot.err .row .dots,
+#boot.err .bar b {
+  display: none;
+}
+#boot.err .bar i {
+  background: #9e1017;
+}
+#boot .row .dots i {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.25;
+  animation: bootDot 1.2s ease-in-out infinite;
+}
+#boot .row .dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+#boot .row .dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes bootDot {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+#boot .bar {
+  position: relative;
+  height: 2px;
+  background: rgba(244, 246, 251, 0.14);
+  overflow: hidden;
+}
+#boot .bar i {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  will-change: transform;
+  background: linear-gradient(90deg, #9e1017, var(--red) 70%, #ff6a70);
+}
+#boot .bar b {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 18%;
+  left: -18%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.55),
+    rgba(255, 255, 255, 0)
+  );
+  animation: bootSheen 1.8s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes bootSheen {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(660%, 0, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #boot figure img,
+  #boot .grain,
+  #boot .bar b,
+  #boot .row .dots i {
+    animation: none;
+  }
+}

@@ -1,0 +1,2 @@
+import{$n as e}from"./three~index~index~shots~index~GLTFLoader-BF58tRDi.js";function t(t,n,r){let i=t.userData;if(!i.__patches){i.__patches=new Map;let n=t.onBeforeCompile,r=t.customProgramCacheKey;t.onBeforeCompile=(r,a)=>{n&&n!==e.prototype.onBeforeCompile&&n.call(t,r,a);for(let e of i.__patches.values())e(r,a)},t.customProgramCacheKey=()=>(r&&r!==e.prototype.customProgramCacheKey?r.call(t):``)+`|`+[...i.__patches.keys()].join(`,`)}return i.__patches.set(n,r),t.needsUpdate=!0,t}export{t};
+//# sourceMappingURL=render~index~shots~index-Cq-q3ipF.js.map

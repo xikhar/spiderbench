@@ -1,0 +1,2 @@
+#include <roughnessmap_fragment>
+        if (int(vGP + 0.5) == 2) roughnessFactor = 0.42 + 0.45 * gV; /* (street r11) bare copper satin, crust matte */ else if (int(vGP + 0.5) == 5) roughnessFactor = 0.45; else if (int(vGP + 0.5) == 8) roughnessFactor = 0.42 + 0.4 * gV;

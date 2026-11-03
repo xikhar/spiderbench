@@ -1,0 +1,1 @@
+diffuseColor.a *= vColor.r; diffuseColor.rgb = vec3(0.0);

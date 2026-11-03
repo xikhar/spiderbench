@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173 --host 127.0.0.1",
-    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview --port 4173 --host 127.0.0.1"
   },
   "dependencies": {
@@ -13,6 +14,7 @@
     "three": "^0.187.0"
   },
   "devDependencies": {
+    "typescript": "~7.0.2",
     "vite": "^8.3.5"
   }
 }

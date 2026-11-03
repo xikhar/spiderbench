@@ -1,0 +1,1 @@
+{ vec3 nw = normalize(vec3(aN.x, aN.z, aN.y)); normal = normalize((viewMatrix * vec4(nw, 0.0)).xyz); }

@@ -1,0 +1,2 @@
+function e(e){let t=String(e??``);return/^(?:[a-z][a-z\d+.-]*:)?\/\//i.test(t)||/^(?:data|blob):/i.test(t)?t:`/spiderbench/${t.replace(/\\/g,`/`).replace(/^\/+/,``)}`}export{e as t};
+//# sourceMappingURL=world~index~index~shots~index-eJmDYCna.js.map

@@ -1,0 +1,1 @@
+vec3 transformed = optHidden() ? vec3(0.0) : (skinMatrix() * vec4(bodyShape(position), 1.0)).xyz;

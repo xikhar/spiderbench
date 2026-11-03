@@ -1,0 +1,1 @@
+uniform float uT; uniform float uFade; in vec2 vUv; out vec4 fragColor; void main(){ float h = vUv.y; float a = pow(1.0-h, 2.2)*0.9 + 0.05; float edge = pow(abs(sin(vUv.x*3.14159*2.0)),0.5); float flow = 0.75+0.25*sin(h*120.0 - uT*6.0); fragColor = vec4(vec3(1.6,1.05,0.25)*a*flow*(0.35+0.65*edge)*uFade, 1.0); }

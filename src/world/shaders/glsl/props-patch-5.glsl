@@ -1,0 +1,1 @@
+vec4 worldPosition = vec4(transformed, 1.0);

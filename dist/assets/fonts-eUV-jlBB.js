@@ -1,0 +1,2 @@
+function e(){if(document.getElementById(`sys-fonts`))return;let e=document.createElement(`link`);e.id=`sys-fonts`,e.rel=`stylesheet`,e.href=`/spiderbench/ui/fonts/fonts.css`,document.head.appendChild(e)}export{e as t};
+//# sourceMappingURL=fonts-eUV-jlBB.js.map

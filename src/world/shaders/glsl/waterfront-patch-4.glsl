@@ -1,0 +1,1 @@
+diffuseColor.rgb = coast();

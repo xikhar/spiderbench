@@ -1,0 +1,1 @@
+if (vWN.y > 0.5) { vec3 nw = normalize(vec3(sN.x, sN.z, sN.y)); normal = normalize((viewMatrix * vec4(nw, 0.0)).xyz); }

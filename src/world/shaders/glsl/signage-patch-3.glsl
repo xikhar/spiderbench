@@ -1,0 +1,2 @@
+#include <common>
+      uniform sampler2D tSigns; uniform sampler2D tArt; uniform sampler2D tNoiseS; in vec2 vSig; in vec2 vLoc; in vec3 vWPs; float sgR; float sgM; vec3 sgE; uniform float uNightK; uniform float uScreenK; uniform float uScrBoost; uniform float uScrKnee; uniform float uScrTop;

@@ -1,0 +1,1 @@
+totalEmissiveRadiance += diffuseColor.rgb * $1 * ambData.bounce.w;
