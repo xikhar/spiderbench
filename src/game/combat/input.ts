@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: combat engineer. Combat buttons, read only while a fight is active.
+// Combat buttons, read only while a fight is active.
 //   LMB press = attack (fires on press) · LMB held past 0.22 s = launcher (cancels the jab) / air slam
 //   Space (spider-sense) or C / Ctrl = dodge · F = web shooter · E / MMB = web strike · R = throw · Q = finisher · Z = heal
 // Gamepad (standard): Square attack (hold = launcher) · Circle dodge · R1 web · Triangle web strike · L1+R1 throw ·
@@ -35,7 +35,7 @@ export function createCombatInput(realClock, gameClock) {
   });
   addEventListener("mousedown", (e) => {
     if (!enabled) return;
-    if (e.ctrlKey && (e.button === 0 || e.button === 2)) return; // Ctrl+click = web slingshot anchor (player/input.js), never an attack
+    if (e.ctrlKey && (e.button === 0 || e.button === 2)) return; // Ctrl+click = web slingshot anchor (player/input.ts), never an attack
     if (e.button === 0) {
       lmbDown = true;
       pressT = rnow();

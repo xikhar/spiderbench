@@ -1,6 +1,6 @@
 // @ts-nocheck
-// OWNER: systems engineer. Random street crimes: mugging, bank robbery, car chase — with visible actors.
-// Lifecycle (event bus, see events.js):
+// Random street crimes: mugging, bank robbery, car chase — with visible actors.
+// Lifecycle (event bus, see events.ts):
 //   crime:spawn crime            actors are placed (thug.glb + Spider-Man clips): a cowering victim + muggers, or robbers
 //                                outside a bank; car chase = getaway car (red target marker) + two pursuing police cars.
 //   crime:engage crime           player reached the scene. crime.enemies = [{id, object:Group, actor}] (standing thugs),
@@ -21,8 +21,8 @@ import { G, streetsAt, avenues, onLand } from "../../world/layout.ts";
 import { on, emit } from "./events.ts";
 import { roadGraph } from "./route.ts";
 import { loadVehicleModels } from "../../world/vehicles.ts";
-import { createPartMaterial } from "../../world/partmat.ts";
-import { createActors } from "./crimeactors.ts";
+import { createPartMaterial } from "../../world/partMaterials.ts";
+import { createActors } from "./crimeActors.ts";
 
 const TYPES = {
   mugging: {
@@ -444,8 +444,8 @@ export function createCrimes(sys) {
       const geo = models.geos.sedan.clone();
       const mat = createPartMaterial({
         name: "syschase",
-        instTint: true,
-        instState: false,
+        instanceTint: true,
+        instanceState: false,
         map: models.atlas,
       });
       const im = new THREE.InstancedMesh(geo, mat, NCAR);

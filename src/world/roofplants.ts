@@ -1,16 +1,17 @@
 // @ts-nocheck
-// OWNER: rooftops agent (veg r1). Roof-garden planting: instanced shrubs, perennials and ornamental grasses made of
+// Roof-garden planting: instanced shrubs, perennials and ornamental grasses made of
 // alpha-cut cards textured with the image-generated foliage atlas (public/city/tex/roofplants.webp, 2x2 tiles:
 // 0 boxwood / privet shrub, 1 fountain grass, 2 sedum + rudbeckia perennials, 3 hosta / fern / hydrangea leaves).
 // Two pools (mound cards, grass cards) = 2 draws; distance-culled with a dithered fade out to ~200 m, shadows only in
-// the near cascade (<= 55 m). Replaces rooftops.js' lumpy CanopyBatch blobs in beds / planters.
-import __shaderPatch1 from "./shaders/glsl/roofplants-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/roofplants-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/roofplants-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/roofplants-patch-4.glsl?raw";
+// the near cascade (<= 55 m). Replaces rooftops.ts' lumpy CanopyBatch blobs in beds / planters.
+import { lazyShaderSections } from "../shaderSections.ts";
+import roofplantsShaderSource from "./shaders/glsl/roofplants.glsl?raw";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
 import { Pool } from "./pool.ts";
+
+const roofplantsShader = lazyShaderSections(() => roofplantsShaderSource);
+
 
 export const PLANT = { SHRUB: 0, GRASS: 1, FLOWER: 2, BROAD: 3 };
 const TILE_UV = (i) => [(i % 2) * 0.5, Math.floor(i / 2) * 0.5];
@@ -150,17 +151,17 @@ function plantMaterial(tex) {
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",roofplantsShader.vertexCommon,
       )
       .replace(
-        "#include <uv_vertex>",__shaderPatch2,
+        "#include <uv_vertex>",roofplantsShader.vertexUvVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch3,
+        "#include <common>",roofplantsShader.fragmentCommon,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch4,
+        "#include <map_fragment>",roofplantsShader.fragmentMap,
       );
   };
   mat.customProgramCacheKey = () => "roofplant-v1";

@@ -1,6 +1,5 @@
 // @ts-nocheck
-// OWNER: animation agent.
-// PoseBuilder: character-space procedural editing of a Pose (FK-aware), incl. analytic 2-bone IK.
+// // PoseBuilder: character-space procedural editing of a Pose (FK-aware), incl. analytic 2-bone IK.
 // All positions/directions are in character space (X = left, Y = up, Z = forward, feet at y = 0).
 import * as THREE from "three";
 

@@ -1,2 +1,0 @@
-#include <clipping_planes_fragment>
-__SHADER_INJECT_0__

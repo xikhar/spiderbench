@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: city agent. Landmark buildings of the island (all procedural, emitted through the same facade / collision /
+// Landmark buildings of the island (all procedural, emitted through the same facade / collision /
 // zip-point machinery as the generic buildings, so C2/C4 hold):
 //   Empire-State-like stepped art-deco tower + mast (5th Av & 34th), Chrysler-like crown (Lexington & 42nd),
 //   Grand-Central-like terminal standing across Park Av (closed segment, see layout.CLOSED_AV) with a MetLife-like slab
@@ -153,12 +153,12 @@ const METAL = (tint = [2.4, 2.45, 2.5]) => ({
 
 export function landmarkReserves() {
   const R = [];
-  R.push(...heroTowerReserves()); // skyline agent: hero towers moved to skyline.js
+  R.push(...heroTowerReserves()); // skyline agent: hero towers moved to skyline.ts
   // Grand Central (standalone, built across the closed Park Av segment): clear the generic lots under it
   R.push({ name: "gcW", x0: 388, x1: 420, z0: -160, z1: -80, custom: true });
   R.push({ name: "gcE", x0: 440, x1: 472, z0: -160, z1: -80, custom: true });
   // ---------------------------------------------------------------- MetLife-like slab straddling Park Av behind Grand Central
-  // (built by grandcentral.js over the avenue; its two legs stand on these lots)
+  // (built by grandcentral.ts over the avenue; its two legs stand on these lots)
   R.push({
     name: "metlifeW",
     x0: 384,
@@ -175,10 +175,10 @@ export function landmarkReserves() {
     z1: -160,
     custom: true,
   });
-  R.push({ name: "gcPodium", x0: 446, x1: 496, z0: -76, z1: -4, custom: true }); // street agent r2: low glass podium + roof garden (grandcentral.js)
+  R.push({ name: "gcPodium", x0: 446, x1: 496, z0: -76, z1: -4, custom: true }); // street agent r2: low glass podium + roof garden (grandcentral.ts)
   // (street r11) Park Av forecourt south of 42nd St, west side: the Park Av frontage lot is trimmed back 12 m so the
   // terminal's full frontage (pavilions included) reads down the avenue like ref 04; the strip is open paving dressed
-  // by props.js (GC_FORECOURT). The trimmed building keeps a real street facade on its new Park Av face.
+  // by props.ts (GC_FORECOURT). The trimmed building keeps a real street facade on its new Park Av face.
   R.push({
     name: "gcForecourtW",
     x0: 402,
@@ -354,7 +354,7 @@ export function makeAdAtlas() {
 export function buildStandalone({ scene, gen, T }) {
   const S = gen.solids,
     Z = gen.zips;
-  // ---- Grand-Central-like terminal across Park Av + Park-Av viaduct + MetLife-like slab (street agent: grandcentral.js)
+  // ---- Grand-Central-like terminal across Park Av + Park-Av viaduct + MetLife-like slab (street agent: grandcentral.ts)
   buildGrandCentral({ scene, gen, T });
   // ---- Times Square LED screens on the billboard towers (plaza faces), one merged emissive mesh
   const ads = makeAdAtlas();

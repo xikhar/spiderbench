@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Pause menu shell (Esc / P / Start): top tab bar (Q/E or LB/RB to switch), level/XP/SP
+// Pause menu shell (Esc / P / Start): top tab bar (Q/E or LB/RB to switch), level/XP/SP
 // readout, animated page transitions, footer key hints. Pages: Map, Suits, Skills, Collectibles, Photo Mode, Settings.
 import { icon } from "./icons.ts";
 import { createMapPage } from "./map.ts";

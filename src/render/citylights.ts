@@ -1,10 +1,8 @@
 // @ts-nocheck
-import __shaderPatch1 from "./shaders/glsl/citylights-patch-1.glsl?raw";
-import __shaderRaw1 from "./shaders/glsl/citylights-glsl_pars.glsl?raw";
-import __shaderRaw2 from "./shaders/glsl/citylights-glsl_apply.glsl?raw";
-import cityLightsEnable from "./shaders/glsl/citylights-enable.glsl?raw";
-import { injectShader } from "./shader.ts";
-// OWNER: render agent (night). CITY LIGHTS: real local lighting for the night city (street lamps, shop fronts, car
+import { lazyShaderSections } from "../shaderSections.ts";
+import citylightsShaderSource from "./shaders/glsl/citylights.glsl?raw";
+import { injectShader } from "./shaderInjection.ts";
+// CITY LIGHTS: real local lighting for the night city (street lamps, shop fronts, car
 // lights, LED screens / billboards, floodlights). Every lit built-in material (Standard / Physical / Lambert / Phong /
 // Toon, incl. onBeforeCompile-extended city materials) gets them through a global lights_fragment_begin patch: each
 // light goes through the material's own RE_Direct (diffuse + GGX specular), so lamps light the asphalt, facades, cars
@@ -33,7 +31,9 @@ import { injectShader } from "./shader.ts";
 //      { value: cityLightsShared }), then `cityLightIrradiance(worldPos, worldNormal)` returns the diffuse irradiance
 // ?nocl disables the whole system (A/B).
 import * as THREE from "three";
-import { nightK } from "./daynight.ts";
+import { nightK } from "./dayNight.ts";
+
+const citylightsShader = lazyShaderSections(() => citylightsShaderSource);
 
 export const CL_LAYER_Y = 14; // (night r9) two height layers: street level (< 14 m) and above (walls, roofs): lamps / cars no longer crowd window lights out of the cells the player climbs through
 export const CL_CELL = 8,
@@ -100,7 +100,7 @@ export const cityLightsShared = {
 
 // ------------------------------------------------------------------------------------------------ GLSL
 const GLSL_PARS = injectShader(
-  __shaderRaw1,
+  citylightsShader.lightDeclarations,
   CL_SH_N,
   CL_UN * 4 + 1,
   CL_SH_N,
@@ -118,7 +118,11 @@ const GLSL_PARS = injectShader(
 // diffuse of all lights is summed and shaded once; GGX specular is evaluated per light only on surfaces smooth enough
 // to show it (roughness < 0.75: wet asphalt, glass, polished stone). Clearcoat / sheen materials (car paint, the suit)
 // and Lambert / Phong go through the full RE_Direct per light.
-const GLSL_APPLY = injectShader(__shaderRaw2, CL_SLOTS, CL_SLOTS);
+const GLSL_APPLY = injectShader(
+  citylightsShader.applyLights,
+  CL_SLOTS,
+  CL_SLOTS,
+);
 export const cityLightsGLSL = GLSL_PARS;
 
 // (r11) texture-unit fallback: with 16 fragment units (Apple Metal, ANGLE D3D11) the 3 city-light samplers pushed the
@@ -211,8 +215,9 @@ export function installCityLightChunks(renderer = null, scene = null) {
     if (!lib) continue;
     lib.uniforms.cityL = { value: cityLightsShared };
     lib.uniforms.cityLU = { value: unifArr }; // (r13) shared by reference (typed arrays are not cloned per material)
-    if (!lib.fragmentShader.startsWith(cityLightsEnable))
-      lib.fragmentShader = cityLightsEnable + lib.fragmentShader;
+    if (!lib.fragmentShader.startsWith(citylightsShader.enableDirective))
+      lib.fragmentShader =
+        citylightsShader.enableDirective + lib.fragmentShader;
   }
 }
 
@@ -559,7 +564,7 @@ function selectUnif(camera) {
 // with a soft, wide falloff (AMB_GAIN x flux / (d^2 + AMB_SOFT^2), faded out by ~2.5x its own range), split into a lower
 // hemisphere (street bounce) and an upper one. Not frustum-culled (static buckets + all provider lights), smoothed over
 // ~0.5 s, so turning the camera or a light switching never pops it. Uniforms only (no texture unit): the suit adds it as
-// ambient irradiance on every GPU path (suitfabric.js), a lit block lifts the whole suit, a dark side street does not.
+// ambient irradiance on every GPU path (suitFabric.ts), a lit block lifts the whole suit, a dark side street does not.
 export const AMB_R = 70,
   AMB_SOFT = 6,
   AMB_GAIN = 0.16;
@@ -877,7 +882,8 @@ const shMats = Array.from({ length: CL_SH_N }, () => {
   // outside its caster (no saw-tooth self-shadowing on roofs / doors); the shadow on the road is barely smaller
   m.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader.replace(
-      "#include <begin_vertex>",__shaderPatch1,
+      "#include <begin_vertex>",
+      citylightsShader.vertexBeginVertex,
     );
   };
   m.customProgramCacheKey = () => "clShrink";

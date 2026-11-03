@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: street agent. Extra street-level dressing that is not a prop: asphalt repair patches / utility trench cuts
+// Extra street-level dressing that is not a prop: asphalt repair patches / utility trench cuts
 // (dark, tar-sealed rectangles like the refs' avenues), drawn as one decal mesh under the road markings.
 // buildRoadPatches({scene}) -> Mesh
 import * as THREE from "three";
@@ -582,7 +582,7 @@ function grimeAtlas() {
   return t;
 }
 
-export const MANHOLES = []; // (street r7) road manhole positions (props.js puts steam on some of them)
+export const MANHOLES = []; // (street r7) road manhole positions (props.ts puts steam on some of them)
 export function buildStreetGrime({ scene, buildings = null }) {
   MANHOLES.length = 0;
   const rnd = mulberry32(31337);
@@ -937,7 +937,7 @@ export function buildStreetGrime({ scene, buildings = null }) {
 }
 
 // ------------------------------------------------------------------------------------------------------------------
-// (street r3) tower forecourt plazas (buildings.js 'plaza' / 'slab' forms set the tower back 5-16 m from the street):
+// (street r3) tower forecourt plazas (buildings.ts 'plaza' / 'slab' forms set the tower back 5-16 m from the street):
 // critic: 'the corner plaza is a flat checkerboard tile with visible repetition, token planters, no people'.
 // plazaStrips(buildings) -> [{x0,z0,x1,z1, nx,nz (outward = toward the street), L, W}] forecourt rects inside the lot;
 // buildPlazaPaving() lays a granite-slab paving (running bond, per-slab tone, joints, grime) over them.

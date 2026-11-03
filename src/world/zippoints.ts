@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: citygeo. Point-launch / perch targets derived from the real city geometry (contract C2):
+// Point-launch / perch targets derived from the real city geometry (contract C2):
 //   world.getZipPoints(center:Vector3, radius) -> Array<{pos:Vector3, normal:Vector3, kind}>
 // kinds: 'roofEdge' | 'roofCorner' | 'ledge' | 'waterTower' | 'antenna' | 'pole' | 'lampTop' | 'signalMast'
 // normal: for edges/corners/ledges the OUTWARD horizontal direction away from the building (corners: diagonal);
@@ -46,7 +46,7 @@ export class ZipPoints {
   addBlockers(list) {
     (this.blockers ??= []).push(...list);
   }
-  // Tree canopies from the tree pools (trees.js): per-kind leaf-geometry bounds scaled per instance.
+  // Tree canopies from the tree pools (trees.ts): per-kind leaf-geometry bounds scaled per instance.
   addTreeBlockers(trees) {
     const out = [];
     for (const p of trees?.pools ?? []) {
@@ -233,13 +233,13 @@ export class ZipPoints {
   }
 }
 
-// Lamp / signal-mast tops from the props pools (props.js owned by another module; read-only, feature-detected).
+// Lamp / signal-mast tops from the props pools (props.ts owned by another module; read-only, feature-detected).
 // Lamppost: cobra head top at local (0, 9.15, 2.9); mast: arm tip (0, 6.7, 10.5) and pole cap (0, 7.9, 0).
 // Local prop frame: +z toward the roadway, rotation ry about Y, uniform scale s.
 export function addPropAnchors(Z, props) {
   const anchors = props?.anchors?.() ?? props?.propAnchors?.();
   if (Array.isArray(anchors)) {
-    // snap tops to the RENDERED model top where the anchor sits on a known instanced model (anchor heights in props.js
+    // snap tops to the RENDERED model top where the anchor sits on a known instanced model (anchor heights in props.ts
     // are nominal; e.g. the antenna GLB tip is 7 cm above its collision cylinder)
     const tops = new Map();
     for (const p of props?.pools ?? []) {

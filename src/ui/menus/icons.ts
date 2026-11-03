@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Inline SVG icon set (32x32 viewBox, line style) + badge wrappers + canvas images.
+// Inline SVG icon set (32x32 viewBox, line style) + badge wrappers + canvas images.
 const P = {
   tower:
     '<path d="M16 29 L11 29 L14.2 12 M16 29 L21 29 L17.8 12 M12.6 21 L19.4 21 M13.4 16.5 L18.6 16.5 M13 21 L19 16.5 M19 21 L13 16.5"/><circle cx="16" cy="9.5" r="2" fill="currentColor"/><path d="M10.5 5.5 A7.5 7.5 0 0 0 10.5 13.5 M21.5 5.5 A7.5 7.5 0 0 1 21.5 13.5 M8 3 A11 11 0 0 0 8 16 M24 3 A11 11 0 0 1 24 16"/>',

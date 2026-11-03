@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: gameplay agent. Insomniac-style HUD: minimap (bottom-right, tilted, navy/blue), compass strip,
+// Insomniac-style HUD: minimap (bottom-right, tilted, navy/blue), compass strip,
 // objective markers, off-screen objective indicator (left diamond), controls help overlay.
 // createHud({player, world, camera}) -> {update(dt), setVisible(b), setObjective(vec3|null), showHelp(b)}
 import * as THREE from "three";

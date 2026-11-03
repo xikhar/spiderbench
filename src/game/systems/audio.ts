@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. (audio r1) File-based WebAudio: pre-rendered ambient cinematic score + tonal SFX, all made
+// (audio r1) File-based WebAudio: pre-rendered ambient cinematic score + tonal SFX, all made
 // offline by tools/audio/build.py (numpy synthesis, no samples; see tools/audio/README.md). Web / movement / combat / UI
 // taps are realistic foley (tools/audio/foley.py). No noise beds, no wind, no traversal whooshes: speed / height are felt
 // through the music's swing layers.
@@ -11,7 +11,7 @@
 // Buses: master -> {music (duck + pause low-pass), world (pause muffle) -> {sfx, ambience}, ui}; volumes from settings.
 // Loading is lazy (first user gesture), async and never blocks the game; calls before load are silently dropped.
 import * as THREE from "three";
-import { nightK } from "../../render/daynight.ts";
+import { nightK } from "../../render/dayNight.ts";
 import { assetUrl } from "../../assets.ts";
 
 const BASE = assetUrl("audio/");
@@ -754,6 +754,6 @@ export function createAudio() {
       return ac;
     },
   };
-  window.__audio = api; // debug / playtest probe + the traffic system's horns (world/npc/traffic.js)
+  window.__audio = api; // debug / playtest probe + the traffic system's horns (world/npc/traffic.ts)
   return api;
 }

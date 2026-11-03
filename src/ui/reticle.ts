@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: traversal engineer. Insomniac-style zip-point reticles (2D canvas overlay inside #hud).
+// Insomniac-style zip-point reticles (2D canvas overlay inside #hud).
 // - Every visible candidate perch point: small dim white ring (only while the player is aiming: camera recently moved,
 //   perched, or standing still) with a soft fade.
 // - Highlighted (best) point: bright white ring with a centre dot, four rotating notch ticks and a subtle pulse; scales in

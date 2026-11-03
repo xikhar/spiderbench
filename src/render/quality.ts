@@ -1,4 +1,4 @@
-// OWNER: render agent. Quality presets selected with ?q=low|med|high. GPUs limited to
+// Quality presets selected with ?q=low|med|high. GPUs limited to
 // 16 fragment texture units use the low preset by default; an explicit ?q= still wins.
 type QualityPresetName = "low" | "med" | "high";
 
@@ -18,7 +18,7 @@ type QualitySettings = {
   taa: boolean;
   bloomLevels: number;
   dofTaps: number;
-  mbSamples: number;
+  motionBlurSamples: number;
   sharpen: number;
   charShadow: number;
   ssr: boolean;
@@ -37,7 +37,7 @@ type RendererCapabilitiesLike = {
   capabilities?: { maxTextures?: number };
 };
 
-const PRESETS: Record<QualityPresetName, QualitySettings> = {
+const QUALITY_PRESETS: Record<QualityPresetName, QualitySettings> = {
   low: {
     name: "low",
     cascades: 2,
@@ -54,7 +54,7 @@ const PRESETS: Record<QualityPresetName, QualitySettings> = {
     taa: true,
     bloomLevels: 5,
     dofTaps: 16,
-    mbSamples: 6,
+    motionBlurSamples: 6,
     sharpen: 0.25,
     charShadow: 0,
     ssr: false,
@@ -79,7 +79,7 @@ const PRESETS: Record<QualityPresetName, QualitySettings> = {
     taa: true,
     bloomLevels: 6,
     dofTaps: 22,
-    mbSamples: 8,
+    motionBlurSamples: 8,
     sharpen: 0.3,
     charShadow: 1024,
     ssr: true,
@@ -108,7 +108,7 @@ const PRESETS: Record<QualityPresetName, QualitySettings> = {
     taa: true,
     bloomLevels: 6,
     dofTaps: 43,
-    mbSamples: 10,
+    motionBlurSamples: 10,
     sharpen: 0.35,
     charShadow: 2048,
     ssr: true,
@@ -122,19 +122,20 @@ const PRESETS: Record<QualityPresetName, QualitySettings> = {
   },
 };
 
-let _q: QualitySettings | null = null;
+let cachedQualitySettings: QualitySettings | null = null;
 export function getQuality(
   renderer: RendererCapabilitiesLike | null = null,
 ): QualitySettings {
-  if (_q) return _q;
+  if (cachedQualitySettings) return cachedQualitySettings;
   let name: QualityPresetName =
     renderer?.capabilities?.maxTextures != null &&
     renderer.capabilities.maxTextures <= 16
       ? "low"
       : "high";
   try {
-    const p = new URLSearchParams(location.search).get("q");
-    const requestedPreset = p === "medium" ? "med" : p;
+    const requestedPresetParam = new URLSearchParams(location.search).get("q");
+    const requestedPreset =
+      requestedPresetParam === "medium" ? "med" : requestedPresetParam;
     if (
       requestedPreset === "low" ||
       requestedPreset === "med" ||
@@ -145,28 +146,40 @@ export function getQuality(
   } catch (e) {
     /* non-browser */
   }
-  _q = { ...PRESETS[name] };
+  cachedQualitySettings = { ...QUALITY_PRESETS[name] };
   // (perf) ?perfoff disables the perf agent's culling / batching changes (A/B measurements with tools/perf_probe.mjs)
   try {
-    _q.perf = !new URLSearchParams(location.search).has("perfoff");
+    cachedQualitySettings.perf = !new URLSearchParams(location.search).has(
+      "perfoff",
+    );
   } catch (e) {
-    _q.perf = true;
+    cachedQualitySettings.perf = true;
   }
   // (perf r2) ?qset=ao:0,ssr:0,shadowMapSize:1024 overrides single preset fields (GPU ablation with tools/perf_probe.mjs)
   try {
-    const qs = new URLSearchParams(location.search).get("qset");
-    if (qs)
-      for (const kv of qs.split(",")) {
-        const [k, v] = kv.split(":");
-        if (k === undefined || v === undefined) continue;
-        if (k in _q)
-          _q[k] =
-            v === "true" ? true : v === "false" ? false : isNaN(+v) ? v : +v;
+    const qualityOverrides = new URLSearchParams(location.search).get("qset");
+    if (qualityOverrides) {
+      for (const override of qualityOverrides.split(",")) {
+        const [settingName, settingValue] = override.split(":");
+        if (settingName === undefined || settingValue === undefined) continue;
+        if (!(settingName in cachedQualitySettings)) continue;
+
+        const numericValue = Number(settingValue);
+        const parsedValue =
+          settingValue === "true"
+            ? true
+            : settingValue === "false"
+              ? false
+              : Number.isNaN(numericValue)
+                ? settingValue
+                : numericValue;
+        cachedQualitySettings[settingName] = parsedValue;
       }
+    }
   } catch (e) {
     /* non-browser */
   }
-  return _q;
+  return cachedQualitySettings;
 }
 
 // Retina displays can multiply the render targets' pixel count by 2.25 at 1.5x DPR.
@@ -175,8 +188,9 @@ export function getRenderPixelRatio(
   renderer: RendererCapabilitiesLike | null,
   renderScale = 1,
 ): number {
-  const dpr = typeof devicePixelRatio === "number" ? devicePixelRatio : 1;
+  const currentDevicePixelRatio =
+    typeof devicePixelRatio === "number" ? devicePixelRatio : 1;
   const maxTextures = renderer?.capabilities?.maxTextures;
-  const cap = maxTextures != null && maxTextures <= 16 ? 0.8 : 1.5;
-  return Math.min(dpr, cap) * renderScale;
+  const maxRenderPixelRatio = maxTextures != null && maxTextures <= 16 ? 0.8 : 1.5;
+  return Math.min(currentDevicePixelRatio, maxRenderPixelRatio) * renderScale;
 }

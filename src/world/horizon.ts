@@ -1,22 +1,22 @@
 // @ts-nocheck
-// OWNER: foundation agent (city remake). Distant hinterland beyond the modelled far shores (farshore.js ends its
+// Distant hinterland beyond the modelled far shores (farshore.ts ends its
 // massed blocks ~4.3 km from Manhattan): New Jersey plains + Newark-like cluster to the west, the Bronx / Westchester
 // to the north, Queens / Brooklyn / Long-Island-like sprawl to the east, Staten-Island-like hills to the south-west.
 // One InstancedMesh of 5-sided boxes (no bottoms) sized and spaced by distance (the far the coarser), with a cheap
 // shader: roof tones per instance (tar, gravel, membrane, rust), walls darker with floor bands that dissolve into an
 // average with distance (no shimmer). Read through the aerial-perspective fog they give the horizon a real, uneven
 // city silhouette instead of a flat band. No shadows, no collision (unreachable); ~1 draw call.
-import __shaderPatch1 from "./shaders/glsl/horizon-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/horizon-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/horizon-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/horizon-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/horizon-patch-5.glsl?raw";
+import { lazyShaderSections } from "../shaderSections.ts";
+import horizonShaderSource from "./shaders/glsl/horizon.glsl?raw";
 import * as THREE from "three";
 import { mulberry32, hash2, onLand, G } from "./layout.ts";
 import { farShoreHeight } from "./farshore.ts";
 
-import { REFL_LAYER } from "./water.ts";
-import { nightK } from "../render/daynight.ts"; // (night)
+import { REFL_LAYER } from "./waterLayers.ts";
+import { nightK } from "../render/dayNight.ts";
+
+const horizonShader = lazyShaderSections(() => horizonShaderSource);
+// (night)
 
 // skyline clusters on the hinterland: centre, radius, max height
 const CLUSTERS = [
@@ -183,22 +183,22 @@ function createHinterlandMaterial() {
     sh.uniforms.uNightK = nightK; // (night)
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",horizonShader.vertexCommon,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch2,
+        "#include <fog_vertex>",horizonShader.vertexFogVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch3,
+        "#include <common>",horizonShader.fragmentCommon,
       )
       // (night) distant boroughs: dark masses with a sparse warm window sparkle (per-building lit share: most dim, a
       // few bright), no light on the roofs; sub-pixel by construction (per-instance constant), so it never shimmers
       .replace(
-        "#include <emissivemap_fragment>",__shaderPatch4,
+        "#include <emissivemap_fragment>",horizonShader.fragmentEmissive,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch5,
+        "#include <map_fragment>",horizonShader.fragmentMap,
       );
   };
   mat.customProgramCacheKey = () => "hinterland-v3-night";

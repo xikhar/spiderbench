@@ -1,46 +1,48 @@
 // @ts-nocheck
-import __shaderRaw1 from "./shaders/fragment/sky-lut_frag.frag?raw";
-import __shaderRaw2 from "./shaders/fragment/sky-noise_frag.frag?raw";
-import __shaderRaw3 from "./shaders/glsl/sky-glsl_sky_common.glsl?raw";
-import __shaderRaw4 from "./shaders/glsl/sky-glsl_clouds.glsl?raw";
-import __shaderRaw5 from "./shaders/fragment/sky-skypass.frag?raw";
-import __shaderRaw6 from "./shaders/vertex/sky-envsky.vert?raw";
-import __shaderRaw7 from "./shaders/fragment/sky-envsky.frag?raw";
-import { injectShader } from "./shader.ts";
-// OWNER: render agent.
-// Physically based sky: single-scattering atmosphere (Rayleigh + Mie + ozone, approx multiple scattering)
+import { lazyShaderSections } from "../shaderSections.ts";
+import skyShaderSource from "./shaders/glsl/sky.glsl?raw";
+import skyLutGenerationFragmentShader from "./shaders/fragment/sky-lut.frag?raw";
+import skyNoiseGenerationFragmentShader from "./shaders/fragment/sky-noise.frag?raw";
+import skyPassFragmentShader from "./shaders/fragment/sky-pass.frag?raw";
+import environmentSkyVertexShader from "./shaders/vertex/sky-environment.vert?raw";
+import environmentSkyFragmentShader from "./shaders/fragment/sky-environment.frag?raw";
+import { injectShader } from "./shaderInjection.ts";
+// // Physically based sky: single-scattering atmosphere (Rayleigh + Mie + ozone, approx multiple scattering)
 // baked into a small sky-view LUT, raymarched cumulus cloud layer (Perlin-Worley 3D noise), procedural distant
 // skyline, PMREM environment generation for IBL.
 import * as THREE from "three";
-import { FSPass, makeRT, GLSL_DEPTH } from "./common.ts";
+import { FullscreenPass, createRenderTarget, DEPTH_RECONSTRUCTION_GLSL } from "./fullscreenPass.ts";
 import { GLSL_ATMOS, sunTransmittance } from "./atmosphere.ts";
+
+const skyShader = lazyShaderSections(() => skyShaderSource);
+
 
 const LUT_W = 256,
   LUT_H = 128;
 
 // ---------------------------------------------------------------------------------------------------------
 // GLSL: sky LUT generation (radiance for unit sun illuminance), parameterised relative to the sun azimuth.
-const LUT_FRAG = injectShader(__shaderRaw1, GLSL_ATMOS);
+const LUT_FRAG = injectShader(skyLutGenerationFragmentShader, GLSL_ATMOS);
 
 // ---------------------------------------------------------------------------------------------------------
 // GLSL: tileable Perlin-Worley 3D noise generation (R = perlin-worley, GBA = worley fbm at increasing freqs)
-const NOISE_FRAG = __shaderRaw2;
+const NOISE_FRAG = skyNoiseGenerationFragmentShader;
 
 // ---------------------------------------------------------------------------------------------------------
 // GLSL: shared sky evaluation (LUT lookup, clouds, skyline). Requires uniforms declared in SKY_UNIFORMS.
 export const GLSL_SKY_COMMON = injectShader(
-  __shaderRaw3,
+  skyShader.commonAtmosphere,
   GLSL_ATMOS,
   LUT_W,
   LUT_W,
 );
 
-const GLSL_CLOUDS = __shaderRaw4;
+const GLSL_CLOUDS = skyShader.clouds;
 
 export function createSky(renderer, quality) {
   // LUT target
-  const lut = makeRT(LUT_W, LUT_H, { type: THREE.HalfFloatType });
-  const lutPass = new FSPass({
+  const lut = createRenderTarget(LUT_W, LUT_H, { type: THREE.HalfFloatType });
+  const lutPass = new FullscreenPass({
     name: "skyLUT",
     fragmentShader: LUT_FRAG,
     uniforms: {
@@ -64,7 +66,7 @@ export function createSky(renderer, quality) {
   nt.minFilter = THREE.LinearFilter;
   nt.magFilter = THREE.LinearFilter;
   nt.generateMipmaps = false;
-  const noisePass = new FSPass({
+  const noisePass = new FullscreenPass({
     name: "cloudNoise",
     fragmentShader: NOISE_FRAG,
     uniforms: {
@@ -106,7 +108,7 @@ export function createSky(renderer, quality) {
     // (atmosphere r1) brighter, larger cumulus + cirrus veil
     cloudBaseDark: 0.9,
     skylineVisible: 1.0,
-    // time-of-day controls (set by lighting.js presets)
+    // time-of-day controls (set by lighting.ts presets)
     lightScale: 1.0,
     lightTint: [1, 1, 1], // scale/tint of the key light (sun, or moon at night)
     skyTint: [1, 1, 1],
@@ -192,7 +194,7 @@ export function createSky(renderer, quality) {
   }
 
   // ---------------- half-res sky pass (screen) ----------------
-  const skyPass = new FSPass({
+  const skyPass = new FullscreenPass({
     name: "skyPass",
     defines: {
       CLOUD_STEPS: quality.cloudSteps,
@@ -210,8 +212,8 @@ export function createSky(renderer, quality) {
       uStars: { value: 0 },
     },
     fragmentShader: injectShader(
-      __shaderRaw5,
-      GLSL_DEPTH,
+      skyPassFragmentShader,
+      DEPTH_RECONSTRUCTION_GLSL,
       GLSL_SKY_COMMON,
       GLSL_CLOUDS,
     ),
@@ -233,9 +235,9 @@ export function createSky(renderer, quality) {
       uEnvSat: { value: 0.62 },
       uEnvFacade: { value: new THREE.Vector3(0.34, 0.29, 0.23) },
     },
-    vertexShader: __shaderRaw6,
+    vertexShader: environmentSkyVertexShader,
     fragmentShader: injectShader(
-      __shaderRaw7,
+      environmentSkyFragmentShader,
       GLSL_SKY_COMMON,
       GLSL_CLOUDS,
     ),

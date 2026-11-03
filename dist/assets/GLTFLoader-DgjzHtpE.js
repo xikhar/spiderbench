@@ -1,0 +1,1 @@
+export{t as GLTFLoader}from"./three~index~screenshotPresets~gameSystems~GLTFLoader-B3wE3Q6h.js";

@@ -1,6 +1,7 @@
 // @ts-nocheck
-import { JUNCTION_ISLES } from "./jisles.ts"; // (layout2 r9) baked refuge islands (tools/gen_islands.mjs)
-// OWNER: city agent. Manhattan-island layout (pure data, no three.js objects).
+import { JUNCTION_ISLES } from "./junctionIsles.ts"; // (layout2 r9) baked refuge islands (tools/gen_islands.mjs)
+import { CURB_HEIGHT, PARK_BOUNDS } from "./layoutConstants.ts";
+// Manhattan-island layout (pure data, no three.js objects).
 // Axes: +x = east, -z = north, y up, meters. Avenues run N-S (along z), streets run E-W (along x).
 //
 // The island: a long narrow landmass (~6.8 km x 1.45 km, north tip z=-3480, south tip z=+3330) with the Hudson to the
@@ -42,13 +43,13 @@ export const G = {
   Z_MIN: -3480,
   Z_MAX: 3330, // island tips (z)
   CORE: { x0: -640, x1: 640, z0: -820, z1: 820 }, // (legacy) midtown full-detail area
-  PARK: { x0: -234, x1: 234, z0: -2151, z1: -569 }, // Central-Park-like: 8th/CPW (x=-250) .. 5th (x=250), 110th .. 59th
+  PARK: PARK_BOUNDS, // Central-Park-like: 8th/CPW (x=-250) .. 5th (x=250), 110th .. 59th
   DRIVE_X0: 1e9,
   DRIVE_X1: 1e9, // (legacy: the old straight waterfront drive no longer exists)
   SEAWALL_X: 1e9,
   RIVER_X1: 1e9,
   WATER_Y: -1.6,
-  CURB_H: 0.15,
+  CURB_H: CURB_HEIGHT,
 };
 G.AV_HALF = G.AV_ROAD / 2;
 G.ST_HALF = G.ST_ROAD / 2;
@@ -154,7 +155,7 @@ export const SHORE_Z = [];
   }); // (layout2 r9) per-street width
   SHORE_Z.push(...[...s].sort((a, b) => a - b));
 }
-// (round 4) the waterfront (West Side Highway / FDR Drive + esplanade, highway.js) needs ~40 m between the seawall and
+// (round 4) the waterfront (West Side Highway / FDR Drive + esplanade, highway.ts) needs ~40 m between the seawall and
 // the grid: the land is pushed out by SHORE_PUSH (tapered to 0 at the tips) while the street grid is still laid out
 // against the ORIGINAL shoreline (SHORE_W0 / SHORE_E0 + PROM), so blocks / avenues / streets are unchanged.
 export const SHORE_PUSH = 30;
@@ -240,16 +241,16 @@ export const LAND_POLY = [
     .slice(1, -1),
 ];
 
-// East River bridges (built by bridges.js; the far-shore generator keeps their approach corridors free).
+// East River bridges (built by bridges.ts; the far-shore generator keeps their approach corridors free).
 // z: centre line, deckY: road deck height, towerH: tower top height (suspension), width: deck width, anchor: anchorage
 // length (x) off each seawall, ramp: far-shore approach length, sideFrac: side span / total span.
 export const BRIDGES = [
   // (r14) towers ~10% taller (critic: 'bridges tiny, vanish into the haze; main towers must read as silhouettes')
   // mGrade: Manhattan approach viaduct grade (round 4): the deck ramps down west from the anchorage over the waterfront
   // and the avenues (>= 7 m clearance) and lands inside a block row (z centred between two streets; the lots under it
-  // are left empty by city.js -> approach plazas). See bridges.js manhattanApproach().
+  // are left empty by city.ts -> approach plazas). See bridges.ts manhattanApproach().
   // (bridges r1) every bridge now has a Manhattan approach (mGrade) that lands in a block row and joins a real street at
-  // grade (bridges.js mJoin). lanes: traffic lanes per direction (3.4 m), inner: half width of the centre zone
+  // grade (bridges.ts mJoin). lanes: traffic lanes per direction (3.4 m), inner: half width of the centre zone
   // (0.6 jersey median, 4.2 Brooklyn raised promenade, 4.6 Williamsburg subway tracks), tower: steel tower variant.
   // width = overall structural width (deck + tower legs / trusses), read by the corridor clearing in other modules.
   // queensboro (-640 -> -680) and triborough (-2960 -> -3000) moved off their street lines into block rows so their
@@ -376,7 +377,7 @@ const pz = (f) => G.PARK.z1 - f * PL;
 //   the Pond (SE corner, crescent), the Lake (irregular, many-lobed, west of centre ~72nd-78th), Turtle Pond (small,
 //   south edge of the Great Lawn), the Reservoir (big, squarish, spans most of the park ~86th-96th), Harlem Meer (NE).
 // Each outline is an ellipse (rx, rz, rotation a) modulated by harmonics h = [a2, a3, a4, a5] plus the legacy
-// 3rd/5th wobble; the grass shader (ground.js) evaluates the same function, so bank rings follow the real outline.
+// 3rd/5th wobble; the grass shader (ground.ts) evaluates the same function, so bank rings follow the real outline.
 // rx / rz are normalised so the outline never leaves 1.1 x the ellipse (trees / paths test the ellipse envelope).
 export const PARK_WATER = [
   {
@@ -441,7 +442,7 @@ export const PARK_WATER = [
   },
 ].map((w) => {
   // (round 7) + q: small high-frequency coves / points / rocky spits (harmonics 7, 11, 17) so the banks are no longer
-  // smooth pasted blobs from the air (the grass shader's pondD in ground.js evaluates the same terms)
+  // smooth pasted blobs from the air (the grass shader's pondD in ground.ts evaluates the same terms)
   const kf = (t) =>
     1 +
     0.08 * Math.sin(t * 3 + w.cx) +
@@ -926,7 +927,7 @@ export function diagTrimRect(diag, x0, z0, x1, z1, minW = 8, pad = 0.3) {
   return best;
 }
 // (layout2 r2) the block's property rect minus its off-grid road + sidewalk bands, as convex pieces [[x, z], ...]
-// (inset `pad` from the bands). Wedges / triangles / trapezoids: true-footprint frontage buildings (buildings.js)
+// (inset `pad` from the bands). Wedges / triangles / trapezoids: true-footprint frontage buildings (buildings.ts)
 export function diagLotPieces(b, pad = 0) {
   let cells = [
     [
@@ -1395,7 +1396,7 @@ function buildStreetMap(V) {
     s.hw = s.w / 2;
     s.map = V;
   }
-  // boundary query (npc/roads.js): the seam road met at (x, z) -> {hw} (grid road), {edge: true} (waterfront) | null
+  // boundary query (npc/roads.ts): the seam road met at (x, z) -> {hw} (grid road), {edge: true} (waterfront) | null
   V.boundary = (x, z) => {
     for (const B of [V.left, V.right])
       if (
@@ -1684,8 +1685,8 @@ export function vmapRoadPolys(walk = false) {
 }
 // (layout2 r4) Battery Park: the island tip south of the FiDi map (land 12 m in from the seawall: the esplanade stays),
 // lawns split by curving-ish promenades (straight path bands at odd angles) around a Castle-Clinton-like round fort.
-// streetsAt: lawns -> 'park' (grass 0.17), paths / the fort plaza -> promenade fill (0.15). ground.js renders the lawns +
-// the fort (exact collision), city.js plants the trees.
+// streetsAt: lawns -> 'park' (grass 0.17), paths / the fort plaza -> promenade fill (0.15). ground.ts renders the lawns +
+// the fort (exact collision), city.ts plants the trees.
 export const BATTERY = (() => {
   const zB = FMAP.z1,
     M = 12,
@@ -1728,7 +1729,7 @@ export const BATTERY = (() => {
   });
   // (coast r2) coordinator: 'a huge flat lawn with thin straight paths' -> one lawn (the park inset 4 m for its
   // perimeter promenade) with the fort plaza cut out as a circle in batteryAt; the curving paths, groves, fort, ferry
-  // terminal and furniture are waterfront.js' (paths are flush paver decals on the lawn, like Central Park's)
+  // terminal and furniture are waterfront.ts' (paths are flush paver decals on the lawn, like Central Park's)
   let inner = poly;
   {
     let mx = 0,
@@ -1754,7 +1755,7 @@ export const BATTERY = (() => {
     }
     inner = clipPoly(inner, (x, z) => z - zB - 4);
   }
-  let lawns = []; // (coast r2) no convex lawn pieces any more (city.js plants no grid trees here; waterfront.js plants the groves)
+  let lawns = []; // (coast r2) no convex lawn pieces any more (city.ts plants no grid trees here; waterfront.ts plants the groves)
   const plazaR = castle.r + 9;
   lawns = lawns.filter((P) => polyArea(P) > 120);
   const xs = poly.map((p) => p[0]),
@@ -1792,7 +1793,7 @@ export function batteryAt(x, z) {
 // A roundabout at the Broadway / 8th Av / 59th St node by the park's SW corner: the asphalt disc (n-gon of radius R)
 // carves the corners of the blocks around it (their sidewalk cells are split along the n-gon: inside -> asphalt,
 // outside -> convex sidewalk wedges), a central island (radius r, monument column) sits in the middle, traffic circles
-// counter-clockwise (seen from above) on the ring at radius `lane` (npc/roads.js ring connectors).
+// counter-clockwise (seen from above) on the ring at radius `lane` (npc/roads.ts ring connectors).
 export const ROUNDABOUT = {
   x: -250,
   z: -560,
@@ -1876,8 +1877,8 @@ export const nearRoundabout = (b) =>
 // ------------------------------------------------------------------------------------------ (layout2 r3) curb islands
 // Raised convex curb polygons standing ON the asphalt (top at CURB_H, curb faces all round): the Park Av median, corner
 // bulb-outs (neck-downs over the parking lanes at crosswalks) and pedestrian refuge islands. streetsAt() reports them as
-// {type:'sidewalk', island}; ground.js draws them into the sidewalk mesh, so terrain / render / collision agree exactly.
-// Traffic keeps clear: moving lanes never overlap them (Park Av lanes shift outward beside the median, npc/roads.js),
+// {type:'sidewalk', island}; ground.ts draws them into the sidewalk mesh, so terrain / render / collision agree exactly.
+// Traffic keeps clear: moving lanes never overlap them (Park Av lanes shift outward beside the median, npc/roads.ts),
 // parked cars skip them (islandNear). Built lazily on first query (needs the block index). See LAYOUT_API.md.
 //   {kind: 'median'|'bulb'|'island', poly: [[x, z], ...] convex, x0, x1, z0, z1, trees: [[x, z], ...]}
 // painted curb-side bike lanes (1.8 m green lane + 0.9 m hatched buffer where the parking lane was): avenue i, side -1 west / +1 east
@@ -1886,7 +1887,7 @@ export const BIKE_LANES = [
   { i: 6, side: 1, z0: -3440, z1: 3300 },
   { i: 1, side: 1, z0: -560, z1: 640 },
 ];
-// (layout2 r8) red curb-side bus lanes (paint only, ground.js; critic r7: 'no painted bike lanes, bus lanes'): 5th Av west
+// (layout2 r8) red curb-side bus lanes (paint only, ground.ts; critic r7: 'no painted bike lanes, bus lanes'): 5th Av west
 // side, 6th Av east side south of Times Sq, 2nd Av west side (the bike lane is on its east side), 10th Av west side uptown
 export const BUS_LANES = [
   { i: 4, side: -1, z0: -3440, z1: 2400 },
@@ -1895,7 +1896,7 @@ export const BUS_LANES = [
   { i: 1, side: -1, z0: -3440, z1: -560 },
 ];
 // (layout2 r8) wide crosstown streets (14th, 23rd, 34th, 57th-, 72nd-, 86th-, 116th-, 125th-like): the building line
-// on both sides steps back WIDE_ST_SET m (buildings.js blockVariety, emit-time setback: the city rnd / lots are
+// on both sides steps back WIDE_ST_SET m (buildings.ts blockVariety, emit-time setback: the city rnd / lots are
 // unchanged), so the canyon is ~6 m wider than the ordinary side streets. The roadway itself keeps the grid width.
 export const WIDE_STREETS = [1040, 720, 320, -480, -1200, -1680, -2480, -2800];
 export const WIDE_ST_SET = 3.2;
@@ -1993,7 +1994,7 @@ export function islands() {
       trees,
     );
   }
-  add("island", ROUNDABOUT.islandPoly, []); // Columbus Circle centre (monument: ground.js)
+  add("island", ROUNDABOUT.islandPoly, []); // Columbus Circle centre (monument: ground.ts)
   // (layout2 r9) refuge / pedestrian islands baked on the empty asphalt of the irregular junctions (tools/gen_islands.mjs)
   if (!globalThis.__NO_JISLES)
     for (const P of JUNCTION_ISLES) {
@@ -2193,7 +2194,7 @@ export function islandNear(x, z, r = 1) {
 // User: rounded sidewalk corners at every intersection (grid, Broadway, Village; acute / obtuse too). Every convex
 // sidewalk-polygon vertex with asphalt all round its outside (3 probes) gets a fillet of radius KERB_R (tangent length
 // clamped to 45% of the shorter edge / 7 m). The cut = triangle(V, T1, T2) minus the convex arc polygon (T1, arc.., T2)
-// becomes asphalt: streetsAt reports {type:'intersection', cut}, ground.js replaces V by the arc in the sidewalk polygon
+// becomes asphalt: streetsAt reports {type:'intersection', cut}, ground.ts replaces V by the arc in the sidewalk polygon
 // (the curb faces follow the curve) and fills the cut with asphalt fan triangles, so render and terrain agree exactly.
 export const KERB_R = 4.5;
 let _cuts = null,
@@ -2429,7 +2430,7 @@ export function roadRects() {
 }
 
 // ------------------------------------------------------------------------------------------ districts
-// Named districts (south = +z). Weights drive the building generator; `id` matches game/systems/worlddata.js.
+// Named districts (south = +z). Weights drive the building generator; `id` matches game/systems/worldData.ts.
 export function district(x, z) {
   // zoning height map (round 9): Midtown / FiDi peaks plus a 12-30 storey mid band (Chelsea / Flatiron / Murray Hill /
   // Kips Bay, Tribeca / Civic Center, the UES / UWS avenue walls) so the skyline layers instead of a low-rise mat.
@@ -2607,7 +2608,7 @@ export function onRoad(x, z) {
 
 // ------------------------------------------------------------------------------------------ layout API (for district builders)
 // Pure data + helpers so every module places things from ONE source of truth. See tools/briefs/city_remake/LAYOUT_API.md.
-// District rectangles (ids match game/systems/worlddata.js DISTRICTS). Rects are coarse bounding boxes; clip with onLand().
+// District rectangles (ids match game/systems/worldData.ts DISTRICTS). Rects are coarse bounding boxes; clip with onLand().
 export const DISTRICT_RECTS = {
   harlem: { x0: -800, x1: 900, z0: -3500, z1: -2151, name: "Harlem" },
   uws: { x0: -800, x1: -234, z0: -2151, z1: -569, name: "Upper West Side" },
@@ -2625,7 +2626,7 @@ export const DISTRICT_RECTS = {
   },
   fd: { x0: -800, x1: 900, z0: 1900, z1: 3400, name: "Financial District" },
 };
-// Named sites (lot rectangles on the building grid). Landmarks already built by landmarks.js are marked `built`.
+// Named sites (lot rectangles on the building grid). Landmarks already built by landmarks.ts are marked `built`.
 export const SITES = {
   park: { ...G.PARK },
   timesSquare: {
@@ -2638,7 +2639,7 @@ export const SITES = {
       [-34, -10],
       [10, 34],
     ],
-    built: "timessq.js (plaza strips + billboard towers)",
+    built: "timesSquare.ts (plaza strips + billboard towers)",
   },
   grandCentral: {
     x0: 388,
@@ -2646,36 +2647,36 @@ export const SITES = {
     z0: -160,
     z1: -80,
     avenueX: 430,
-    built: "landmarks.js (terminal across Park Av, CLOSED_AV)",
+    built: "landmarks.ts (terminal across Park Av, CLOSED_AV)",
   },
-  metlife: { x0: 316, x1: 414, z0: -240, z1: -160, built: "landmarks.js" },
+  metlife: { x0: 316, x1: 414, z0: -240, z1: -160, built: "landmarks.ts" },
   empire: {
     x0: 146,
     x1: 234,
     z0: 240,
     z1: 320,
-    built: "landmarks.js (Empire-State-like, 336 m + mast)",
+    built: "landmarks.ts (Empire-State-like, 336 m + mast)",
   },
   chrysler: {
     x0: 484,
     x1: 540,
     z0: -160,
     z1: -80,
-    built: "landmarks.js (Chrysler-like crown)",
+    built: "landmarks.ts (Chrysler-like crown)",
   },
   wtc1: {
     x0: -168,
     x1: -110,
     z0: 2731,
     z1: 2789,
-    built: "landmarks.js (One-WTC-like, 386 m + spire)",
+    built: "landmarks.ts (One-WTC-like, 386 m + spire)",
   },
   heroTower: {
     x0: 266,
     x1: 300,
     z0: -620,
     z1: -580,
-    built: "hero.js (ref-2 glass/stone tower)",
+    built: "hero.ts (ref-2 glass/stone tower)",
   },
   // where the tall towers belong (building generator weights: district().midtown / .fidi)
   midtownTowers: { x0: -125, x1: 610, z0: -569, z1: 240 },
@@ -2720,7 +2721,7 @@ export function distToShore(x, z) {
   const [w, e] = shoreX(z);
   return Math.min(x - w, e - x);
 }
-// (layout2 r5) curb cuts: driveway / loading-bay aprons across the sidewalk (registered by buildings.js blockVariety
+// (layout2 r5) curb cuts: driveway / loading-bay aprons across the sidewalk (registered by buildings.ts blockVariety
 // while the city generates). Street props (lamps, trees, hydrants, sheds...) keep off them. Rects {x0,z0,x1,z1}, 64 m hash.
 export const CURB_CUTS = [];
 const _ccIdx = new Map();
@@ -2745,8 +2746,8 @@ export function inCurbCut(x, z, pad = 0.6) {
   );
 }
 // (layout2 r5) Lincoln-Center-like superblock (block west of the 10th Av / Broadway bow-tie): three travertine halls round
-// an open plaza facing the avenue (fountain, bosque, pavers: buildings.js dressSquares). `plaza` clears the whole block's
-// generic lots; the halls are reserves built by generateBuildings (arch in city.js).
+// an open plaza facing the avenue (fountain, bosque, pavers: buildings.ts dressSquares). `plaza` clears the whole block's
+// generic lots; the halls are reserves built by generateBuildings (arch in city.ts).
 export const LINCOLN = {
   plaza: { x0: -594, x1: -446, z0: -871, z1: -809 },
   halls: [

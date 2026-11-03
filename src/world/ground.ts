@@ -1,32 +1,8 @@
 // @ts-nocheck
-// OWNER: city agent. Streets (asphalt shader w/ lane grime), sidewalks + curbs, road markings, park ground, water.
-import __shaderPatch1 from "./shaders/glsl/ground-patch-1.glsl?raw";
-import __shaderPatch10 from "./shaders/glsl/ground-patch-10.glsl?raw";
-import __shaderPatch11 from "./shaders/glsl/ground-patch-11.glsl?raw";
-import __shaderPatch12 from "./shaders/glsl/ground-patch-12.glsl?raw";
-import __shaderPatch13 from "./shaders/glsl/ground-patch-13.glsl?raw";
-import __shaderPatch14 from "./shaders/glsl/ground-patch-14.glsl?raw";
-import __shaderPatch15 from "./shaders/glsl/ground-patch-15.glsl?raw";
-import __shaderPatch16 from "./shaders/glsl/ground-patch-16.glsl?raw";
-import __shaderPatch17 from "./shaders/glsl/ground-patch-17.glsl?raw";
-import __shaderPatch18 from "./shaders/glsl/ground-patch-18.glsl?raw";
-import __shaderPatch19 from "./shaders/glsl/ground-patch-19.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/ground-patch-2.glsl?raw";
-import __shaderPatch20 from "./shaders/glsl/ground-patch-20.glsl?raw";
-import __shaderPatch21 from "./shaders/glsl/ground-patch-21.glsl?raw";
-import __shaderPatch22 from "./shaders/glsl/ground-patch-22.glsl?raw";
-import __shaderPatch23 from "./shaders/glsl/ground-patch-23.glsl?raw";
-import __shaderPatch24 from "./shaders/glsl/ground-patch-24.glsl?raw";
-import __shaderPatch25 from "./shaders/glsl/ground-patch-25.glsl?raw";
-import __shaderPatch26 from "./shaders/glsl/ground-patch-26.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/ground-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/ground-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/ground-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/ground-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/ground-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/ground-patch-8.glsl?raw";
-import __shaderPatch9 from "./shaders/glsl/ground-patch-9.glsl?raw";
-import { injectShader } from "../render/shader.ts";
+// Streets (asphalt shader w/ lane grime), sidewalks + curbs, road markings, park ground, water.
+import { lazyShaderSections } from "../shaderSections.ts";
+import groundShaderSource from "./shaders/glsl/ground.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import {
   G,
@@ -74,15 +50,19 @@ import {
   stNarrow,
   ZFIX,
 } from "./layout.ts"; // (layout2 r3) curb islands, Park Av median, bike lanes // (layout2) blockPieces, DIAG_SEGS (+ r2: VMAP)
-import { GORE_HATCH } from "./gorehatch.ts"; // (layout2 r6) baked gore hatching (tools/gen_islands.mjs)
+import { GORE_HATCH } from "./junctionGoreHatching.ts"; // (layout2 r6) baked gore hatching (tools/gen_islands.mjs)
 import { farShoreHeight } from "./farshore.ts";
 import { buildWaterfront, coastHeight } from "./waterfront.ts"; // (coast r1) waterfront edge + shoreline fill
 import { FacadeBuilder, STYLE, LAYER } from "./facade.ts";
 import { OVERHANG } from "./collision.ts";
 import { buildWater, createRiverMaterial } from "./water.ts";
-import { PARK_MEADOWS, meadowDist, PARK_CANOPY_EXTERNAL } from "./trees.ts";
+import { PARK_CANOPY_EXTERNAL } from "./trees.ts";
+import { PARK_MEADOWS, meadowDist } from "./parkData.ts";
 import { adjustParkPaths } from "./park.ts"; // park agent: East Drive / paths clear the museum lot
 import { CanopyBatch } from "./canopy.ts";
+
+const groundShader = lazyShaderSections(() => groundShaderSource);
+
 
 // Heights of the rendered ground surfaces (single source of truth for geometry AND terrainHeight())
 export const GY = {
@@ -100,7 +80,7 @@ export const PILE_FIELDS = []; // (coast r1) remnant pile fields {side, z0, z1}:
 // Analytic terrain height matching the rendered asphalt / curbs / promenade / park / water / far shores exactly (C4).
 export function terrainHeight(x, z) {
   if (!onLand(x, z))
-    return coastHeight(x, z) ?? farShoreHeight(x, z) ?? GY.WATER; // (coast r1) + shoreline fill (waterfront.js)
+    return coastHeight(x, z) ?? farShoreHeight(x, z) ?? GY.WATER; // (coast r1) + shoreline fill (waterfront.ts)
   const s = streetsAt(x, z).type;
   if (s === "park") {
     const w = parkWaterAt(x, z);
@@ -128,21 +108,21 @@ export function createAsphaltMaterial(T) {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",groundShader.vertexCommon,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch2,
+        "#include <fog_vertex>",groundShader.vertexFogVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch3,
+        "#include <common>",groundShader.fragmentCommon,
       )
-      .replace("#include <map_fragment>",__shaderPatch4)
+      .replace("#include <map_fragment>",groundShader.fragmentMap)
       .replace(
-        "#include <roughnessmap_fragment>",__shaderPatch5,
+        "#include <roughnessmap_fragment>",groundShader.fragmentRoughness,
       )
       .replace(
-        "#include <normal_fragment_maps>",__shaderPatch6,
+        "#include <normal_fragment_maps>",groundShader.fragmentNormalMaps,
       );
   };
   mat.customProgramCacheKey = () => "city-asphalt-v9"; // (textures r3) v9: repair decals // (street r6) (street r11) (foundation r13) (street r12)
@@ -165,21 +145,21 @@ export function createSidewalkMaterial(T) {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch7,
+        "#include <common>",groundShader.vertexCommonByWorldPosition,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch8,
+        "#include <fog_vertex>",groundShader.vertexFogVertexByWorldPosition,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch9,
+        "#include <common>",groundShader.fragmentCommonByWorldPosition,
       )
-      .replace("#include <map_fragment>",__shaderPatch10)
+      .replace("#include <map_fragment>",groundShader.fragmentMapWalkingSurface)
       .replace(
-        "#include <roughnessmap_fragment>",__shaderPatch11,
+        "#include <roughnessmap_fragment>",groundShader.fragmentRoughnessWalkingSurface,
       )
       .replace(
-        "#include <normal_fragment_maps>",__shaderPatch12,
+        "#include <normal_fragment_maps>",groundShader.fragmentNormalMapsByWorldNormal,
       );
   };
   mat.customProgramCacheKey = () => "city-sidewalk-v3"; // (foundation r13) (textures r2: v3 granite curb)
@@ -906,7 +886,7 @@ function buildMarkings(T, rnd) {
       s.ax + s.ux * t + s.nx * v,
       s.az + s.uz * t + s.nz * v,
     ];
-    // (citylife junctions r3) Broadway south of Columbus Circle is one-way southbound (npc/roads.js: lanes 1.2 m left and
+    // (citylife junctions r3) Broadway south of Columbus Circle is one-way southbound (npc/roads.ts: lanes 1.2 m left and
     // 2.4 m right of the centre line, parking at both curbs): white lane dashes, one stop line, straight arrows
     const oneWay =
       s.name === "BROADWAY" && Math.min(s.az, s.bz) >= ROUNDABOUT.z - 1;
@@ -1100,14 +1080,14 @@ export function createGrassMaterial(T, opts = {}) {
     color: 0xffffff,
     roughness: 0.95,
   });
-  // meadows (mowed lawns, shared layout with trees.js / the crowd) and ponds as uniforms: the lawn shader paints
+  // meadows (mowed lawns, shared layout with trees.ts / the crowd) and ponds as uniforms: the lawn shader paints
   // mowed meadows, darker shaded woodland floor under the groves, sandy ball-field infields on the big lawns and a
   // muddy / rocky bank ring around every water body (no hard grass-to-water line)
   const md = PARK_MEADOWS.map((m) => new THREE.Vector4(m.x, m.z, m.rx, m.rz)),
     ma = PARK_MEADOWS.map((m) => m.a);
   const pw = PARK_WATER.map((w) => new THREE.Vector4(w.cx, w.cz, w.rx, w.rz)),
     pa = PARK_WATER.map((w) => w.a);
-  const ph = PARK_WATER.map((w) => new THREE.Vector4(...(w.h ?? [0, 0, 0, 0]))); // outline harmonics (layout.js)
+  const ph = PARK_WATER.map((w) => new THREE.Vector4(...(w.h ?? [0, 0, 0, 0]))); // outline harmonics (layout.ts)
   const uni = {
     tCol: { value: T.grassCol },
     tNoise: { value: T.noise },
@@ -1121,21 +1101,21 @@ export function createGrassMaterial(T, opts = {}) {
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>",__shaderPatch13)
+      .replace("#include <common>",groundShader.vertexCommonDistantGrass)
       .replace(
-        "#include <fog_vertex>",__shaderPatch14,
+        "#include <fog_vertex>",groundShader.vertexFogVertexDistantGrass,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",injectShader(__shaderPatch15, md.length, md.length, pw.length, pw.length, pw.length, pw.length),
+        "#include <common>",injectShader(groundShader.fragmentCommonGrassSurface, md.length, md.length, pw.length, pw.length, pw.length, pw.length),
       )
       .replace(
-        "#include <map_fragment>",injectShader(__shaderPatch16, md.length, opts.lawn ? "0.0" : "0.72", opts.lawn ? "1.0" : "1.0 - smoothstep(0.92, 1.05, m)", opts.lawn ? "0.0" : "1.0", opts.lawn ? 1 : 3, pw.length, opts.lawn ? "0.0" : "1.0 - smoothstep(1.0, 3.5 + 2.5 * nz2.b, pd)", opts.lawn ? "0.0" : "0.85", opts.lawn ? "0.0" : "0.92", opts.lawn ? "0.0" : "0.7"),
+        "#include <map_fragment>",injectShader(groundShader.fragmentMapGrassSurface, md.length, opts.lawn ? "0.0" : "0.72", opts.lawn ? "1.0" : "1.0 - smoothstep(0.92, 1.05, m)", opts.lawn ? "0.0" : "1.0", opts.lawn ? 1 : 3, pw.length, opts.lawn ? "0.0" : "1.0 - smoothstep(1.0, 3.5 + 2.5 * nz2.b, pd)", opts.lawn ? "0.0" : "0.85", opts.lawn ? "0.0" : "0.92", opts.lawn ? "0.0" : "0.7"),
       )
       // (park r10) critic r9: 'one flat green plane, no terrain undulation'. Gentle rolling ground as a shading height
       // field (knolls / hollows of 0.6-1.5 m over 40-160 m): the lawn normal follows it, so the sun models the meadows
       .replace(
-        "#include <normal_fragment_maps>",__shaderPatch17,
+        "#include <normal_fragment_maps>",groundShader.fragmentNormalMapsGrassSurface,
       );
   };
   mat.customProgramCacheKey = () =>
@@ -1508,7 +1488,7 @@ export function buildGround({
       rect: [c.block.x0, c.block.z0, c.block.x1, c.block.z1],
     });
   } // (layout2 r2) Village blocks (+ r3 kerb returns)
-  // (zfix) the baked refuge islands (jisles.js) reach onto the rounded block corners / Broadway walks: the overlap was two
+  // (zfix) the baked refuge islands (junctionIsles.ts) reach onto the rounded block corners / Broadway walks: the overlap was two
   // coplanar sidewalk tops with different kerb-band rects (aRect) -> flicker. Refuges sit 4 mm up (collision tol 2 cm).
   for (const I of islands())
     rects.push({
@@ -1555,7 +1535,7 @@ export function buildGround({
     }
   }
   if (false) {
-    // (coast r2) replaced by waterfront.js' open fort ring with gun ports (the solid drum read as a black disc)
+    // (coast r2) replaced by waterfront.ts' open fort ring with gun ports (the solid drum read as a black disc)
     // (layout2 r4) Castle-Clinton-like round sandstone fort in Battery Park: drum + granite coping (exact n-gon collision)
     const C = BATTERY.castle,
       y = GY.WALK,
@@ -1634,7 +1614,7 @@ export function buildGround({
         Tz = -nx; // quad() winding: N = T x up
       const sx = (ax - bx) * Tx + (az - bz) * Tz > 0 ? bx : ax,
         sz = sx === bx ? bz : az;
-      // (coast r1) the flat seawall quad along the row-sampled shore is gone: waterfront.js builds the real edge (fill,
+      // (coast r1) the flat seawall quad along the row-sampled shore is gone: waterfront.ts builds the real edge (fill,
       // granite / platform / riprap / bulkhead faces, coping, rails) outward from here; the wet bands follow that edge
       out.shoreEdges.push({ ax, az, bx, bz, nx, nz, L });
     }
@@ -1742,7 +1722,7 @@ export function buildGround({
         lawns: [],
         shade: [],
       };
-      PIERS.push(PE); // (coast r2) + lawns / shade / shed for waterfront.js' dressing
+      PIERS.push(PE); // (coast r2) + lawns / shade / shed for waterfront.ts' dressing
       // (round 12) critic: 'piers are thin flat grey slabs'. Park-pier dressing on the open deck (Hudson-River-Park-like):
       // green lawn panels with a paved ring, a perimeter rail, lamp posts, steel shade pergolas and a pier-head pavilion.
       // Own rng (the pier layout stream is unchanged); exact collision boxes for every solid part.
@@ -1756,7 +1736,7 @@ export function buildGround({
         };
         const railP = { ...deckP, layer: LAYER.METAL, tint: [0.3, 0.32, 0.33] };
         // rail along both long sides + the head
-        // (coast r2) the rails are drawn by waterfront.js (posts, timber handrail, pickets: the solid 1.1 m box read as a
+        // (coast r2) the rails are drawn by waterfront.ts (posts, timber handrail, pickets: the solid 1.1 m box read as a
         // black wall); the collision boxes stay
         for (const zr of [za + 0.15, zb - 0.27])
           solids?.box(
@@ -2228,7 +2208,7 @@ export function buildGround({
   // perimeter rail, lamp posts and the odd shade pavilion. Deck top 3 cm under the promenade, tucked 1.5 m under it
   // (no seam); every part is an exact collision box. Own rng (layouts of piers / boats unchanged); not in PIERS (no
   // moored boats), clear of pier + bridge corridors, shallower in the Roosevelt narrows (no boat lane there).
-  // (coast r1) superseded: waterfront.js builds the bump-outs as part of the shoreline profile (the rail no longer cuts
+  // (coast r1) superseded: waterfront.ts builds the bump-outs as part of the shoreline profile (the rail no longer cuts
   // them off from the promenade). Kept behind a switch for A/B (?coastOld).
   if (
     typeof location !== "undefined" &&
@@ -2420,16 +2400,16 @@ export function buildGround({
   mm.onBeforeCompile = (sh) => {
     sh.uniforms.tNoiseW = { value: T.noise };
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>",__shaderPatch18)
+      .replace("#include <common>",groundShader.vertexCommonByMountainWorldPosition)
       .replace(
-        "#include <fog_vertex>",__shaderPatch19,
+        "#include <fog_vertex>",groundShader.vertexFogVertexByMountainWorldPosition,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch20,
+        "#include <common>",groundShader.fragmentCommonByMountainWorldPosition,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch21,
+        "#include <map_fragment>",groundShader.fragmentMapByMountainWorldPosition,
       );
   };
   mm.customProgramCacheKey = () => "city-markings-wear-v3";
@@ -2643,9 +2623,9 @@ export function buildGround({
   }
   const paths = adjustParkPaths(parkPaths(rnd));
   out.parkPaths = paths;
-  // ---- grove canopy 'far fill' (HLOD): crowns filling the groves between trees.js' trees, grown in only beyond
+  // ---- grove canopy 'far fill' (HLOD): crowns filling the groves between trees.ts' trees, grown in only beyond
   // ~230 m, so from the rooftops / the air the park reads as dense woodland around open meadows, not a lawn with dots
-  // (park agent: replaced by trees.js' dense park woodland + crown LODs when PARK_CANOPY_EXTERNAL)
+  // (park agent: replaced by trees.ts' dense park woodland + crown LODs when PARK_CANOPY_EXTERNAL)
   if (!PARK_CANOPY_EXTERNAL) {
     // (round 5) mostly olive / dusty late-summer greens with ~30% ochre / rust turning crowns (ref 08), not an orange carpet
     // (round 6) deeper, cooler summer-into-autumn greens; crowns flattened (squash) so overlapping crowns merge into one
@@ -2798,18 +2778,18 @@ export function buildGround({
     sh.uniforms.tPN = { value: T.noise };
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch22,
+        "#include <common>",groundShader.vertexCommonByPavementWorldPosition,
       )
-      .replace("#include <uv_vertex>",__shaderPatch23)
+      .replace("#include <uv_vertex>",groundShader.vertexUvVertex)
       .replace(
-        "#include <fog_vertex>",__shaderPatch24,
+        "#include <fog_vertex>",groundShader.vertexFogVertexByPavementWorldPosition,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch25,
+        "#include <common>",groundShader.fragmentCommonByPavementWorldPosition,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch26,
+        "#include <map_fragment>",groundShader.fragmentMapByPavementUv,
       );
   };
   pathMat.customProgramCacheKey = () => "park-path-v2p";
@@ -2854,7 +2834,7 @@ export function buildGround({
       solids?.box(sx, wy, z0, sx + t, wy + wh, z, "park");
     }
   }
-  // ---- (coast r1) the waterfront edge all round the island + the near far banks (waterfront.js)
+  // ---- (coast r1) the waterfront edge all round the island + the near far banks (waterfront.ts)
   const coast = buildWaterfront({
     scene,
     T,
@@ -2874,7 +2854,7 @@ export function buildGround({
   wm.name = "seawall+parkwall";
   scene.add(wm);
 
-  // ---- water: harbour / rivers everywhere below the land (water.js: PBR river material, SSR + sky Fresnel)
+  // ---- water: harbour / rivers everywhere below the land (water.ts: PBR river material, SSR + sky Fresnel)
   const river = buildWater({ scene, T, renderer });
   out.water = river;
   out.update = (dt, camera) => {

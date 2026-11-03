@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: citygeo. Loads the baked city textures (tools/blender/city_textures.py) and builds array textures.
+// Loads the baked city textures (tools/blender/city_textures.py) and builds array textures.
 // Colour maps are sRGB, every data map (normal/roughness, height/AO/weathering, noise) is linear; max anisotropy.
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
@@ -92,7 +92,7 @@ export async function loadCityTextures(renderer) {
     "walls_nrm.webp",
     "walls_hao.jpg",
     "curb_col.webp",
-    "asphalt_decals.webp", // (textures r2) nrm: lossless webp (was a 20 MB png); granite curb; (textures r3) road repair decals
+    "asphalt_decals.webp", // (textures r2) nrm: lossless webp (was a 20 MeshBuilder png); granite curb; (textures r3) road repair decals
     "interiors",
     "signs",
     "markings",
@@ -133,7 +133,7 @@ export async function loadCityTextures(renderer) {
   T.wallsCol = arrayFromImages([ims.walls_col], 1024, { srgb: true, aniso });
   T.wallsNrm = arrayFromImages([ims.walls_nrm], 512, { srgb: false, aniso }); // (textures r2) 512/layer (webp, half the VRAM)
   T.asphaltDecals = tex(ims.asphalt_decals, { repeat: false, aniso }); // (textures r3) $imagegen asphalt repair decals (colour ratio x0.5, linear)
-  T.curbCol = tex(ims.curb_col, { srgb: true, aniso }); // (textures r2) $imagegen granite curbstone (ground.js sidewalk material)
+  T.curbCol = tex(ims.curb_col, { srgb: true, aniso }); // (textures r2) $imagegen granite curbstone (ground.ts sidewalk material)
   T.wallsHao = arrayFromImages([ims.walls_hao], 512, { srgb: false, aniso });
   return T;
 }

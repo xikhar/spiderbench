@@ -1,10 +1,10 @@
 // @ts-nocheck
-// OWNER: coast agent (coast r1). The whole waterfront edge: Manhattan's seawall all round the island and the near far
+// The whole waterfront edge: Manhattan's seawall all round the island and the near far
 // shores (NJ, Queens / Brooklyn / Bronx, the islets) seen across the rivers.
 //
 // User (coast r1): 'city borders on most places are not made yet, they are low poly and bad, fix it, and make all the
 // coasts proper with right assets'. Before: one flat untextured quad per street row along a straight row-sampled
-// shoreline, a 2-bar pipe rail (props.js), flat slab bump-outs (ground.js r13) the rail cut off, and far banks that were
+// shoreline, a 2-bar pipe rail (props.ts), flat slab bump-outs (ground.ts r13) the rail cut off, and far banks that were
 // one dark quad per 0.5-1.5 km polygon edge.
 //
 // Now the island outline (layout.LAND_POLY, which the street grid is laid out against) is left untouched and a band of
@@ -16,19 +16,16 @@
 //   PLAT  relieving platform: concrete deck edge on piles over a dark void, the real bulkhead set back under it
 //   RIP   riprap bank: a sloped boulder toe (image-gen riprap texture + instanced-style merged rocks), pipe rail
 //   BULK  timber-capped concrete bulkhead with fender piles, a waler, cast-iron bollards (working edge, no rail)
-// plus ladders, lamps / benches (props.js pools via COAST.lamps / .benches), lawns and trees on the wide bump-outs,
+// plus ladders, lamps / benches (props.ts pools via COAST.lamps / .benches), lawns and trees on the wide bump-outs,
 // grime / wet / algae bands in the shader. The far banks get the same system (lighter: no pickets, rails on parks only).
 // Textures: tools/imagegen/coast/ (granite / riprap / planks / bulkhead, Codex imagegen) packed by pack.py into
 // public/city/tex/coast_atlas.webp (2 x 2 tiles). One material; geometry merged per 1024 m cell (2048 m far) into
 // a main mesh + a picket-card mesh (alpha pattern by discard, no shadow, hidden beyond 320 m).
 // Collision (C4): coastHeight(x, z) (ground.terrainHeight) is exact over the fill quads (promenade height), so the player
 // stands / runs on the new esplanade; off the outer edge it is water again and traversal's waterBounce still works.
-import __shaderPatch1 from "./shaders/glsl/waterfront-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/waterfront-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/waterfront-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/waterfront-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/waterfront-patch-5.glsl?raw";
-import { injectShader } from "../render/shader.ts";
+import { lazyShaderSections } from "../shaderSections.ts";
+import waterfrontShaderSource from "./shaders/glsl/waterfront.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
 import {
@@ -50,17 +47,20 @@ import {
 } from "./layout.ts";
 import { createGrassMaterial } from "./ground.ts"; // (r2) the park lawn shader (lawn variant) for every coast / plaza / Battery lawn
 import { STYLE, LAYER } from "./facade.ts";
-import { nightK, nightOnly } from "../render/daynight.ts"; // (r2) esplanade lamp pools at night
-import { cityLights } from "../render/citylights.ts"; // (night) the esplanade lamps are real lights (props.js lamp pool items)
+import { nightK, nightOnly } from "../render/dayNight.ts"; // (r2) esplanade lamp pools at night
+import { cityLights } from "../render/cityLights.ts"; // (night) the esplanade lamps are real lights (props.ts lamp pool items)
 import { approachRects } from "./bridges.ts";
 import { highwayRuns, HW } from "./highway.ts";
 import { FAR_LANDS, FAR_Y, farShoreHeight } from "./farshore.ts";
 import { loadImageRetry } from "./textures.ts";
 
+const waterfrontShader = lazyShaderSections(() => waterfrontShaderSource);
+
+
 const WALK = G.CURB_H,
   WY = G.WATER_Y;
 export const ST = { WALL: 0, PLAT: 1, RIP: 2, BULK: 3 };
-// props.js reads the dressing spots (lamps / benches / trees) after buildWaterfront (city build order: ground -> props)
+// props.ts reads the dressing spots (lamps / benches / trees) after buildWaterfront (city build order: ground -> props)
 export const COAST = {
   lamps: [],
   benches: [],
@@ -138,7 +138,7 @@ function farOwned() {
   }
   return _farOwn;
 }
-// farshore.js: skip its own flat bulkhead quad / wet band / riprap toe on the edges rebuilt here
+// farshore.ts: skip its own flat bulkhead quad / wet band / riprap toe on the edges rebuilt here
 export function farCoastOwns(name, i) {
   return farOwned().has(name + ":" + i);
 }
@@ -394,18 +394,18 @@ function createCoastMaterial(T, atlas) {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",waterfrontShader.vertexCommon,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch2,
+        "#include <fog_vertex>",waterfrontShader.vertexFogVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",injectShader(__shaderPatch3, WY.toFixed(2)),
+        "#include <common>",injectShader(waterfrontShader.fragmentCommon, WY.toFixed(2)),
       )
-      .replace("#include <map_fragment>",__shaderPatch4)
+      .replace("#include <map_fragment>",waterfrontShader.fragmentMap)
       .replace(
-        "#include <roughnessmap_fragment>",__shaderPatch5,
+        "#include <roughnessmap_fragment>",waterfrontShader.fragmentRoughness,
       );
   };
   mat.customProgramCacheKey = () => "coast-v1";
@@ -464,7 +464,7 @@ export function buildWaterfront({
   wall = null,
 }) {
   const t0 = performance.now();
-  // atlas: 1 px placeholder until the image arrives (texture loads retry, see textures.js)
+  // atlas: 1 px placeholder until the image arrives (texture loads retry, see textures.ts)
   const ph = new THREE.DataTexture(new Uint8Array([128, 126, 122, 255]), 1, 1);
   ph.needsUpdate = true;
   const mat = createCoastMaterial(T, ph);
@@ -494,7 +494,7 @@ export function buildWaterfront({
   };
   const wetSegs = [];
   const stats = { samples: 0, bumps: 0, far: 0, railBoxes: 0 };
-  // (r2) lawns: the park lawn shader (ground.js createGrassMaterial, lawn variant), one mesh per 4 km cell (flat, no shadow: few calls)
+  // (r2) lawns: the park lawn shader (ground.ts createGrassMaterial, lawn variant), one mesh per 4 km cell (flat, no shadow: few calls)
   const lawnMat = createGrassMaterial(T, { lawn: true }),
     lawnCells = new Map();
   const lawnPoly = (pts, y) => {
@@ -1185,7 +1185,7 @@ export function buildWaterfront({
         if (!far) railSolid(rax, raz, rbx, rbz, yC, top + 0.07);
       }
       if (far) continue;
-      // lamps / benches (props.js pools) along the edge, inward normal
+      // lamps / benches (props.ts pools) along the edge, inward normal
       const inx = -a.mx,
         inz = -a.mz,
         iL = Math.hypot(inx, inz) || 1;
@@ -1538,7 +1538,7 @@ export function buildWaterfront({
   }
 
   // ---- (r2) Manhattan piers (ground.PIERS): timber fascia over the deck edges (the bare slab sides read black), timber
-  // fender piles along the long sides (+ the head on the Hudson piers), ladders. The decks / sheds stay ground.js'.
+  // fender piles along the long sides (+ the head on the Hudson piers), ladders. The decks / sheds stay ground.ts'.
   for (const p of piers) {
     const east = p.x0 > 0,
       M = cellOf((p.x0 + p.x1) / 2, (p.z0 + p.z1) / 2, false).main;
@@ -1607,7 +1607,7 @@ export function buildWaterfront({
           2,
         );
     if (!east) {
-      // Hudson park piers: esplanade rail (ground.js keeps the collision boxes) along both sides + the head
+      // Hudson park piers: esplanade rail (ground.ts keeps the collision boxes) along both sides + the head
       const C2 = cellOf((p.x0 + p.x1) / 2, (p.z0 + p.z1) / 2, false),
         yr = p.y,
         top = yr + 1.07;
@@ -1715,7 +1715,7 @@ export function buildWaterfront({
 
   // ---- (r2) planted lawns on the big empty promenade / plaza fill (the island tips, the FiDi / Battery-Park-City
   // plazas, the Harlem point): coordinator r2 'polygon-clipped lawns, no 5 m stair steps, park grass not flat olive'.
-  // Every promenade fill piece (ground.js fillPieces: convex, one street row each) is inset 3 m from its curbs and cut
+  // Every promenade fill piece (ground.ts fillPieces: convex, one street row each) is inset 3 m from its curbs and cut
   // by half-planes at a distance from the seawall line of its row: 45 m where the waterfront highway runs (it keeps its
   // esplanade + roadway), 7 m where it does not (the tips: lawn right behind the rail walk). Trees in loose groves.
   {

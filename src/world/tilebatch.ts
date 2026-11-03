@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: perf agent. (perf r2) Fewer draws for per-tile static meshes that share one material: tiles are grouped into
+// (perf r2) Fewer draws for per-tile static meshes that share one material: tiles are grouped into
 // 2x2 SUPER-TILES (512 m). Each super-tile's geometry is one merged BufferGeometry; every tile is a Mesh drawing its
 // own index sub-range of the SAME buffers (shared BufferAttributes -> no extra GPU memory). When all tiles of a super-
 // tile want the same state (drawn, same shadow flag) the super-tile mesh draws them in ONE call; otherwise the tiles
@@ -14,15 +14,11 @@
 //   centers[i] = [cx, cz] of tile i;  b.meshes: add them to the scene;  b.setVisible(i, bool);  b.setShadow(i, bool)
 //   (geoms[] entries are consumed: set to null once merged)
 import * as THREE from "three";
+import { isPerformanceFeatureDisabled } from "./performanceFlags.ts";
 
 // A/B switches: ?perf2off disables every round-2 change; ?nobatch / ?nowarm / ?noproxy / ?nowedge / ?nocrowdopt / ?noucache one each
-const Q =
-  typeof location !== "undefined"
-    ? new URLSearchParams(location.search)
-    : new URLSearchParams();
-export const perf2Off = (k) => Q.has("perf2off") || Q.has(k);
-const NOBATCH = perf2Off("nobatch"),
-  NOWARM = perf2Off("nowarm");
+const NOBATCH = isPerformanceFeatureDisabled("nobatch"),
+  NOWARM = isPerformanceFeatureDisabled("nowarm");
 const SUPER = 512;
 const UPLOAD_MAT = new THREE.MeshBasicMaterial({
   colorWrite: false,
@@ -179,7 +175,7 @@ export function batchTiles(geoms, material, name, o = {}, centers = []) {
     }
   };
   for (const grp of groups) resolve(grp);
-  // (perf r2) pre-upload: uploading a facade tile's vertex buffers (~15-20 MB, 16 attributes) in the frame the tile
+  // (perf r2) pre-upload: uploading a facade tile's vertex buffers (~15-20 MeshBuilder, 16 attributes) in the frame the tile
   // appears cost 100-150 ms hitches while swinging. warm(i) uploads ONE of the tile's buffers per call through a hidden
   // helper mesh (empty draw range: three uploads a geometry's attributes when it projects a visible mesh; the GL buffer
   // is cached per BufferAttribute, so the real tile reuses it). Returns false once everything is uploaded.

@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. District research towers: rooftop masts; hold [F] next to one to activate ->
+// District research towers: rooftop masts; hold [F] next to one to activate ->
 // district revealed on the map (collectibles shown), subway station unlocked for fast travel, scan pulse, XP.
 import * as THREE from "three";
 import { emit } from "./events.ts";

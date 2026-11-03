@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: citylife engineer. Road network shared by traffic (npc/traffic.js) and pedestrians (npc/crowd.js):
+// Road network shared by traffic (npc/traffic.ts) and pedestrians (npc/crowd.ts):
 // intersections (nodes) on the avenue x street grid incl. the waterfront drive, directed lane links between them,
 // turn connectors (cubic Bezier through the intersection box) and crosswalk ids.
 // Axes: +x east, -z north. Avenues two-way (2 moving lanes each way + parking), streets one-way (alternating), drive two-way.
@@ -28,7 +28,7 @@ export const DRIVE_C = 1e9; // (legacy: no straight waterfront drive on the isla
 export const STOP_BACK = 5.0; // stop line distance from the intersection box edge (crosswalk + line)
 export const streetDir = (j) => (j % 2 === 0 ? 1 : -1);
 // (citylife junctions r2) signal phase of the street-map junctions (Village / FiDi interior nodes): an even 18 s + 2 s
-// amber split instead of the grid's avenue-biased 22 / 11 s (props.js drives their signal heads with it too)
+// amber split instead of the grid's avenue-biased 22 / 11 s (props.ts drives their signal heads with it too)
 export const mapPhase = (t, ax) => {
   const c = ((t % 40) + 40) % 40;
   return ax === "av"
@@ -42,7 +42,7 @@ export const mapPhase = (t, ax) => {
       : c < 38
         ? 2
         : 1;
-}; // +1 eastbound (same convention as ground.js / props.js)
+}; // +1 eastbound (same convention as ground.ts / props.ts)
 
 export function buildRoads() {
   const X = [...avenues];
@@ -606,7 +606,7 @@ function diagCrossStops(links) {
         (L.xcr ??= []).push({ stop, s0: sEnter, s1: Math.min(sExit, L.len) });
       }
       // (citylife junctions) crossings / gores at the link ends (Broadway running into the avenue asphalt): the
-      // junction model stretches the node movements over them (traffic junctions.js: movement PRE / POST)
+      // junction model stretches the node movements over them (traffic junctions.ts: movement PRE / POST)
       else if (stop <= 4)
         L.xEarly = Math.max(L.xEarly ?? 0, Math.min(sExit, L.len));
       else L.xLate = Math.min(L.xLate ?? L.len, Math.max(0, sEnter));
@@ -711,13 +711,13 @@ function goreOverlaps(nodes, links) {
       L.stopS = Math.max(1, L.xLate - 1.5);
 }
 // ------------------------------------------------------------------ (citylife bridges) bridge decks
-// Each bridge (bridges.js bridgeSpans / roadProfile): its lanes both ways (bridges.js section: `lanes` per direction,
+// Each bridge (bridges.ts bridgeSpans / roadProfile): its lanes both ways (bridges.ts section: `lanes` per direction,
 // 3.4 m, outside the centre zone) as links from a signalised T on the avenue / street it lands on (that road's links are
 // split there, a box of the deck's half width + 1 m each side), over the at-grade apron, up the approach viaduct, across
 // the span and down the far ramp to a dead end on the far shore (cars U-turn there, out of sight). Links carry their deck
 // height (y0 -> y1: linear per link, split at the profile's breaks). Lanes: innermost 0 (left turns), outermost 1 (right
 // turns), middle 2 (straight).
-export const BRIDGE_DENSITY = 31; // eastbound; westbound x0.6 (it feeds the T) // cars per km of lane on a bridge (npc/traffic.js)
+export const BRIDGE_DENSITY = 31; // eastbound; westbound x0.6 (it feeds the T) // cars per km of lane on a bridge (npc/traffic.ts)
 let _bj = [];
 export function bridgeJunctions() {
   return _bj;

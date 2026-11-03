@@ -1,4 +1,4 @@
-// OWNER: render agent. GPU pass timing with EXT_disjoint_timer_query_webgl2 (enabled with ?prof=1).
+// GPU pass timing with EXT_disjoint_timer_query_webgl2 (enabled with ?prof=1).
 type TimerQueryExtension = {
   TIME_ELAPSED_EXT: number;
   GPU_DISJOINT_EXT: number;

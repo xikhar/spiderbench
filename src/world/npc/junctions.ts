@@ -1,9 +1,9 @@
 // @ts-nocheck
-// OWNER: citylife engineer. (citylife junctions) Junction conflict + reservation model for npc/traffic.js.
+// (citylife junctions) Junction conflict + reservation model for npc/traffic.ts.
 // User: 'where non gridded roads cut together the traffic cars just intersect through each other'.
 //  * MOVEMENT = one way through a junction: a turn connector (in-link tail from the stop point -> connector -> out-link
-//    head; the head / tail stretch over Broadway gores, roads.js L.xEarly / L.xLate) or a mid-link crossing of an
-//    off-grid road by a grid lane (roads.js L.xcr). Sampled every STEP m as (x, z, heading).
+//    head; the head / tail stretch over Broadway gores, roads.ts L.xEarly / L.xLate) or a mid-link crossing of an
+//    off-grid road by a grid lane (roads.ts L.xcr). Sampled every STEP m as (x, z, heading).
 //  * CONFLICT (lazy, cached per movement pair): the stretch of both paths closer than D (widest vehicle + margin).
 //    'cross' when the headings there differ (> 35 deg: crossings, head-on) -> mutual exclusion until the holder's rear
 //    has left its stretch; 'follow' when they run together (merges, diverges, the roundabout ring) -> the other car is
@@ -14,7 +14,7 @@
 //    (FIFO -> zipper at merges), yield to faster higher-priority traffic about to arrive (left turns, minor map roads;
 //    waived after STARVE s), room behind the box on the out-link (don't block the box). Only holders progress into a
 //    box and a holder never waits for a waiter, so the oldest top-priority waiter always gets through (no deadlock);
-//    traffic.js still retires cars stuck > 45 s off-screen as a last-resort breaker.
+//    traffic.ts still retires cars stuck > 45 s off-screen as a last-resort breaker.
 import { connAt } from "./roads.ts";
 
 const DBG = globalThis.__jxDbg || null; // (debug) Map 'holderMove>requestMove' -> denials (tools/dev/traffic_probe)
@@ -123,7 +123,7 @@ export function createJunctions(roads, getConn) {
     for (const o of L.out || []) {
       if (!L.mv.has(o.link.id))
         L.mv.set(o.link.id, connMove(L, o.link, o.turn));
-      const a = o.link.alt; // blocked-lane detour through the box (traffic.js chooseNext)
+      const a = o.link.alt; // blocked-lane detour through the box (traffic.ts chooseNext)
       if (a && !L.mv.has(a.link.id))
         L.mv.set(a.link.id, connMove(L, a.link, "S"));
     }

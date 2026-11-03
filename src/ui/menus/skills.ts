@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Skill tree screen: two trees (Webslinger / Innovator) of hex nodes with prerequisite
+// Skill tree screen: two trees (Webslinger / Innovator) of hex nodes with prerequisite
 // links, a detail panel with the gameplay effect, and Unlock (1 skill point). Effects land in ctx.params.
 import { icon } from "./icons.ts";
 import { SKILLS, SKILL_TREES } from "../../game/systems/progression.ts";

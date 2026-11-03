@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: billboards agent. City-wide signage outside Times Square, attached procedurally per building lot + face, so it
+// City-wide signage outside Times Square, attached procedurally per building lot + face, so it
 // follows whatever street layout generateBuildings() was given (no hard-coded coordinates except optional square hints):
 //   * rooftop billboard frames (printed vinyl from the ts_ads atlas, steel columns, catwalk, gooseneck lamps) on low /
 //     mid-rise roofs, facing an avenue, the waterfront highway / bridges, or (rarer) a side street
@@ -13,15 +13,9 @@
 //   Call after buildTimesSquare / buildRooftops and BEFORE the tile builders are converted (fine steel goes into the
 //   per-tile detail meshes: no extra draw calls; it fades with the detail tiles). Ad faces + main steel are one opaque
 //   mesh per 512 m cell (+ one blended ghost-sign mesh per cell), distance culled. Every solid registers collision.
-import __shaderPatch1 from "./shaders/glsl/signage-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/signage-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/signage-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/signage-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/signage-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/signage-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/signage-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/signage-patch-8.glsl?raw";
-import { injectShader } from "../render/shader.ts";
+import { lazyShaderSections } from "../shaderSections.ts";
+import signageShaderSource from "./shaders/glsl/signage.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
 import * as LAY from "./layout.ts";
@@ -29,15 +23,25 @@ const { district, mulberry32, streetsAt, SITES } = LAY;
 import { DP } from "./buildings.ts";
 import { LAYER } from "./facade.ts";
 import { OVERHANG } from "./collision.ts";
-import { AD_AVG_L, AD_AVG_P } from "./ts_ads_meta.ts";
-import { nightK, screenK } from "../render/daynight.ts"; // (daynight)
-import { adsTexture, signsTexture, signsGrid } from "./adstex.ts"; // (r3) shared GPU copy of the ad atlas (night r5) + sign atlas
+import {
+  LANDSCAPE_AD_AVERAGE_LINEAR_RGB as landscapeAdAverageLinearRgb,
+  PORTRAIT_AD_AVERAGE_LINEAR_RGB as portraitAdAverageLinearRgb,
+} from "./advertisingAtlasMetadata.ts";
+import { nightK, screenK } from "../render/dayNight.ts"; // (daynight)
+import {
+  getAdvertisingAtlasTexture,
+  getSignAtlasTexture,
+  getSignColorGrid,
+} from "./advertisingTextures.ts"; // shared ad and sign textures
 import {
   screenLightSet,
   uScrBoost,
   uScrKnee,
   uScrTop,
-} from "./screenlights.ts"; // (night) LED screens / marquees as real lights
+} from "./screenlights.ts";
+
+const signageShader = lazyShaderSections(() => signageShaderSource);
+// (night) LED screens / marquees as real lights
 
 const TEX = assetUrl("city/tex/");
 const CELL = 512;
@@ -312,7 +316,7 @@ function boxF(
       0,
     ); // bottom
 }
-// face-frame box into a detail tile MB (world transform baked; face frame axis aligned)
+// face-frame box into a detail tile MeshBuilder (world transform baked; face frame axis aligned)
 function detBox(D, fr, u0, u1, y0, y1, n0, n1) {
   const b = aabb(fr, u0, y0, n0, u1, y1, n1);
   D.box(b[0], b[1], b[2], b[3], b[4], b[5]);
@@ -360,29 +364,29 @@ function signMaterial(ads, signs, noise, ghost, art) {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",signageShader.vertexCommon,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch2,
+        "#include <fog_vertex>",signageShader.vertexFogVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch3,
+        "#include <common>",signageShader.fragmentCommon,
       )
-      .replace("#include <map_fragment>",__shaderPatch4)
+      .replace("#include <map_fragment>",signageShader.fragmentMap)
       .replace(
-        "#include <color_fragment>",__shaderPatch5,
-      )
-      .replace(
-        "#include <roughnessmap_fragment>",__shaderPatch6,
+        "#include <color_fragment>",signageShader.fragmentColor,
       )
       .replace(
-        "#include <metalnessmap_fragment>",__shaderPatch7,
+        "#include <roughnessmap_fragment>",signageShader.fragmentRoughness,
       )
       .replace(
-        "#include <emissivemap_fragment>",injectShader(__shaderPatch8, // (daynight) night: LED / back-lit faces dimmed against the x4.5 night exposure (readable + saturated, not blown to
+        "#include <metalnessmap_fragment>",signageShader.fragmentMetalness,
+      )
+      .replace(
+        "#include <emissivemap_fragment>",injectShader(signageShader.fragmentEmissive, // (daynight) night: LED / back-lit faces dimmed against the x4.5 night exposure (readable + saturated, not blown to
           // white), marquee bulbs full, printed vinyl lit by its gooseneck lamps (brightest under the top rail)
-          "if (K == 3 || K == 4) sgE *= uScreenK * (K == 4 ? mix(1.0, 1.7, uNightK) : 1.0 + (uScrBoost - 1.0) * uNightK); /* (lighting2 r5) exposure-compensated at every preset (night) LED x uScrBoost at night */\n", // (night r2) same highlight shoulder as the Times Square screens (screenlights.js): LED / back-lit faces seen up close
+          "if (K == 3 || K == 4) sgE *= uScreenK * (K == 4 ? mix(1.0, 1.7, uNightK) : 1.0 + (uScrBoost - 1.0) * uNightK); /* (lighting2 r5) exposure-compensated at every preset (night) LED x uScrBoost at night */\n", // (night r2) same highlight shoulder as the Times Square screens (screenlights.ts): LED / back-lit faces seen up close
           // clipped to flat white blobs at the night exposure (vp:street corners); whole colour scaled, hue kept
           // (night r2) chaser / marquee bulbs (K 6) were not exposure-compensated: x4.5 night exposure -> clipped white blobs at
           // the blade-sign edges (vp:street): ~0.3 at night, still the hottest dots on the facade, a little bloom
@@ -702,7 +706,7 @@ export function buildSignage({ scene, gen }) {
     polySigns(pb.poly, pb.A, pb.H, Array.isArray(pb.faces) ? pb.faces : null);
 
   // (r3) sloped fabric shop awning (critic: 'no awnings / colored canopies seen from above'): canvas slope, dark underside,
-  //      valance (optional shop name printed on it), side cheeks; collision like buildings.js awnings (thin ramp + valance)
+  //      valance (optional shop name printed on it), side cheeks; collision like buildings.ts awnings (thin ramp + valance)
   const AWN = [
     0x2f5a3a, 0x7a2a2a, 0x2a3d6a, 0x9a8458, 0x356a6a, 0x8a4a2a, 0x5a2a4a,
     0x303030, 0x6a6a2a,
@@ -1892,7 +1896,7 @@ export function buildSignage({ scene, gen }) {
             note("letters", fr, uc, ly0);
           }
         }
-        // flag pair (instanced cloth in flags.js; pole tubes into the detail tile)
+        // flag pair (instanced cloth in flags.ts; pole tubes into the detail tile)
         if (
           office &&
           fe.view !== "street" &&
@@ -2134,11 +2138,20 @@ export function buildSignage({ scene, gen }) {
         const land = w / h > 1.1;
         const ai = land ? pickL(cx, cz) : pickP(cx, cz),
           uv = land ? adLand(ai, w / h) : adPort(ai, w / h);
-        const av = (land ? AD_AVG_L : AD_AVG_P)[ai] ?? [0.15, 0.15, 0.15],
-          lum = 0.2126 * av[0] + 0.7152 * av[1] + 0.0722 * av[2];
+        const averageColor =
+          (land ? landscapeAdAverageLinearRgb : portraitAdAverageLinearRgb)[
+            ai
+          ] ?? [0.15, 0.15, 0.15];
+        const luminance =
+          0.2126 * averageColor[0] +
+          0.7152 * averageColor[1] +
+          0.0722 * averageColor[2];
         const nits =
           1.35 *
-          Math.min(1.4, Math.max(0.5, Math.pow(0.15 / (lum + 0.02), 0.5)));
+          Math.min(
+            1.4,
+            Math.max(0.5, Math.pow(0.15 / (luminance + 0.02), 0.5)),
+          );
         boxF(
           C.op,
           fr,
@@ -2180,7 +2193,7 @@ export function buildSignage({ scene, gen }) {
           [fr.T[0], 0, fr.T[1]],
           w,
           h,
-          av,
+          averageColor,
           1,
           { uv, gain: 1.8 },
         ); // (night) (r9: per-region colours; x1.8: a lone city screen in a dark street is the dominant local light)
@@ -2190,7 +2203,7 @@ export function buildSignage({ scene, gen }) {
     }
   }
 
-  // ---------------------------------------------------------------- (r2) rooftops.js 'sign' archetype frames: real ad faces
+  // ---------------------------------------------------------------- (r2) rooftops.ts 'sign' archetype frames: real ad faces
   for (const P of gen.roofSignPanels ?? []) {
     const m = P.alx
       ? { x0: P.a0, x1: P.a1, z0: P.plane, z1: P.plane }
@@ -2230,8 +2243,8 @@ export function buildSignage({ scene, gen }) {
   // ---------------------------------------------------------------- meshes (one opaque mesh per 512 m cell; ghost signs are dithered into it)
   const T = gen.textures ?? null;
   void T;
-  const adsTex = adsTexture(),
-    signTex = signsTexture(); // (night r5) shared sign atlas copy
+  const adsTex = getAdvertisingAtlasTexture(),
+    signTex = getSignAtlasTexture(); // (night r5) shared sign atlas copy
   const noise = (() => {
     // small tiling value-noise texture (linear) for weathering
     const N = 128,
@@ -2311,7 +2324,7 @@ export function buildSignage({ scene, gen }) {
   stats.meshes = list.reduce((a, e) => a + !!e.op + !!e.gh, 0);
   stats.lights = SLS.commit("signage"); // (night)
   stats.bladeLights = SLB.commit("signBlades", {
-    grid: signsGrid(),
+    grid: getSignColorGrid(),
     mergeA: 0,
   }); // (night r9)
   console.log(

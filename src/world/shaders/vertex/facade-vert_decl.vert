@@ -1,4 +1,13 @@
-
-in vec4 aF; in vec4 aS; in vec4 aW; in vec4 aX; in vec3 aTint;
-out vec2 vFac; flat out vec4 vF; flat out vec4 vS; flat out vec4 vW; flat out vec4 vX; flat out vec3 vTint;
-out vec3 vWPos; out vec3 vWN;
+in vec4 aF;
+in vec4 aS;
+in vec4 aW;
+in vec4 aX;
+in vec3 aTint;
+out vec2 vFac;
+flat out vec4 vF;
+flat out vec4 vS;
+flat out vec4 vW;
+flat out vec4 vX;
+flat out vec3 vTint;
+out vec3 vWPos;
+out vec3 vWN;

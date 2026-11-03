@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Developer menu: ~ (Backquote) toggles a small panel with click toggles for testing
+// Developer menu: ~ (Backquote) toggles a small panel with click toggles for testing
 // features without playing up to them. Available on the dev server (import.meta.env.DEV) or with ?dev.
 //   createDevMenu(sys) -> { open, close, toggle, items }
 // Opening frees the mouse cursor (pointer lock off, without the lock-loss pause: flow.overlay); ~ / Esc closes it, and
@@ -35,7 +35,7 @@ const CSS = `
 export function createDevMenu(sys) {
   const { ctx, flow } = sys;
   const P = ctx.player;
-  const reel = (sys.reel = createReel(sys)); // cinematic demo reel (game/systems/reel.js)
+  const reel = (sys.reel = createReel(sys)); // cinematic demo reel (game/systems/reel.ts)
   const hdist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
   let note = ""; // last one-off message for the robbery item (spawn failed, cleared, ...)
   const robbery = () => {
@@ -109,7 +109,7 @@ export function createDevMenu(sys) {
       status: () => reel.status(),
     },
     {
-      // smooth mouse camera: the chase camera's look is eased (camera.js c.lookSmooth); on / off + a smoothness slider
+      // smooth mouse camera: the chase camera's look is eased (camera.ts c.lookSmooth); on / off + a smoothness slider
       id: "smoothLook",
       label: "Smooth mouse camera",
       on: () => look.on,

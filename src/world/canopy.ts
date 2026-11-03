@@ -1,19 +1,18 @@
 // @ts-nocheck
-// OWNER: foundation agent (city remake). Cheap distant tree canopies for the far shores (back yards, parks, street
+// Cheap distant tree canopies for the far shores (back yards, parks, street
 // rows, the Palisades woods): one InstancedMesh of lumpy low-poly blobs (20-tri icosahedra, per-instance squash and
 // tone), shaded darker underneath / inside so clumps read as foliage masses from the air, casting shadows.
-// Not for Manhattan's own streets / park (trees.js owns those, with real leaf cards and LODs).
-import __shaderPatch1 from "./shaders/glsl/canopy-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/canopy-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/canopy-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/canopy-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/canopy-patch-5.glsl?raw";
-import canopyFade from "./shaders/glsl/canopy-fade.glsl?raw";
-import { injectShader } from "../render/shader.ts";
+// Not for Manhattan's own streets / park (trees.ts owns those, with real leaf cards and LODs).
+import { lazyShaderSections } from "../shaderSections.ts";
+import canopyShaderSource from "./shaders/glsl/canopy.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import { mulberry32 } from "./layout.ts";
 
-// muted late-season palette matching trees.js (olive / dusty greens, a few ochre / rust crowns)
+const canopyShader = lazyShaderSections(() => canopyShaderSource);
+
+
+// muted late-season palette matching trees.ts (olive / dusty greens, a few ochre / rust crowns)
 const PAL = [
   [0.13, 0.16, 0.085],
   [0.15, 0.18, 0.1],
@@ -82,7 +81,7 @@ export class CanopyBatch {
     return this.M.length;
   }
   // opts.tile: split the instances into square tiles of this size (m) -> per-tile frustum / shadow-cascade culling;
-  // opts.smallCasters: skip the far shadow cascades (render/csm.js). Returns the first mesh (all are added to scene).
+  // opts.smallCasters: skip the far shadow cascades (render/cascadedShadows.ts). Returns the first mesh (all are added to scene).
   build(scene, name = "canopy", castShadow = true, opts = {}) {
     if (!this.M.length) return null;
     if (opts.tile) {
@@ -158,22 +157,22 @@ export class CanopyBatch {
     mat.onBeforeCompile = (sh) => {
       sh.vertexShader = sh.vertexShader
         .replace(
-          "#include <common>",__shaderPatch1,
+          "#include <common>",canopyShader.vertexCommon,
         )
         .replace(
-          "#include <begin_vertex>",injectShader(__shaderPatch2, fade
-              ? injectShader(canopyFade, fade[0].toFixed(1), fade[1].toFixed(1))
+          "#include <begin_vertex>",injectShader(canopyShader.vertexBeginVertex, fade
+              ? injectShader(canopyShader.distanceFade, fade[0].toFixed(1), fade[1].toFixed(1))
               : ""),
         );
       sh.fragmentShader = sh.fragmentShader
         .replace(
-          "#include <common>",__shaderPatch3,
+          "#include <common>",canopyShader.fragmentCommon,
         )
         .replace(
-          "#include <color_fragment>",__shaderPatch4,
+          "#include <color_fragment>",canopyShader.fragmentColor,
         )
         .replace(
-          "#include <normal_fragment_maps>",__shaderPatch5,
+          "#include <normal_fragment_maps>",canopyShader.fragmentNormalMaps,
         );
     };
     mat.customProgramCacheKey = () =>

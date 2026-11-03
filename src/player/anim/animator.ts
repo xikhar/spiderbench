@@ -1,6 +1,5 @@
 // @ts-nocheck
-// OWNER: animation agent.
-// Animation layer driven by player.anim (contract C1, see src/main.ts).
+// // Animation layer driven by player.anim (contract C1, see src/main.ts).
 //
 //  state machine  : select(anim) -> node key; a transition pushes a new layer that cross-fades in over a
 //                   per-transition blend time (TRANS table) while the outgoing layers keep evaluating
@@ -30,10 +29,10 @@ import {
   TAU,
   noise1,
 } from "./builder.ts";
-import { RigData, armTarget } from "./rigdata.ts";
+import { RigData, armTarget } from "./rigData.ts";
 import { Gait } from "./gait.ts";
 import { ClipLib } from "./clips.ts";
-import { ropeGrip } from "../web.ts";
+import { ropeGrip } from "../webRendering.ts";
 import { ropePoint } from "../traversal/rope.ts";
 
 const UP = new THREE.Vector3(0, 1, 0),
@@ -2298,7 +2297,7 @@ export class Animator {
     this.twoHeadD = hd;
     return best;
   }
-  // world-space rope tail for web.js: the strand runs from the lower (second) fist up through the web fist to the anchor
+  // world-space rope tail for webRendering.ts: the strand runs from the lower (second) fist up through the web fist to the anchor
   ropeTail(A) {
     const hand = A.swing?.hand || "R",
       F = hand === "L" ? "R" : "L",
@@ -2510,7 +2509,7 @@ export class Animator {
     }
   }
   // ---------------------------------------------------------------- helpers for nodes
-  // Procedural pose (rig.js POSES library) when a clip is missing: posed on the bones from rest, read back.
+  // Procedural pose (characterRig.ts POSES library) when a clip is missing: posed on the bones from rest, read back.
   fallback(kind, arg, out) {
     const fn = this.poses?.[kind];
     this.skel.apply(this.skel.rest);

@@ -7,7 +7,7 @@
 //  player/player.ts    createPlayer({scene, world, camera, input, renderer}) -> Promise<player>
 //                      player = {update(dt), object:Object3D, applyShot(name)->boolean}
 //  ui/hud.ts           createHud({player, world}) -> {update(dt), setVisible(b)}
-//  shots.ts            SHOTS[name] = {time?, apply(ctx)}  deterministic poses for screenshot/critique
+//  screenshotPresets.ts            SCREENSHOT_PRESETS[name] = {time?, apply(ctx)}  deterministic poses for screenshot/critique
 import * as THREE from "three";
 import { createPipeline } from "./render/pipeline.ts";
 import { createLighting } from "./render/lighting.ts";
@@ -17,8 +17,8 @@ import { createInput } from "./player/input.ts";
 import { createHud } from "./ui/hud.ts";
 import { createWarmup } from "./render/warmup.ts"; // (perf r3)
 import { getRenderPixelRatio } from "./render/quality.ts";
-import { REFL_LAYER } from "./world/water.ts";
-import { BIG_CASTER_LAYER } from "./render/csm.ts";
+import { REFL_LAYER } from "./world/waterLayers.ts";
+import { BIG_CASTER_LAYER } from "./render/cascadedShadows.ts";
 
 const params = new URLSearchParams(location.search);
 const shotName = params.get("shot");
@@ -149,10 +149,10 @@ await boot.stage("frame");
 let framesDrawn = 0;
 const systemsReady = shotName
   ? Promise.resolve()
-  : import("./game/systems/index.ts")
+  : import("./game/systems/gameSystems.ts")
       .then((m) => m.initSystems(ctx))
       .catch((e) => console.error("[systems] init failed", e)) // open-world systems (C5)
-      .then(() => import("./game/combat/index.ts"))
+      .then(() => import("./game/combat/combat.ts"))
       .then((m) => m.initCombat(ctx))
       .catch((e) => console.error("[combat] init failed", e)) // combat (C5)
       .then(() => warmup?.rescan()); // (perf r3) + the meshes the systems / combat added (trickled by warmup.step)
@@ -165,8 +165,8 @@ systemsReady.then(async () => {
 ctx.timeScale = 1; // global game-time scale (combat hit-stop / slow-mo); ctx.realDt = unscaled frame time
 
 if (shotName) {
-  const { SHOTS } = await import("./shots.ts");
-  const shot = SHOTS[shotName];
+  const { SCREENSHOT_PRESETS } = await import("./screenshotPresets.ts");
+  const shot = SCREENSHOT_PRESETS[shotName];
   if (!shot) throw new Error("unknown shot " + shotName);
   shot.apply(ctx);
   // Warm up: let shadows, TAA/accumulation, streaming settle.

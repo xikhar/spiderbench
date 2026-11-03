@@ -1,14 +1,14 @@
 // @ts-nocheck
-// OWNER: neon agent. (night) Exterior neon + LED lighting on the city's places: neon tube frames around shop windows,
+// (night) Exterior neon + LED lighting on the city's places: neon tube frames around shop windows,
 // script / block neon words and icons hung in the windows (bars, pizza, diners, liquor stores, clubs, hotels ...), neon
 // borders on awning valances, LED strips under the shop fascias and awnings, LED perimeter strips under entrance
-// canopies and accent strips over modern tower lobbies. Every sign / strip is a REAL light (render/citylights.js): one
+// canopies and accent strips over modern tower lobbies. Every sign / strip is a REAL light (render/cityLights.ts): one
 // small coloured point (signs) or a down-facing rect (strips) that tints the wall, sidewalk, awning underside, people and
 // cars around it (and mirrors in wet asphalt).
 //
 //   buildNeon({ scene, solids }) -> { stats, tubes, words }
 //   Call after buildSignage / buildProps (awning + canopy solids exist). Placement data:
-//     facade.js SHOP_FRONTS (every storefront frontage; same bay split + open / shuttered / closed hash as the shader)
+//     facade.ts SHOP_FRONTS (every storefront frontage; same bay split + open / shuttered / closed hash as the shader)
 //     collision solids of kind 'awning' (valances: thin boxes next to a sloped ramp; canopies: flat boxes)
 //
 // Draw calls: 2. Tubes (+ LED strips) are ONE instanced rectangle-frame tube mesh (lit glass by day, emissive at night;
@@ -16,23 +16,18 @@
 // distance so thin tubes never shimmer); words / icons are ONE additive instanced quad mesh on a baked atlas
 // (public/city/tex/neon_words.webp, tools/imagegen/neon/pack.py), drawn only at night (nightOnly).
 // Tunables: window.__neon (NEON.gain, NEON.word, NEON.light ...; neon lights: __neon.relight()). ?noneon disables.
-import __shaderPatch1 from "./shaders/glsl/neon-patch-1.glsl?raw";
-import __shaderPatch10 from "./shaders/glsl/neon-patch-10.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/neon-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/neon-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/neon-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/neon-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/neon-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/neon-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/neon-patch-8.glsl?raw";
-import __shaderPatch9 from "./shaders/glsl/neon-patch-9.glsl?raw";
-import { injectShader } from "../render/shader.ts";
+import { lazyShaderSections } from "../shaderSections.ts";
+import neonShaderSource from "./shaders/glsl/neon.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
 import * as LAY from "./layout.ts";
 import { SHOP_FRONTS } from "./facade.ts";
-import { cityLights } from "../render/citylights.ts";
-import { nightK, dnTime, screenK, nightOnly } from "../render/daynight.ts";
+import { cityLights } from "../render/cityLights.ts";
+import { nightK, dnTime, screenK, nightOnly } from "../render/dayNight.ts";
+
+const neonShader = lazyShaderSections(() => neonShaderSource);
+
 
 const { district, mulberry32 } = LAY;
 const Q =
@@ -200,7 +195,7 @@ const VENUES = [
 ];
 const VW = VENUES.reduce((s, v) => s + v.w, 0);
 
-// the facade shader's per-bay hash (same float32 maths as facade.js registerShop / fh1)
+// the facade shader's per-bay hash (same float32 maths as facade.ts registerShop / fh1)
 const f32 = Math.fround,
   fr = (x) => f32(x - Math.floor(x));
 function fh1(x, y) {
@@ -273,21 +268,21 @@ function tubeMaterial() {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",neonShader.vertexCommon,
       )
       .replace(
-        "#include <beginnormal_vertex>",__shaderPatch2,
+        "#include <beginnormal_vertex>",neonShader.vertexBeginNormalVertex,
       )
-      .replace("#include <begin_vertex>",__shaderPatch3);
+      .replace("#include <begin_vertex>",neonShader.vertexBeginVertex);
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch4,
+        "#include <common>",neonShader.fragmentCommon,
       )
       .replace(
-        "#include <color_fragment>",__shaderPatch5,
+        "#include <color_fragment>",neonShader.fragmentColor,
       )
       .replace(
-        "#include <emissivemap_fragment>",__shaderPatch6,
+        "#include <emissivemap_fragment>",neonShader.fragmentEmissive,
       );
   };
   mat.customProgramCacheKey = () => "neon-tubes-1";
@@ -308,7 +303,7 @@ function wordMaterial() {
     uNeonTex: { value: tex },
     uNeonW: { value: new THREE.Vector4() },
   };
-  // additive colour, destination alpha kept: the HDR target's alpha carries the SSR weight (render/surface.js); plain
+  // additive colour, destination alpha kept: the HDR target's alpha carries the SSR weight (render/surface.ts); plain
   // additive blending raised it under the words and the shop glass there turned into a sky mirror
   const mat = new THREE.MeshBasicMaterial({
     color: 0xffffff,
@@ -327,17 +322,17 @@ function wordMaterial() {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch7,
+        "#include <common>",neonShader.vertexCommonByNeonUvScale,
       )
       .replace(
-        "#include <begin_vertex>",injectShader(__shaderPatch8, ((0.9 * 512) / (0.78 * 256)).toFixed(4)),
+        "#include <begin_vertex>",injectShader(neonShader.vertexBeginVertexByNeonDimmer, ((0.9 * 512) / (0.78 * 256)).toFixed(4)),
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch9,
+        "#include <common>",neonShader.fragmentCommonByNeonColor,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch10,
+        "#include <map_fragment>",neonShader.fragmentMap,
       );
   };
   mat.customProgramCacheKey = () => "neon-words-1";
@@ -670,7 +665,7 @@ export function buildNeon({ scene, solids }) {
   // ---------------- 2. awnings (valance neon borders / LED strips) and entrance canopies (LED perimeter)
   if (solids) {
     const S = solids,
-      AW = 9; // KIND index of 'awning' (collision.js)
+      AW = 9; // KIND index of 'awning' (collision.ts)
     const ramps = new Map(),
       RC = 8,
       rk = (x, z) => Math.floor(x / RC) * 100003 + Math.floor(z / RC);

@@ -1,6 +1,6 @@
 // @ts-nocheck
-// OWNER: skyline agent. Hero towers of the Midtown / Financial-District skyline, emitted as landmark reserves (see
-// landmarks.js landmarkReserves -> buildings.js generateBuildings): every piece is an axis-aligned facade box / n-gon
+// Hero towers of the Midtown / Financial-District skyline, emitted as landmark reserves (see
+// landmarks.ts landmarkReserves -> buildings.ts generateBuildings): every piece is an axis-aligned facade box / n-gon
 // prism with the exact matching collision primitive (C4) and roof zip points, like the generic buildings.
 //   empire   Empire-State-like: 5-storey base, setbacks at 21 / 30 / 72 / 81 / 85, notched shaft with deco piers,
 //            stepped observation tiers, finned mooring mast, dome and broadcast antenna
@@ -12,7 +12,7 @@
 //   wtc1     One-WTC-like: fin-clad cube base, tapering antiprism (x+z chamfer growing with height, stepped per tier),
 //            ring + 118 m spire
 import { STYLE, LAYER, addCrownFlood } from "./facade.ts";
-import { cityLights } from "../render/citylights.ts"; // (night) crown floodlights light nearby actors / props too
+import { cityLights } from "../render/cityLights.ts"; // (night) crown floodlights light nearby actors / props too
 import { lmBox, lmCyl } from "./landmarks.ts";
 
 const snapA = (A, y) =>
@@ -140,8 +140,8 @@ function chamferPlan(cx, cz, X, D, y0, y1, p) {
 }
 
 // (night) Empire-State-like crown floodlighting (refs/night esb_perch_night: the setbacks from the 72nd floor up and the
-// mast washed warm gold from below). Shader floods (facade.js addCrownFlood: read from any distance) + a few real spot
-// lights on the terraces (citylights.js: light the player / props perched up there; the facade gets them too, kept soft).
+// mast washed warm gold from below). Shader floods (facade.ts addCrownFlood: read from any distance) + a few real spot
+// lights on the terraces (cityLights.ts: light the player / props perched up there; the facade gets them too, kept soft).
 function esbFloods(lot, A, cx, cz, yObs, yb) {
   const L = (n) => A.gH + n * A.floorH,
     gold = [1.0, 0.7, 0.36];

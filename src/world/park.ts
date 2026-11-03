@@ -1,54 +1,35 @@
 // @ts-nocheck
-import __shaderPatch1 from "./shaders/glsl/park-patch-1.glsl?raw";
-import __shaderPatch10 from "./shaders/glsl/park-patch-10.glsl?raw";
-import __shaderPatch11 from "./shaders/glsl/park-patch-11.glsl?raw";
-import __shaderPatch12 from "./shaders/glsl/park-patch-12.glsl?raw";
-import __shaderPatch13 from "./shaders/glsl/park-patch-13.glsl?raw";
-import __shaderPatch14 from "./shaders/glsl/park-patch-14.glsl?raw";
-import __shaderPatch15 from "./shaders/glsl/park-patch-15.glsl?raw";
-import __shaderPatch16 from "./shaders/glsl/park-patch-16.glsl?raw";
-import __shaderPatch17 from "./shaders/glsl/park-patch-17.glsl?raw";
-import __shaderPatch18 from "./shaders/glsl/park-patch-18.glsl?raw";
-import __shaderPatch19 from "./shaders/glsl/park-patch-19.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/park-patch-2.glsl?raw";
-import __shaderPatch20 from "./shaders/glsl/park-patch-20.glsl?raw";
-import __shaderPatch21 from "./shaders/glsl/park-patch-21.glsl?raw";
-import __shaderPatch22 from "./shaders/glsl/park-patch-22.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/park-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/park-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/park-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/park-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/park-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/park-patch-8.glsl?raw";
-import __shaderPatch9 from "./shaders/glsl/park-patch-9.glsl?raw";
-import __shaderRaw1 from "./shaders/vertex/park-vertex-1.vert?raw";
-import __shaderRaw2 from "./shaders/fragment/park-fragment-2.frag?raw";
-// OWNER: park agent (city remake). Central Park set pieces beyond the ground / trees:
-//   - PARK_SITES: lots inside the park kept clear of trees / paths (trees.js, ground.js via adjustParkPaths)
+import { lazyShaderSections } from "../shaderSections.ts";
+import parkShaderSource from "./shaders/glsl/park.glsl?raw";
+import parkVertexShader from "./shaders/vertex/park-reflection.vert?raw";
+import parkFragmentShader from "./shaders/fragment/park-reflection.frag?raw";
+// Central Park set pieces beyond the ground / trees:
+//   - PARK_SITES: lots inside the park kept clear of trees / paths (trees.ts, ground.ts via adjustParkPaths)
 //   - a Met-like museum on the Fifth-Avenue edge (~80th-84th): limestone Beaux-Arts front with a colonnaded central
 //     pavilion and grand stairs, long wings, darker modern rear wings with big skylights and a glass court (ref 10)
 //   - Manhattan-schist rock outcrops (stacked pale-grey slabs) at meadow edges and in the woods (refs 08 / 09)
 // Everything is drawn with the city facade material (one FacadeBuilder mesh) and has exact box / cylinder collision.
 import * as THREE from "three";
-import { G, mulberry32, parkWaterAt, PARK_WATER } from "./layout.ts";
+import { mulberry32, parkWaterAt, PARK_WATER } from "./layout.ts";
+import { CURB_HEIGHT, PARK_BOUNDS } from "./layoutConstants.ts";
+import { PARK_MEADOWS, PARK_ROCKS, PARK_SITES, meadowDist } from "./parkData.ts";
 import { FacadeBuilder, STYLE, LAYER } from "./facade.ts";
-import { MB } from "./geom.ts";
+import { MeshBuilder } from "./meshBuilder.ts";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
-import { nightK } from "../render/daynight.ts"; // (night) lamp globes glow at night
-import { cityLights } from "../render/citylights.ts"; // (night) park lamps are real lights
-import { PARK_MEADOWS, meadowDist } from "./trees.ts"; // (park r3) ball-field positions (runtime use only: no init-order cycle)
+import { nightK } from "../render/dayNight.ts"; // (night) lamp globes glow at night
+import { cityLights } from "../render/cityLights.ts"; // (night) park lamps are real lights
 
-const GRASS_Y = G.CURB_H + 0.02;
-const GY_PATH = G.CURB_H + 0.02; // ground.js GY.PATH
-// Met-like museum: its lot runs from the East-Drive side (x0) to just behind the 5th-Av perimeter walk (x1)
-export const PARK_SITES = {
-  met: { x0: 136, x1: 227, z0: -1378, z1: -1204 },
-};
-// (park r6) schist outcrops placed by buildPark ([x, z, R]); trees.js keeps trunks off their cores (buildPark runs first)
-export const PARK_ROCKS = [];
-export const PARK_CROWD_SPOTS = []; // (peds r6) lawn + park-edge people -> npc/crowd.js statics (detailed skinned models, was ~40-tri box figures)
+export { PARK_ROCKS, PARK_SITES } from "./parkData.ts";
 
-// Hook for ground.js (called right after the park paths are generated, before anything uses them): the East Drive
+const parkShader = lazyShaderSections(() => parkShaderSource);
+// (park r3) ball-field positions (runtime use only: no init-order cycle)
+
+const GRASS_Y = CURB_HEIGHT + 0.02;
+const GY_PATH = CURB_HEIGHT + 0.02; // ground.ts GY.PATH
+// (park r6) schist outcrops placed by buildPark ([x, z, R]); trees.ts keeps trunks off their cores (buildPark runs first)
+export const PARK_CROWD_SPOTS = []; // (peds r6) lawn + park-edge people -> npc/crowd.ts statics (detailed skinned models, was ~40-tri box figures)
+
+// Hook for ground.ts (called right after the park paths are generated, before anything uses them): the East Drive
 // swings west around the museum lot, and footpaths crossing the lot are cut (their ends stay as dead-end spurs).
 export function adjustParkPaths(paths) {
   const S = PARK_SITES.met;
@@ -106,9 +87,9 @@ export function adjustParkPaths(paths) {
 // (park r8) critic r7: 'no meandering path network density'. Central Park's woods are laced with narrow footpaths
 // that branch off the walks and drives and rejoin another one. Each new path starts on an existing path, wanders
 // (curvature noise, steering off water, the lawns' interiors and the museum lot) and is kept only if it reaches another
-// path (a few dead-end spurs survive). Tagged `minor`: trees.js lets crowns overhang them (trunks keep clear).
+// path (a few dead-end spurs survive). Tagged `minor`: trees.ts lets crowns overhang them (trunks keep clear).
 function addWoodlandPaths(paths) {
-  const P = G.PARK,
+  const P = PARK_BOUNDS,
     M = PARK_SITES.met,
     rnd = mulberry32(8088);
   const C = 10,
@@ -731,7 +712,7 @@ export function buildPark({
         spray.push([cx, GRASS_Y + 1.25, zc]);
       }
     }
-    const metB = new MB();
+    const metB = new MeshBuilder();
     metB.setColor([0.05, 0.055, 0.06]); // skylight steel: gable ends, ridge caps, pyramid ribs
     // rear wings: darker modern galleries (1970s-80s additions)
     // (park r3) stepped roof masses (critic r2: 'one flat slab with 7 copy-pasted skylight grids'): a lower north
@@ -1448,7 +1429,7 @@ export function buildPark({
   // ------------------------------------------------------------------ schist outcrops
   if (meadowDist) {
     const rnd = mulberry32(4242);
-    const P = G.PARK;
+    const P = PARK_BOUNDS;
     const segs = [];
     for (const p of parkPaths)
       for (let i = 1; i < p.pts.length; i++)
@@ -1478,7 +1459,7 @@ export function buildPark({
     const placed = [];
     let n = 0;
     // (park r6) critic r5: 'no schist rock outcrops, no clearings'. More (70 -> 125) and bigger whalebacks, also deeper
-    // in the woods (trees.js keeps trunks off them, so they read as pale bare clearings in the canopy)
+    // in the woods (trees.ts keeps trunks off them, so they read as pale bare clearings in the canopy)
     for (let t = 0; t < 12000 && n < 125; t++) {
       const x = P.x0 + 15 + rnd() * (P.x1 - P.x0 - 30),
         z = P.z0 + 15 + rnd() * (P.z1 - P.z0 - 30);
@@ -1731,23 +1712,23 @@ function glassRoofMaterial() {
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",parkShader.vertexCommon,
       )
       .replace(
-        "#include <uv_vertex>",__shaderPatch2,
+        "#include <uv_vertex>",parkShader.vertexUvVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch3,
+        "#include <common>",parkShader.fragmentCommon,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch4,
+        "#include <map_fragment>",parkShader.fragmentMap,
       )
       .replace(
-        "#include <roughnessmap_fragment>",__shaderPatch5,
+        "#include <roughnessmap_fragment>",parkShader.fragmentRoughness,
       )
       .replace(
-        "#include <emissivemap_fragment>",__shaderPatch6,
+        "#include <emissivemap_fragment>",parkShader.fragmentEmissive,
       );
   };
   mat.customProgramCacheKey = () => "park-glassroof-v4";
@@ -1839,14 +1820,14 @@ function buildReservoirEdge(scene, S) {
     m.onBeforeCompile = (sh) => {
       sh.fragmentShader = sh.fragmentShader
         .replace(
-          "#include <map_fragment>",__shaderPatch7,
+          "#include <map_fragment>",parkShader.fragmentMapByCopingUv,
         )
         .replace(
-          "#include <common>",__shaderPatch8,
+          "#include <common>",parkShader.fragmentCommonByCopingUv,
         );
       sh.vertexShader = sh.vertexShader
-        .replace("#include <common>",__shaderPatch9)
-        .replace("#include <uv_vertex>",__shaderPatch10);
+        .replace("#include <common>",parkShader.vertexCommonByCopingUv)
+        .replace("#include <uv_vertex>",parkShader.vertexUvVertexByCopingUv);
     };
     m.customProgramCacheKey = () => "park-coping-v1";
     const mesh = new THREE.Mesh(g, m);
@@ -1941,12 +1922,12 @@ function buildReservoirEdge(scene, S) {
 }
 
 // (park r2) Central-Park-West / Fifth-Avenue perimeter wall (critic: 'the park simply stops at the road'): a 1.0 m
-// rough-stone wall with a pale projecting coping, enclosing ground.js' low wall (same runs and entrance gaps, 10 cm
+// rough-stone wall with a pale projecting coping, enclosing ground.ts' low wall (same runs and entrance gaps, 10 cm
 // larger all round), plus World's-Fair benches backed against it along the avenue sidewalks. Exact box collision.
 function buildParkWall(scene, F, S) {
-  const P = G.PARK,
+  const P = PARK_BOUNDS,
     t = 0.45,
-    wy = G.CURB_H,
+    wy = CURB_HEIGHT,
     e = 0.1;
   const body = {
     style: STYLE.BLANK,
@@ -2008,7 +1989,7 @@ function buildParkWall(scene, F, S) {
     }
   }
   // benches on the avenue side of the side walls
-  const B = new MB(),
+  const B = new MeshBuilder(),
     rnd = mulberry32(911);
   for (const [sx, z0, z1] of sideRuns) {
     const west = sx === P.x0,
@@ -2076,13 +2057,13 @@ function buildParkWall(scene, F, S) {
 
 // (park r3) ball-field furniture (critic r2: 'flat decals with perfect white diamonds, no backstops / fences'): a 5 m
 // chain-link backstop arc behind each home plate and 1.2 m fences along both foul lines, on dark steel posts. Home plates
-// mirror ground.js' infield placement (same formula). Collision: posts + a 25 cm comb of thin rods along every fence
+// mirror ground.ts' infield placement (same formula). Collision: posts + a 25 cm comb of thin rods along every fence
 // run (the mesh is see-through; a body can't pass), so render and collision stay within 2 cm.
 function buildBallfields(scene, S, box = null) {
   const P = [],
     UV = [],
     I = [],
-    posts = new MB();
+    posts = new MeshBuilder();
   posts.setColor([0.05, 0.05, 0.05]);
   const y0 = GRASS_Y;
   const fence = (a, b, h) => {
@@ -2313,12 +2294,12 @@ function buildBallfields(scene, S, box = null) {
   });
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>",__shaderPatch11)
-      .replace("#include <uv_vertex>",__shaderPatch12);
+      .replace("#include <common>",parkShader.vertexCommonByFountainUv)
+      .replace("#include <uv_vertex>",parkShader.vertexUvVertexByFountainUv);
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>",__shaderPatch13)
+      .replace("#include <common>",parkShader.fragmentCommonByFountainUv)
       .replace(
-        "#include <alphatest_fragment>",__shaderPatch14,
+        "#include <alphatest_fragment>",parkShader.fragmentAlphaTest,
       );
   };
   mat.customProgramCacheKey = () => "park-chainlink-v1";
@@ -2550,12 +2531,12 @@ function buildReeds(scene) {
 // cast-iron lamp posts (dark green, fluted base, lantern globe) every ~19 m just outside the wall, and the grey
 // hexagonal asphalt-paver band (the park's signature sidewalk) from the wall face ~2 m out.
 function buildParkEdge(scene, S) {
-  const P = G.PARK,
+  const P = PARK_BOUNDS,
     e = 0.1,
-    y = G.CURB_H,
+    y = CURB_HEIGHT,
     rnd = mulberry32(7373);
-  const L = new MB(),
-    glow = new MB();
+  const L = new MeshBuilder(),
+    glow = new MeshBuilder();
   const lamp = (x, z) => {
     L.setColor([0.03, 0.045, 0.035]);
     L.cyl(x, y, z, 0.2, 0.16, 0.55, 8, true, false); // base
@@ -2639,16 +2620,16 @@ function buildParkEdge(scene, S) {
   });
   m.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>",__shaderPatch15)
+      .replace("#include <common>",parkShader.vertexCommonByHexWorldPosition)
       .replace(
-        "#include <begin_vertex>",__shaderPatch16,
+        "#include <begin_vertex>",parkShader.vertexBeginVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch17,
+        "#include <common>",parkShader.fragmentCommonByHexWorldPosition,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch18,
+        "#include <map_fragment>",parkShader.fragmentMapByHexWorldPosition,
       );
   };
   m.customProgramCacheKey = () => "park-hexpaver-v1"; // (park r8) charcoal asphalt hex blocks (the real CP pavers), so the band reads against the pale concrete walk
@@ -2664,7 +2645,7 @@ function buildParkEdge(scene, S) {
 // four draws; decor only (like the street peds, no collision).
 function buildParkPeople(scene, parkPaths) {
   const rnd = mulberry32(8181);
-  const fig = new MB();
+  const fig = new MeshBuilder();
   fig.setColor([0.32, 0.33, 0.38]);
   fig.box(-0.17, 0, -0.1, -0.02, 0.84, 0.1);
   fig.box(0.02, 0, -0.1, 0.17, 0.84, 0.1); // legs
@@ -2672,11 +2653,11 @@ function buildParkPeople(scene, parkPaths) {
   fig.box(-0.22, 0.84, -0.13, 0.22, 1.45, 0.13); // torso (instance colour = shirt)
   fig.box(-0.27, 0.9, -0.07, -0.22, 1.42, 0.07);
   fig.box(0.22, 0.9, -0.07, 0.27, 1.42, 0.07); // arms
-  const head = new MB();
+  const head = new MeshBuilder();
   head.setColor([1, 1, 1]);
   head.box(-0.1, 1.47, -0.11, 0.1, 1.7, 0.11);
   head.box(-0.035, 1.43, -0.035, 0.035, 1.48, 0.035);
-  const blanket = new MB();
+  const blanket = new MeshBuilder();
   blanket.setColor([1, 1, 1]);
   blanket.box(-0.9, 0, -0.75, 0.9, 0.025, 0.75, 0b111111);
   const SHIRT = [
@@ -2768,7 +2749,7 @@ function buildParkPeople(scene, parkPaths) {
   // (park r7) critic r6: 'barely any pedestrians on the park-edge avenues'. People strolling / standing on the four
   // perimeter sidewalks (the hex-paver walk and the curb side), singles, pairs and small knots, ~1 per 6 m
   {
-    const PK = G.PARK;
+    const PK = PARK_BOUNDS;
     const edge = (a0, a1, fixed, alongX, out) => {
       for (let s = a0 + rnd() * 6; s < a1; s += 3 + rnd() * 9) {
         const off = fixed + out * (0.6 + rnd() * 3.6),
@@ -2787,7 +2768,7 @@ function buildParkPeople(scene, parkPaths) {
             z,
             pose: 0,
             ry: ry + (j === 2 ? Math.PI : 0),
-            y: G.CURB_H,
+            y: CURB_HEIGHT,
             kind: "edge",
             g: k,
             j,
@@ -2851,8 +2832,8 @@ function buildParkPeople(scene, parkPaths) {
     p.sk = SKIN[Math.floor(rnd() * SKIN.length)];
   });
   // (peds r6) user: 'in the park we still have block people'. The box figures are gone: lawn + park-edge people are
-  // handed to the street crowd (npc/crowd.js statics: same skinned models, LODs and anti-clone as the streets); the
-  // footpath walkers are dropped (crowd.js streams its own park-path walkers / joggers / couples)
+  // handed to the street crowd (npc/crowd.ts statics: same skinned models, LODs and anti-clone as the streets); the
+  // footpath walkers are dropped (crowd.ts streams its own park-path walkers / joggers / couples)
   PARK_CROWD_SPOTS.length = 0;
   for (const p of people)
     if (p.kind !== "path")
@@ -2960,8 +2941,8 @@ function buildWaterShallows(scene) {
       THREE.UniformsLib.fog,
       { uTime: { value: 0 } },
     ]),
-    vertexShader: __shaderRaw1,
-    fragmentShader: __shaderRaw2,
+    vertexShader: parkVertexShader,
+    fragmentShader: parkFragmentShader,
   });
   m.userData.tick = (dt) => {
     m.uniforms.uTime.value += dt;
@@ -3033,7 +3014,7 @@ function buildReservoirRiprap(box) {
   }
 }
 
-// (night) a Central-Park lantern globe: a soft warm point light at the globe (citylights.js) + a globe material whose
+// (night) a Central-Park lantern globe: a soft warm point light at the globe (cityLights.ts) + a globe material whose
 // glow rises from a dim day value to a bright bulb at night
 function parkLampLight(x, y, z) {
   cityLights.add({
@@ -3064,7 +3045,7 @@ const nightGlow = (mesh) => {
   return mesh;
 };
 
-// Central-Park cast-iron lamp post (dark green, base, fluted shaft, lantern globe): MB L (post) + MB glow (globe)
+// Central-Park cast-iron lamp post (dark green, base, fluted shaft, lantern globe): MeshBuilder L (post) + MeshBuilder glow (globe)
 function lampPost(L, glow, S, x, y, z) {
   parkLampLight(x, y, z); // (night)
   L.setColor([0.03, 0.045, 0.035]);
@@ -3083,8 +3064,8 @@ function lampPost(L, glow, S, x, y, z) {
 // (path hierarchy: drives > walks). Two draws for posts + benches, one for the globes, one for the drive decal.
 function buildPathFurniture(scene, S, parkPaths) {
   const rnd = mulberry32(9393),
-    L = new MB(),
-    glow = new MB();
+    L = new MeshBuilder(),
+    glow = new MeshBuilder();
   const y = GRASS_Y;
   const wet = (x, z) =>
     parkWaterAt(x, z) ||
@@ -3291,16 +3272,16 @@ function buildPathFurniture(scene, S, parkPaths) {
     });
     m.onBeforeCompile = (sh) => {
       sh.vertexShader = sh.vertexShader
-        .replace("#include <common>",__shaderPatch19)
+        .replace("#include <common>",parkShader.vertexCommonByWalkwayWorldPosition)
         .replace(
-          "#include <begin_vertex>",__shaderPatch20,
+          "#include <begin_vertex>",parkShader.vertexBeginVertexByWalkwayWorldPosition,
         );
       sh.fragmentShader = sh.fragmentShader
         .replace(
-          "#include <common>",__shaderPatch21,
+          "#include <common>",parkShader.fragmentCommonByWalkwayWorldPosition,
         )
         .replace(
-          "#include <map_fragment>",__shaderPatch22,
+          "#include <map_fragment>",parkShader.fragmentMapByWalkwayWorldPosition,
         );
     };
     m.customProgramCacheKey = () => "park-drive-v1";

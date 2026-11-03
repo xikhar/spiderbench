@@ -1,11 +1,8 @@
 // @ts-nocheck
-import __shaderRaw1 from "./shaders/glsl/surface-wet.glsl?raw";
-import __shaderRaw2 from "./shaders/glsl/surface-add.glsl?raw";
-import __shaderRaw3 from "./shaders/glsl/surface-glsl-3.glsl?raw";
-import __shaderRaw4 from "./shaders/glsl/surface-glsl-4.glsl?raw";
-import { injectShader } from "./shader.ts";
-// OWNER: render agent.
-// Global shader-chunk extension that encodes a per-pixel "screen-space reflection weight" into the ALPHA channel
+import { lazyShaderSections } from "../shaderSections.ts";
+import surfaceShaderSource from "./shaders/glsl/surface.glsl?raw";
+import { injectShader } from "./shaderInjection.ts";
+// // Global shader-chunk extension that encodes a per-pixel "screen-space reflection weight" into the ALPHA channel
 // of the HDR scene target (no extra G-buffer / MRT needed):
 //     alpha = 1 + w,   w = luminance of the split-sum specular reflectance (F0/F90 * DFG) of the surface,
 //                      faded out for rough surfaces (SSR only applies to smooth glass, car paint, polished stone).
@@ -17,7 +14,7 @@ import { injectShader } from "./shader.ts";
 // saturated sky for REFLECTIONS while the ambient fill of diffuse surfaces is controlled separately:
 //     irradiance' = mix(luma, irr, sat) * tint + bounce * (0.5 - 0.5 * n.y)^1.5-ish   (GI approximation:
 //     warm light bounced from the sunlit street and facades onto down/side-facing surfaces)
-// Parameters live in the shared `ambShared` object (lighting.js updates it per time of day).
+// Parameters live in the shared `ambShared` object (lighting.ts updates it per time of day).
 import * as THREE from "three";
 import {
   avenues,
@@ -28,14 +25,17 @@ import {
   NARROW_ST_HALF,
   VREG,
   FREG,
-} from "../world/layout.ts"; // (zfix) kerb-gutter puddles
+} from "../world/layout.ts";
+
+const surfaceShader = lazyShaderSections(() => surfaceShaderSource);
+// (zfix) kerb-gutter puddles
 
 export const ambShared = {
   grade: new THREE.Vector4(1, 1, 1, 0.6), // rgb: ambient tint, w: ambient saturation
   bounce: new THREE.Vector4(0, 0, 0, 1), // rgb: bounce irradiance (already x PI), w: daylight factor (1 day .. ~0 night)
   vert: new THREE.Vector4(1, 1, 0, 0), // (lighting2 r6) x: sky-fill gain on VERTICAL / side-facing surfaces (facades, cars, props, trees in shade), y: street-bounce gain on them
   wx: new THREE.Vector4(0, 0, 0, 1), // (lighting2 r3) weather: x wet amount (overcast rain: whole city wet + puddles), y clock (s), z rain intensity, w dry-weather puddles on/off (user r-nopuddles, Settings)
-  cgrid: new THREE.Vector4(0, 0, 512, 0), // (night) city-light grid (citylights.js): xy origin (world x, z), z span, w on
+  cgrid: new THREE.Vector4(0, 0, 512, 0), // (night) city-light grid (cityLights.ts): xy origin (world x, z), z span, w on
   city: new THREE.Vector4(0, 0, 0, 0), // (lighting2 r3) night city light: rgb sodium street-light irradiance (x PI) near the ground, w: Times Square screen spill
   shape: new THREE.Vector4(0.25, 1, 0, 0), // w: (atmosphere r3) extra street-level bounce near the ground (x(1+w) at y=0, fades over ~26 m)  // x: bounce weight on up-facing surfaces (street canyon inter-reflection), y: skylight weight on up-facing,
   // z: (atmosphere r2) diffuse-only IBL gain (0 = 1): sky fill decoupled from the specular sky reflections
@@ -63,7 +63,7 @@ export function installSurfaceChunks(quality = {}) {
     /* non-browser */
   } // (zfix) puddle A/B
   const wet = injectShader(
-    __shaderRaw1,
+    surfaceShader.wetSurface,
     oldPud ? "0.0" : "1.0",
     FREG.z0.toFixed(1),
     VREG.x0.toFixed(1),
@@ -90,7 +90,7 @@ export function installSurfaceChunks(quality = {}) {
   );
   if (wetOn && !SC.lights_physical_fragment.includes("wetFlat"))
     SC.lights_physical_fragment = SC.lights_physical_fragment + wet;
-  const add = __shaderRaw2;
+  const add = surfaceShader.additiveOutput;
   if (!SC.opaque_fragment.includes("ssrW"))
     SC.opaque_fragment = SC.opaque_fragment + add;
 
@@ -99,10 +99,10 @@ export function installSurfaceChunks(quality = {}) {
   const target = "return PI * envMapColor.rgb * envMapIntensity;";
   if (env.includes(target) && !env.includes("ambData")) {
     SC.envmap_physical_pars_fragment =
-      __shaderRaw3 +
+      surfaceShader.environmentDeclarations +
       env.replace(
         target,
-        __shaderRaw4,
+        surfaceShader.environmentLighting,
       );
     for (const k of ["standard", "physical", "lambert", "phong", "toon"]) {
       const lib = THREE.ShaderLib[k];

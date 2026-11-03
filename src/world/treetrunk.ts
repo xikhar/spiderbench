@@ -1,19 +1,19 @@
 // @ts-nocheck
-// OWNER: city agent (veg r1). Natural tree trunks + limbs for trees.js: one continuous tapered, leaning, gently bent
+// Natural tree trunks + limbs for trees.ts: one continuous tapered, leaning, gently bent
 // trunk (swept tube along a Catmull-Rom spline) with a buttressed root flare sunk into the ground, a leader that runs
 // on into the main crown lobe, and scaffold limbs / branches / twigs that PEEL OFF their parent (each starts on the
 // parent's axis, heading along the parent's tangent, and curves out) -> smooth Y forks with a branch collar instead
 // of cylinders butted together. Near LOD: bark ridges in the silhouette (radial plates / furrows). UVs in metres for
 // the image-generated bark array (public/city/tex/bark_col.webp / bark_nrm.webp, 3 layers: plane, oak, dark).
 // The same skeleton gives the cheaper mid / far LODs and the trunk collision capsule.
-import __shaderPatch1 from "./shaders/glsl/treetrunk-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/treetrunk-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/treetrunk-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/treetrunk-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/treetrunk-patch-5.glsl?raw";
+import { lazyShaderSections } from "../shaderSections.ts";
+import treetrunkShaderSource from "./shaders/glsl/treetrunk.glsl?raw";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
 import { mulberry32 } from "./layout.ts";
+
+const treetrunkShader = lazyShaderSections(() => treetrunkShaderSource);
+
 
 export const BARK = { PLANE: 0, OAK: 1, DARK: 2 };
 const TILE = 0.85; // metres per bark texture repeat (vertical, and ~ around the circumference)
@@ -481,20 +481,20 @@ export function barkMaterial() {
     sh.uniforms.tBarkN = T.nrm;
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",treetrunkShader.vertexCommon,
       )
       .replace(
-        "#include <begin_vertex>",__shaderPatch2,
+        "#include <begin_vertex>",treetrunkShader.vertexBeginVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch3,
+        "#include <common>",treetrunkShader.fragmentCommon,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch4,
+        "#include <map_fragment>",treetrunkShader.fragmentMap,
       )
       .replace(
-        "#include <normal_fragment_maps>",__shaderPatch5,
+        "#include <normal_fragment_maps>",treetrunkShader.fragmentNormalMaps,
       );
   };
   mat.customProgramCacheKey = () => "bark-v1";

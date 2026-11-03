@@ -11,6 +11,15 @@ The code, shaders, procedural city, Blender-built models and generated textures 
 - **Rendering:** a Three.js (WebGL2) pipeline with cascaded shadows, screen-space GI, AO and reflections, bloom, TAA, motion blur, fixed time-of-day presets (including night and rain), and a day/night city.
 - **Assets:** character, vehicle and pedestrian models and animation clips built by Blender Python scripts, plus AI-generated textures and ad art. Advertised brands are invented, apart from in-universe Marvel names such as the Daily Bugle and Oscorp.
 
+## Navigating the source
+
+- `src/main.ts` starts the renderer, city, player, and game systems.
+- `src/player/` contains character loading, animation, camera control, and traversal.
+- `src/world/` builds the city, traffic, pedestrians, landmarks, and world materials.
+- `src/game/combat/` contains combat behavior and visual effects; `src/game/systems/` contains missions, progression, events, and saving.
+- `src/render/` contains lighting, shadows, post-processing, quality settings, and shader warm-up.
+- `src/ui/` contains the HUD and menus. Shader files are grouped by stage under the feature that uses them.
+
 ## Run it
 
 Requires Node.js 20.19+ or 22.12+ and a WebGL2-capable browser. A discrete GPU is recommended.

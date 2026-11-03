@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Settings: graphics (quality preset -> reload with ?q=, live render scale), controls
+// Settings: graphics (quality preset -> reload with ?q=, live render scale), controls
 // (mouse sensitivity, invert Y, keybind reference), audio (master / music / sfx / ambience / UI), gameplay (world markers,
 // reset progress). Persisted in the save's settings block; applied through sys.applySettings().
 export function createSettingsPage(sys) {

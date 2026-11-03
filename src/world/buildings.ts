@@ -1,17 +1,12 @@
 // @ts-nocheck
-// OWNER: citygeo. Lot subdivision + NYC building archetypes -> facade geometry, trims, rooftop details, collision.
+// Lot subdivision + NYC building archetypes -> facade geometry, trims, rooftop details, collision.
 // Every visible solid is emitted through `solid*()` helpers that write the triangles AND the matching collision
-// primitive (collision.js) in the same call, so world.raycast / groundHeight match the rendered surfaces exactly.
+// primitive (collision.ts) in the same call, so world.raycast / groundHeight match the rendered surfaces exactly.
 // Z-fighting rules followed throughout: no two coplanar faces with the same facing ever overlap. Trims that touch a
 // wall omit their wall-side face; corner pieces are owned by the z-facing run; party-side trims never overhang.
-import __shaderPatch1 from "./shaders/glsl/buildings-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/buildings-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/buildings-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/buildings-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/buildings-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/buildings-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/buildings-patch-7.glsl?raw";
-import { injectShader } from "../render/shader.ts";
+import { lazyShaderSections } from "../shaderSections.ts";
+import buildingsShaderSource from "./shaders/glsl/buildings.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import {
   G,
@@ -32,11 +27,14 @@ import {
   WIDE_ST_SET,
 } from "./layout.ts"; // (layout2 r5) addCurbCut, DIAG_SEGS // (layout2) diagTrimRect, diagRectClear (+ r2: diagLotPieces, clipPoly, polyArea, diagD)
 import { FacadeBuilder, STYLE, LAYER } from "./facade.ts";
-import { MB, hexLin, M4 } from "./geom.ts";
+import { MeshBuilder, linearColorFromHex, createTransformMatrix } from "./meshBuilder.ts";
 import { Solids, OVERHANG, NOZIP } from "./collision.ts"; // (layout2 r3) NOZIP
 import { hash2, islands, ZFIX } from "./layout.ts"; // (layout2 r3) block-variety hash stream; (layout2 r9) islands: refuge furnishing
-import { ZipPoints } from "./zippoints.ts";
-import { residentialArch, residentialSplit } from "./residential.ts"; // park agent: UWS / UES / Harlem brick residential
+import { ZipPoints } from "./zipPoints.ts";
+import { residentialArch, residentialSplit } from "./residential.ts";
+
+const buildingsShader = lazyShaderSections(() => buildingsShaderSource);
+// park agent: UWS / UES / Harlem brick residential
 
 export const TILE = 256;
 const tkey = (x, z) => `${Math.floor(x / TILE)},${Math.floor(z / TILE)}`;
@@ -99,7 +97,7 @@ export function generateBuildings(blocks, seed = 1234, opts = {}) {
         lod: Object.assign(new FacadeBuilder(), {
           noLights: true,
         }) /* (night) no window lights from the far-LOD copy */,
-        det: new MB(),
+        det: new MeshBuilder(),
         key: k,
         cx: (Math.floor(x / TILE) + 0.5) * TILE,
         cz: (Math.floor(z / TILE) + 0.5) * TILE,
@@ -438,7 +436,7 @@ export function generateBuildings(blocks, seed = 1234, opts = {}) {
         tile,
       ); // (layout2 r2) true wedge / trapezoid street wall
     for (const [R, lot] of mine) {
-      if (R.custom) continue; // built by the caller (hero.js)
+      if (R.custom) continue; // built by the caller (hero.ts)
       const r2 = mulberry32(R.seed ?? 77);
       const arch = {
         ...chooseArch({ ...lot, kind: "tower" }, b, r2),
@@ -485,7 +483,7 @@ export function generateBuildings(blocks, seed = 1234, opts = {}) {
 // every chunk becomes a prism building on its TRUE footprint (facade quads on the diagonal, roof fan, stone top band),
 // so the diagonal reads as a continuous street wall. Chunks overlap the rect buildings behind them only BELOW their
 // roofs (height capped at the lowest overlapped building - 3 m) and sit 6 cm inside the property lines (no coplanar
-// faces). Small pieces at the squares stay plazas (dressed in city.js). A Flatiron-like wedge fills the 5th Av /
+// faces). Small pieces at the squares stay plazas (dressed in city.ts). A Flatiron-like wedge fills the 5th Av /
 // Broadway trapezoid south of Madison Sq. Collision: axis-aligned slices (polySolids), <= 1.8 cm off the diagonal faces.
 export const DIAG_SQUARES = [
   [0, 320],
@@ -893,7 +891,7 @@ function prismBuilding(ctx, tile, P, A, H, r, front, isFlat) {
 // Every VMAP cell's property polygon (convex quad / trapezoid / triangle) is cut into a north and a south half (deep
 // cells), each half into lots fronting the cross street: the interior lots are axis-aligned rects (the full generator:
 // cornices, fire escapes, rooftop kits, signage) and the two end lots on the angled streets are true-footprint prisms
-// (wedges / trapezoids, collision via polySolids <= 1.8 cm). Tiny cells stay paved plazas (trees: city.js).
+// (wedges / trapezoids, collision via polySolids <= 1.8 cm). Tiny cells stay paved plazas (trees: city.ts).
 function vmapBuildings(ctx, tile, placedMid, opts = {}, reserves = []) {
   let nRect = 0,
     nPrism = 0;
@@ -904,7 +902,7 @@ function vmapBuildings(ctx, tile, placedMid, opts = {}, reserves = []) {
   for (const c of MAPS.flatMap((M) => M.cells)) {
     // (layout2 r4) every street map
     const P0 = c.prop;
-    if (!P0 || polyArea(P0) < 160 || c.park) continue; // (layout2 r4) park cells: lawns (ground.js)
+    if (!P0 || polyArea(P0) < 160 || c.park) continue; // (layout2 r4) park cells: lawns (ground.ts)
     const b = c.block,
       hs = (x, z, k) =>
         mulberry32(
@@ -1383,12 +1381,12 @@ function diagFrontage(b, bStart, blockers, flat, ctx, tile, flatOnly = false) {
     }
   }
   ctx.frontage = (ctx.frontage || 0) + placed.length;
-  (ctx.frontPolys ??= []).push(...placed); // (layout2 r2) city.js keeps plaza trees out of them
+  (ctx.frontPolys ??= []).push(...placed); // (layout2 r2) city.ts keeps plaza trees out of them
 }
 
 // (layout2) infill: after trimming, the property area of a block crossed by Broadway / an angled street still has big
 // empty wedges. Greedily add the largest free axis-aligned lots (maximal rectangle on a 2 m occupancy grid) so the
-// frontage steps along the diagonal like a street wall; the small acute tips stay paved plazas (trees, city.js).
+// frontage steps along the diagonal like a street wall; the small acute tips stay paved plazas (trees, city.ts).
 function diagInfill(b, lots, blockers, emit) {
   const C = 2,
     x0 = b.px0,
@@ -1508,7 +1506,7 @@ function diagInfill(b, lots, blockers, emit) {
 // and rear-yard notches. Lots are only dropped / reshaped at emit time (bvLot), after their city-rnd draws, so the rest
 // of the city is unchanged; render + collision come from the same emitBuilding call, so they stay matched, and the
 // rooftop / zip / signage consumers of ctx.buildings never see the removed lots. Dressing goes into the tile's detail
-// builder (no new draw calls); tree spots go to gen.openTrees (city.js -> the instanced tree pools).
+// builder (no new draw calls); tree spots go to gen.openTrees (city.ts -> the instanced tree pools).
 const BV_EMPTY = { open: new Set(), mod: new Map(), rects: [] };
 const SQUARE_PARKS = [
   { name: "Madison Square Park", x: 340, z: 680 },
@@ -3203,7 +3201,7 @@ function trimRun(
 // (skyline r5) real vertical relief on tall generic towers (critic: "extruded prisms, one tiled grid, no piers / fins"):
 // raised stone piers over the deco pier grid (every K bays, a heavier pier every 4th), pilasters on brick deco towers,
 // projecting fins on post-war ribbon slabs, and metal fins on curtain walls exactly where the shader draws its
-// heavy pier fin (same hash as facade.js `pierM`). Near-tile geometry only (the far LOD keeps the shader's pbox fins),
+// heavy pier fin (same hash as facade.ts `pierM`). Near-tile geometry only (the far LOD keeps the shader's pbox fins),
 // every rib has its exact collision box.
 const fract = (x) => x - Math.floor(x);
 function pierRibs(F, S, m, ft, A, masses, top) {
@@ -3328,7 +3326,7 @@ function pierRibs(F, S, m, ft, A, masses, top) {
   }
 }
 
-// (street r9, street agent) belt ledges matching facade.js 'STREET-LEVEL ZONING' (zBase / zCap). Street faces only.
+// (street r9, street agent) belt ledges matching facade.ts 'STREET-LEVEL ZONING' (zBase / zCap). Street faces only.
 const f32 = Math.fround;
 const zfr = (s, a, b) => {
   const v = f32(f32(f32(s) * f32(a)) + f32(b));
@@ -3349,7 +3347,7 @@ function zoneBelts(F, S, mg, ft0, A) {
   if (zBase) bands.push([gH + zBase * fh + 0.02, gH + zBase * fh + 0.42, 0.16]);
   if (zCap && mg.y1 - (gH + (nF - zCap) * fh) > 1)
     bands.push([gH + (nF - zCap) * fh - 0.36, gH + (nF - zCap) * fh, 0.13]);
-  // (street r11) mid-shaft belt courses every 6-8 floors on tall shafts (facade.js zMidK)
+  // (street r11) mid-shaft belt courses every 6-8 floors on tall shafts (facade.ts zMidK)
   if (nF - zBase - zCap >= 11) {
     const K = 6 + Math.floor(zfr(seed, 3.31, 0.47) * 3);
     for (let bF = zBase + K; bF <= nF - zCap - 3; bF += K)
@@ -4176,7 +4174,7 @@ function emitBuilding(lot, A, b, r, tile, ctx) {
           Z.edge(mg.x1 + e, mg.z0, mg.x1 + e, mg.z1, y1, nx, nz, "ledge", 10);
       }
     }
-    // ---- (street r9, street agent) projecting stone belt ledges at the facade zone boundaries drawn by facade.js
+    // ---- (street r9, street agent) projecting stone belt ledges at the facade zone boundaries drawn by facade.ts
     // (top of the rusticated base, bottom of the cap zone): same seed hash as the shader (float32 emulated)
     if (
       (mg.p.style ?? A.style) === STYLE.PUNCHED &&
@@ -5539,7 +5537,7 @@ function roofDetails(A, H, P, tm, roofLayer, F, D, S, Z, r, pre = []) {
   }
   // HVAC units / exhaust fans
   if (rw * rd > 120 || A.type === "postwar") {
-    const n = Math.floor(r() * 3); // rooftops agent r6: fewer + ~45% smaller (critic: oversized identical AC cubes; rooftops.js adds the varied kit)
+    const n = Math.floor(r() * 3); // rooftops agent r6: fewer + ~45% smaller (critic: oversized identical AC cubes; rooftops.ts adds the varied kit)
     for (let i = 0; i < n; i++) {
       const w = 1.1 + r() * 1.6,
         d2 = 0.9 + r() * 1.3,
@@ -5629,7 +5627,7 @@ function facadeDetails(A, H, m0, ft0, D, S, Z, r, ctx) {
       const floorsN = Math.round((H - A.gH) / A.floorH);
       fireEscape(D, S, fr, fr.W * 0.5, A, floorsN);
     }
-    if (A.decor) A.decor({ D, S, fr, m: m0, s, A, DP, frameMatrix, frameAABB }); // park agent (residential.js): window AC units
+    if (A.decor) A.decor({ D, S, fr, m: m0, s, A, DP, frameMatrix, frameAABB }); // park agent (residential.ts): window AC units
     if (A.type !== "walkup" && r() < 0.12 && fr.W > 12)
       flagPole(
         D,
@@ -5722,7 +5720,7 @@ function awning(D, S, fr, u0, u1, yTop, color, r) {
     const c = d.vert(u1, yTop - drop, out, 0, ny, nn, 1, 1),
       e = d.vert(u0, yTop - drop, out, 0, ny, nn, 0, 1);
     d.quad(a, e, c, bb);
-    d.setColor(hexLin(color).map((v) => v * 0.35));
+    d.setColor(linearColorFromHex(color).map((v) => v * 0.35));
     const a2 = d.vert(u0, yTop - thk, 0, 0, -ny, -nn),
       b2 = d.vert(u1, yTop - thk, 0, 0, -ny, -nn);
     const c2 = d.vert(u1, yTop - drop - thk, out - 0.02, 0, -ny, -nn),
@@ -6340,7 +6338,7 @@ function waterTower(D, S, Z, x, y, z, r, rnd) {
   D.setPart(DP.STEEL).setColor(0x2a2624);
   const lz = z - r - 0.05,
     ls = rnd() < 0.5 ? 1 : -1; // (skyline r6) ladder on the north or south face (breaks the clone look)
-  D.with(M4(x, 0, z, ls < 0 ? 0 : Math.PI, 1), (DD) => {
+  D.with(createTransformMatrix(x, 0, z, ls < 0 ? 0 : Math.PI, 1), (DD) => {
     const l = -r - 0.05;
     DD.box(-0.25, y + legH, l - 0.03, -0.22, yR, l);
     DD.box(0.22, y + legH, l - 0.03, 0.25, yR, l);
@@ -6382,26 +6380,26 @@ export function createDetailMaterial(T) {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",buildingsShader.vertexCommon,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch2,
+        "#include <fog_vertex>",buildingsShader.vertexFogVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",injectShader(__shaderPatch3, T.detailNrm ? "uniform sampler2D tDetail;" : ""),
+        "#include <common>",injectShader(buildingsShader.fragmentCommon, T.detailNrm ? "uniform sampler2D tDetail;" : ""),
       )
       .replace(
-        "#include <color_fragment>",__shaderPatch4,
+        "#include <color_fragment>",buildingsShader.fragmentColor,
       )
       .replace(
-        "#include <roughnessmap_fragment>",__shaderPatch5,
+        "#include <roughnessmap_fragment>",buildingsShader.fragmentRoughness,
       )
       .replace(
-        "#include <metalnessmap_fragment>",__shaderPatch6,
+        "#include <metalnessmap_fragment>",buildingsShader.fragmentMetalness,
       )
       .replace(
-        "#include <normal_fragment_maps>",__shaderPatch7,
+        "#include <normal_fragment_maps>",buildingsShader.fragmentNormalMaps,
       );
   };
   mat.customProgramCacheKey = () => "city-detail-v3"; // (textures r4)
@@ -6413,7 +6411,7 @@ export function createDetailMaterial(T) {
 // Madison / Union Sq corners, Columbus Circle, Lincoln Center, SoHo) get cafe tables with umbrellas, planters with small
 // trees, granite blocks along the plaza edge and (Lincoln Center) a round fountain. Spots come from a free-space scan of
 // the plaza area (streetsAt 'block', clear of every lot / prism); detail tiles + exact collision; own RNG (city untouched).
-// gen.squareSpots [{x, z, r}] keeps the plaza trees (city.js) off the furniture.
+// gen.squareSpots [{x, z, r}] keeps the plaza trees (city.ts) off the furniture.
 // (layout2 r6) fountain helpers: flat annulus (coping top) and an inward-facing cylinder wall (seen from inside the basin)
 function fountainRing(d, x, y, z, a, b, n) {
   const I = [],
@@ -6925,7 +6923,7 @@ function islandFurnish(gen, si, sx, sz, rr, blocks, h) {
 }
 // (layout2 r9) the refuge islands baked on the empty junction asphalt (layout islands() kind 'refuge'): a steel bollard
 // group at each nose facing traffic, a raised planter with clipped shrubs down the middle of the longer ones (the widest
-// carry street trees instead: layout I.trees -> city.js). Own hash stream; exact collision through furn.
+// carry street trees instead: layout I.trees -> city.ts). Own hash stream; exact collision through furn.
 function furnishRefuges(gen) {
   const S = gen.solids,
     D = (x, z) => gen.tile(x, z).det;
@@ -7043,7 +7041,7 @@ function insetConvex(P, d) {
 // fountain or hardscape; real Broadway triangles are mostly paved with seating, kiosks and planters'. Every street-map
 // park cell gets a granite walk ring (the lawn mesh stays underneath: the paving sits 1 cm above the grass), a low iron
 // fence round the inner lawn, a fountain basin in the lawn, benches facing in, lamps at the corners and bollards on the
-// tips. gen.mapLawns keeps the inner lawns (city.js plants the park trees only there, clear of the fountain).
+// tips. gen.mapLawns keeps the inner lawns (city.ts plants the park trees only there, clear of the fountain).
 function furnishMapParks(gen) {
   const S = gen.solids,
     Y = G.CURB_H + 0.02,
@@ -7859,7 +7857,7 @@ export function dressSquares(gen, blocks) {
     //   - a charcoal granite border course where the plaza meets sidewalk, road or a building;
     //   - concentric light / dark granite rings (0.75 m stones) round the focal fountain / sculpture;
     //   - organic tree groves (clustered by a low-frequency field, 5-8 m spacing, 0.6-1.15 size, one species per plaza)
-    //     standing in tan decomposed-granite beds with a granite edge, instead of the 7.5 m tree grid (city.js skips
+    //     standing in tan decomposed-granite beds with a granite edge, instead of the 7.5 m tree grid (city.ts skips
     //     every paved cell, gen.paverCells).
     const Cs = 1.5,
       lin = (h) =>
@@ -8071,7 +8069,7 @@ export function dressSquares(gen, blocks) {
     let nClip = 0;
     const cellPoly = new Map();
     const fan = (d, P, y, cx0, cz0) => {
-      // flat polygon, winding like MB.box tops
+      // flat polygon, winding like MeshBuilder.box tops
       if (P.length < 3) return;
       let sa = 0;
       for (let k = 0; k < P.length; k++) {

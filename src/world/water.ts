@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: foundation agent (city remake). River / harbour water around the island.
+// River / harbour water around the island.
 // One large plane at G.WATER_Y with a PBR water material:
 //   - world-space multi-scale scrolling wave normals (two chop directions + a broad swell), wind slicks (calm,
 //     mirror-like bands) and current streaks, normals faded with distance (no far shimmer)
@@ -10,25 +10,20 @@
 //   - opts out of the pipeline's SSR (the mirror replaces it; SSR's 220 m rays never reached the far shore)
 // Plus: wet bands (dark, algae-stained tidal strip) along every bulkhead / seawall / pier edge, and a horizon skirt
 // just inside the far plane.
-import __shaderPatch1 from "./shaders/glsl/water-patch-1.glsl?raw";
-import __shaderPatch10 from "./shaders/glsl/water-patch-10.glsl?raw";
-import __shaderPatch11 from "./shaders/glsl/water-patch-11.glsl?raw";
-import __shaderPatch12 from "./shaders/glsl/water-patch-12.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/water-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/water-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/water-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/water-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/water-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/water-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/water-patch-8.glsl?raw";
-import __shaderPatch9 from "./shaders/glsl/water-patch-9.glsl?raw";
-import { injectShader } from "../render/shader.ts";
+import { lazyShaderSections } from "../shaderSections.ts";
+import waterShaderSource from "./shaders/glsl/water.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import { G, distToShore, LAND_POLY } from "./layout.ts";
 import { FAR_LANDS } from "./farshore.ts";
+import { REFL_LAYER } from "./waterLayers.ts";
 
-export const REFL_LAYER = 27; // meshes the planar reflection renders besides the big shadow casters
-const BIG_LAYER = 28; // render/csm.js BIG_CASTER_LAYER (tagged large casters: towers, walls, bridges)
+export { REFL_LAYER };
+
+const waterShader = lazyShaderSections(() => waterShaderSource);
+
+
+const BIG_LAYER = 28; // render/cascadedShadows.ts BIG_CASTER_LAYER (tagged large casters: towers, walls, bridges)
 
 export function createRiverMaterial(
   T,
@@ -56,29 +51,29 @@ export function createRiverMaterial(
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>", __shaderPatch1)
-      .replace("#include <fog_vertex>", __shaderPatch2);
+      .replace("#include <common>", waterShader.vertexCommon)
+      .replace("#include <fog_vertex>", waterShader.vertexFogVertex);
     sh.fragmentShader = sh.fragmentShader
       .replace(
         "#include <common>",
-        injectShader(__shaderPatch3, body.map((v) => v.toFixed(4)).join(", ")),
+        injectShader(waterShader.fragmentCommon, body.map((v) => v.toFixed(4)).join(", ")),
       )
-      .replace("#include <map_fragment>", __shaderPatch4)
-      .replace("#include <roughnessmap_fragment>", __shaderPatch5)
-      .replace("#include <normal_fragment_maps>", __shaderPatch6)
+      .replace("#include <map_fragment>", waterShader.fragmentMap)
+      .replace("#include <roughnessmap_fragment>", waterShader.fragmentRoughness)
+      .replace("#include <normal_fragment_maps>", waterShader.fragmentNormalMaps)
       // (round 7) cast shadows on open water: a river mostly reflects the sky, so a tower's shadow only removes the
       // sun's glare / diffuse share -> soften the sun occlusion (was a hard dark-blue slab across the East River)
       .replace(
         "#include <lights_fragment_begin>",
         injectShader(
-          __shaderPatch7,
+          waterShader.fragmentLightsBegin,
           THREE.ShaderChunk.lights_fragment_begin.replace(
             "directLight.color *= ( directLight.visible && receiveShadow ) ? csmShadow() : 1.0;",
             "wSh = ( directLight.visible && receiveShadow ) ? csmShadow() : 1.0; directLight.color *= mix(0.8, 1.0, wSh); /* (round 10: 0.62 -> 0.8, critic read tower shadows on the river as dark decal slabs) */",
           ),
         ),
       )
-      .replace("#include <lights_fragment_maps>", __shaderPatch8);
+      .replace("#include <lights_fragment_maps>", waterShader.fragmentLightsMaps);
   };
   mat.customProgramCacheKey = () =>
     "city-river-v11" +
@@ -402,11 +397,11 @@ export function buildWetBands({
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.tWetN = { value: T.noise };
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>", __shaderPatch9)
-      .replace("#include <uv_vertex>", __shaderPatch10);
+      .replace("#include <common>", waterShader.vertexCommonByWetSurfaceUv)
+      .replace("#include <uv_vertex>", waterShader.vertexUvVertex);
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>", __shaderPatch11)
-      .replace("#include <map_fragment>", __shaderPatch12);
+      .replace("#include <common>", waterShader.fragmentCommonByWetSurfaceUv)
+      .replace("#include <map_fragment>", waterShader.fragmentMapByWetSurfaceUv);
   };
   mat.customProgramCacheKey = () => "wet-band-v1";
   const m = new THREE.Mesh(g, mat);

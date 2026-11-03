@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: traversal engineer. Zip / perch points (C2) + aim targeting for the reticle.
+// Zip / perch points (C2) + aim targeting for the reticle.
 //   C2: world.getZipPoints(center, radius) -> [{pos, normal, kind}] (city provides). If absent or empty, perch points are
 //   derived here from the city's box list (roof edges / corners / rooftop boxes such as water towers), validated with
 //   world.groundHeight so they sit on real, uncovered rooftops with a real drop outward.

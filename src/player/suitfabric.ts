@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems / character. Advanced-suit fabric look (user r-suitfabric: "the spiderman main suit is shiny, flat red
+// Advanced-suit fabric look (user r-suitfabric: "the spiderman main suit is shiny, flat red
 // and blue colours, make them rougher, and with good textures"). Target: Insomniac PS4/SM2 Advanced suit
 // (refs/suit/suit_closeup.png): matte-to-satin technical fabric, raised rubbery web lines + emblem a little glossier,
 // fine hex / knit micro-texture, subtle tonal colour variation, light crease AO, no plastic highlights.
@@ -12,19 +12,17 @@
 //  - roughness per class (red 0.58-0.70, navy 0.64-0.74, grooves rougher; white 0.42, web lines 0.40) + cavity darkening,
 //  - low-frequency bind-pose noise for crimson / navy-cobalt tonal shifts, and baked AO also darkening the direct light
 //    a little (creases).
-// Only active for the Advanced suit: game/systems/suits.js turns it off for Iron / Symbiote (setSuitFabric).
-import __shaderPatch1 from "./shaders/glsl/suitfabric-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/suitfabric-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/suitfabric-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/suitfabric-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/suitfabric-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/suitfabric-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/suitfabric-patch-7.glsl?raw";
+// Only active for the Advanced suit: game/systems/suits.ts turns it off for Iron / Symbiote (setSuitFabric).
+import { lazyShaderSections } from "../shaderSections.ts";
+import suitfabricShaderSource from "./shaders/glsl/suitfabric.glsl?raw";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
 import { addShaderPatch } from "../render/materials.ts";
-import { nightK } from "../render/daynight.ts";
-import { cityAmbient } from "../render/citylights.ts";
+import { nightK } from "../render/dayNight.ts";
+import { cityAmbient } from "../render/cityLights.ts";
+
+const suitfabricShader = lazyShaderSections(() => suitfabricShaderSource);
+
 
 const uniforms = {
   uFabOn: { value: 0 },
@@ -51,7 +49,7 @@ const sync = () => {
   uniforms.uFabOn.value = want && !fabOff && loaded === 2 ? 1 : 0;
   if (loaded === 2) readyRes();
 };
-/** Advanced suit on/off (suits.js). Off = the material renders exactly as the GLB (other suits do their own thing). */
+/** Advanced suit on/off (suits.ts). Off = the material renders exactly as the GLB (other suits do their own thing). */
 export function setSuitFabric(on) {
   want = !!on;
   sync();
@@ -90,33 +88,33 @@ export function applySuitFabric(root) {
   addShaderPatch(mat, "suitFabric", (sh) => {
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>",__shaderPatch1)
+      .replace("#include <common>",suitfabricShader.vertexCommon)
       .replace(
-        "#include <begin_vertex>",__shaderPatch2,
+        "#include <begin_vertex>",suitfabricShader.vertexBeginVertex,
       ); // bind-pose position: sticks to the body
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch3,
+        "#include <common>",suitfabricShader.fragmentCommon,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch4,
+        "#include <map_fragment>",suitfabricShader.fragmentMap,
       )
       .replace(
-        "#include <roughnessmap_fragment>",__shaderPatch5,
+        "#include <roughnessmap_fragment>",suitfabricShader.fragmentRoughness,
       )
       // (night r12) user: 'none of the lights affect the player suit at all'. The night preset's sky fill (env x3, tuned
       // so facades read) lit the suit evenly from every side and drowned the lamps / headlights / screens (city lights
       // off changed the suit by ~15 %). At night the suit keeps ~35 % of that fill (any suit: outside uFabOn), so the
       // local lights model it; the moon key and city lights are unchanged, by day nothing changes
-      // (only where the city lights compiled in: on 16-texture-unit GPUs the suit falls back without them, citylights.js)
-      // (user r-amb) + the AREA AMBIENT of the lit blocks around him (citylights.js cityAmbient: street bounce from below,
+      // (only where the city lights compiled in: on 16-texture-unit GPUs the suit falls back without them, cityLights.ts)
+      // (user r-amb) + the AREA AMBIENT of the lit blocks around him (cityLights.ts cityAmbient: street bounce from below,
       // a weaker share from above), on every GPU path (uniforms, no texture): a bright avenue lifts the whole suit even
       // away from the nearest lamp, a dark side street adds ~nothing
       .replace(
-        "#include <lights_fragment_maps>",__shaderPatch6,
+        "#include <lights_fragment_maps>",suitfabricShader.fragmentLightsMaps,
       )
       .replace(
-        "#include <normal_fragment_maps>",__shaderPatch7,
+        "#include <normal_fragment_maps>",suitfabricShader.fragmentNormalMaps,
       );
   });
   sync();

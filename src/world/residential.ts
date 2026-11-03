@@ -1,6 +1,6 @@
 // @ts-nocheck
-// OWNER: park agent (city remake). Residential archetypes for the blocks around Central Park: Upper West Side,
-// Upper East Side and Harlem (refs 08-11). Called from buildings.js chooseArch() through one hook; returns a full
+// Residential archetypes for the blocks around Central Park: Upper West Side,
+// Upper East Side and Harlem (refs 08-11). Called from buildings.ts chooseArch() through one hook; returns a full
 // archetype for lots in those districts (or null -> the generic chooser runs unchanged elsewhere).
 //   - park-edge (CPW / Fifth): pre-war limestone / buff / brick co-ops, 13-19 floors, cornices, setback crowns
 //   - avenue / tower lots: tall post-war brown-brick apartment towers (20-34 floors) like the UES skyline in ref 08,
@@ -8,7 +8,7 @@
 //   - side-street lots: 5-7 floor brick tenements / walk-ups with fire escapes, cornices and water towers (Harlem:
 //     4-5 floor brownstones), in varied brick: red, orange-red, chocolate, dark brown, tan, buff
 import { STYLE, LAYER } from "./facade.ts";
-const G_CURB = 0.15; // layout.js G.CURB_H (sidewalk top)
+const G_CURB = 0.15; // layout.ts G.CURB_H (sidewalk top)
 
 // brick tones: [layer, tint] (the facade layers carry the brick texture; the tint shifts it red / dark / sandy)
 const BRICK = [
@@ -28,7 +28,7 @@ const jit = (rnd, t, k = 0.05) => t.map((c) => c * (1 + (rnd() - 0.5) * 2 * k));
 
 // (park r2) per-building variety pass (critic: 'every building the same brick cube with the same tiled windows'):
 // window proportions, bay rhythm, lintels, more rooftop water towers (nearly every pre-war NYC roof has one), no
-// balconies on pre-war fronts (buildings.js honours noBalconies)
+// balconies on pre-war fronts (buildings.ts honours noBalconies)
 export function residentialArch(lot, dist, rnd, gen) {
   const A = residentialArch0(lot, dist, rnd, gen);
   if (!A) return A;
@@ -146,7 +146,7 @@ export function residentialArch(lot, dist, rnd, gen) {
   // (park r6) critic r5: 'no cornice, no belt courses; parapets all one height; brick blocks repeat one module'.
   // Stone belt courses (base, 2nd / 3rd floor sill course, under the top floor) on most buildings, parapet height
   // x0.55..2.6 per building, a raised centre pediment on a third of the walk-ups, and no rooftop raised-bed grids
-  // (rooftops.js honours noBedGrid: 'the green-grey roof grid reads as a texture stamp')
+  // (rooftops.ts honours noBedGrid: 'the green-grey roof grid reads as a texture stamp')
   A.belts =
     A.type === "postwar"
       ? rnd() < 0.55
@@ -185,7 +185,7 @@ export function residentialArch(lot, dist, rnd, gen) {
 // (park r9) director: 'LOT GRAIN is the #1 difference. Every UES / UWS block is subdivided into many narrow lots (8-20
 // buildings per block: 6-10 m walk-ups / rowhouses, a few mid-width co-ops, an occasional tower), each with its own
 // height, roof, parapet and colour, with the mid-block doughnut of rear yards; ours has whole / half-block monoliths'.
-// buildings.js calls this per generic lot AFTER the city rnd draws for that lot (so the city stream is untouched); a
+// buildings.ts calls this per generic lot AFTER the city rnd draws for that lot (so the city stream is untouched); a
 // non-null return replaces the lot by these sub-lots, each drawing from its own hashed stream.
 //   - tower lots (45-95 m x full depth): one principal building on the avenue end (20-34 m, park-facing on CPW / Fifth;
 //     a third split into two avenue buildings), the rest -> two rows of narrow lots around a rear-yard gap
@@ -753,7 +753,7 @@ function residentialArch0(lot, dist, rnd, gen) {
 }
 
 // (park r2) massing: the co-op block (lot footprint, full height) + one or two square towers (6-10 floors) + a stepped
-// stone lantern on each tower (crown masses: blank stone, roof in the wall layer). Returns buildings.js masses.
+// stone lantern on each tower (crown masses: blank stone, roof in the wall layer). Returns buildings.ts masses.
 const snap = (A, y) =>
   A.gH + Math.max(1, Math.round((y - A.gH) / A.floorH)) * A.floorH;
 function prewarTowers(lot, A, P, r, H, parH) {
@@ -987,8 +987,8 @@ function lightwell(lot, A, P, r, H, parH) {
   return out;
 }
 
-// (park r5) window AC units (buildings.js facadeDetails hook, near tiles only): a beige / white / grey box in the lower
-// sash of random windows, 0.45 m proud of the wall, with exact box collision. Window positions mirror facade.js'
+// (park r5) window AC units (buildings.ts facadeDetails hook, near tiles only): a beige / white / grey box in the lower
+// sash of random windows, 0.45 m proud of the wall, with exact box collision. Window positions mirror facade.ts'
 // punched grid (margin, bays of usable / round(usable / bayW), sill at 0.42 of the free height), which is symmetric, so
 // the face-frame direction does not matter.
 const AC_COL = [
@@ -1004,7 +1004,7 @@ function resDecor(o) {
     H = m.y1;
   if (A.belts && fr.W > 5 && H > A.gH + 3 * fh) {
     const nF = Math.round((H - A.gH) / fh);
-    // (buildings.js already draws the storefront band at gH and a cornice under the coping of masses > 28 m)
+    // (buildings.ts already draws the storefront band at gH and a cornice under the coping of masses > 28 m)
     const lv = [A.gH + fh];
     if (A.belts > 1 && nF > 8) lv.push(A.gH + 3 * fh);
     if (nF > 4 && H + (m.parapet ?? 0) <= 28) lv.push(A.gH + (nF - 1) * fh);
@@ -1247,7 +1247,7 @@ function entrances({ D, S, fr, s, A, DP, frameMatrix, frameAABB }) {
     }
   });
 }
-// (park r10) critic r9: 'floating box AC units'. facade.js (street r9 zoning) pairs the sash windows of some masonry
+// (park r10) critic r9: 'floating box AC units'. facade.ts (street r9 zoning) pairs the sash windows of some masonry
 // shafts: two narrow windows per bay pushed to the bay centre with a brick mullion between (zPaired). Mirror that
 // decision here (same fp32 hashes) so AC units / flower boxes sit in a real window instead of on the mullion.
 const f32 = Math.fround,

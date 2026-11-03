@@ -1,4 +1,4 @@
-// OWNER: lighting agent. (daynight) ONE shared global for the night city, driven by lighting.js from the sun elevation.
+// (daynight) ONE shared global for the night city, driven by lighting.ts from the sun elevation.
 //   nightK.value: 0 = day .. 1 = full night (lit windows, street lamps + light pools, car lights, billboards, bridges).
 //   It is uniform-shaped: bind it directly in a shader ({ uNightK: nightK }) or read nightK.value in JS.
 //   nightOnly(mesh): the mesh is drawn only while nightK > 0.01 (no draw call by day).

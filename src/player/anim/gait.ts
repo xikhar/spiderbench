@@ -1,6 +1,5 @@
 // @ts-nocheck
-// OWNER: animation agent.
-// Procedural biped locomotion: one parametric gait whose parameters are interpolated by speed
+// // Procedural biped locomotion: one parametric gait whose parameters are interpolated by speed
 // (idle-step / walk / jog / run / sprint). Because every speed shares one phase accumulator, the
 // "blend space" is phase-matched by construction. Foot trajectories are planned in character space
 // (stance feet move backward at exactly the body speed => no foot sliding), then legs are solved with IK.
@@ -8,7 +7,7 @@
 // counter-rotating shoulders, arm swing with elbow bend, head stabilisation, forward lean.
 import * as THREE from "three";
 import { X, Y, Z, clamp, lerp, smooth, remap, bez, TAU } from "./builder.ts";
-import { armTarget } from "./rigdata.ts";
+import { armTarget } from "./rigData.ts";
 
 // speed keys (m/s) and per-key parameters
 const KEYS = [

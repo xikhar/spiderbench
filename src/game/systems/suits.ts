@@ -1,22 +1,18 @@
 // @ts-nocheck
-// OWNER: systems engineer. Suit variants applied to the character's `SpiderSuit` material via a shader patch
-// (render/materials.js addShaderPatch chaining). The base-colour texture is split into soft classes
+// Suit variants applied to the character's `SpiderSuit` material via a shader patch
+// (render/materials.ts addShaderPatch chaining). The base-colour texture is split into soft classes
 // (red rubber / navy fabric / white emblem+palms / black web lines) and each class is re-coloured with a
 // luminance-preserving remap, plus per-class roughness / metalness / emissive. Lenses get tinted / emissive too.
 // Uniform-only updates after the first compile: switching suits never recompiles.
-import __shaderPatch1 from "./shaders/glsl/suits-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/suits-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/suits-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/suits-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/suits-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/suits-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/suits-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/suits-patch-8.glsl?raw";
-import __shaderPatch9 from "./shaders/glsl/suits-patch-9.glsl?raw";
+import { lazyShaderSections } from "../../shaderSections.ts";
+import suitsShaderSource from "./shaders/glsl/suits.glsl?raw";
 import * as THREE from "three";
 import { addShaderPatch } from "../../render/materials.ts";
-import { setSuitFabric } from "../../player/suitfabric.ts";
-import { setWebVenom } from "../../player/web.ts";
+import { setSuitFabric } from "../../player/suitFabric.ts";
+import { setWebVenom } from "../../player/webRendering.ts";
+
+const suitsShader = lazyShaderSections(() => suitsShaderSource);
+
 
 const C = (r, g, b) => new THREE.Vector3(r, g, b);
 // colours are LINEAR albedo; rough/metal: -1 = keep original
@@ -102,16 +98,16 @@ export function createSuits(ctx) {
     addShaderPatch(mat, "systemsSuit", (sh) => {
       Object.assign(sh.uniforms, uniforms);
       sh.vertexShader = sh.vertexShader
-        .replace("#include <common>", __shaderPatch1)
-        .replace("#include <begin_vertex>", __shaderPatch2);
+        .replace("#include <common>", suitsShader.vertexCommon)
+        .replace("#include <begin_vertex>", suitsShader.vertexBeginVertex);
       sh.fragmentShader = sh.fragmentShader
-        .replace("#include <common>", __shaderPatch3)
-        .replace("#include <map_fragment>", __shaderPatch4)
-        .replace("#include <roughnessmap_fragment>", __shaderPatch5)
-        .replace("#include <metalnessmap_fragment>", __shaderPatch6)
-        .replace("#include <normal_fragment_maps>", __shaderPatch7)
-        .replace("#include <lights_fragment_maps>", __shaderPatch8)
-        .replace("#include <emissivemap_fragment>", __shaderPatch9);
+        .replace("#include <common>", suitsShader.fragmentCommon)
+        .replace("#include <map_fragment>", suitsShader.fragmentMap)
+        .replace("#include <roughnessmap_fragment>", suitsShader.fragmentRoughness)
+        .replace("#include <metalnessmap_fragment>", suitsShader.fragmentMetalness)
+        .replace("#include <normal_fragment_maps>", suitsShader.fragmentNormalMaps)
+        .replace("#include <lights_fragment_maps>", suitsShader.fragmentLightsMaps)
+        .replace("#include <emissivemap_fragment>", suitsShader.fragmentEmissive);
     });
   }
 
@@ -518,7 +514,7 @@ export function createSuits(ctx) {
     current = S.id;
     find();
     uniforms.uSuitOn.value = S.strength ? 1 : 0;
-    setSuitFabric(!S.strength); // Advanced suit: rough fabric + weave detail (player/suitfabric.js); Iron / Symbiote untouched
+    setSuitFabric(!S.strength); // Advanced suit: rough fabric + weave detail (player/suitFabric.ts); Iron / Symbiote untouched
     if (S.strength) {
       uniforms.uSuitR.value.copy(S.red);
       uniforms.uSuitB.value.copy(S.blue);
@@ -533,7 +529,7 @@ export function createSuits(ctx) {
       uniforms.uSuitEK.value.copy(e[3]);
     }
     uniforms.uSym.value = S.symbiote ? 1 : 0;
-    setWebVenom(!!S.symbiote); // user r-venomweb: Symbiote suit shoots thick black lumpy webs (player/web.js)
+    setWebVenom(!!S.symbiote); // user r-venomweb: Symbiote suit shoots thick black lumpy webs (player/webRendering.ts)
     if (S.symbiote && !symMask)
       uniforms.uSymMask.value = symMask = buildSymMask();
     if (suitMat) {

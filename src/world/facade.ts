@@ -1,19 +1,11 @@
 // @ts-nocheck
-import __shaderPatch1 from "./shaders/glsl/facade-patch-1.glsl?raw";
-import __shaderPatch10 from "./shaders/glsl/facade-patch-10.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/facade-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/facade-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/facade-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/facade-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/facade-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/facade-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/facade-patch-8.glsl?raw";
-import __shaderPatch9 from "./shaders/glsl/facade-patch-9.glsl?raw";
-import { injectShader } from "../render/shader.ts";
-import __shaderRaw1 from "./shaders/vertex/facade-vert_decl.vert?raw";
-import __shaderRaw2 from "./shaders/vertex/facade-vert_main.vert?raw";
-import __shaderRaw3 from "./shaders/fragment/facade-frag_decl.frag?raw";
-// OWNER: city agent. Facade material + merged-geometry builder for all building masses.
+import { lazyShaderSections } from "../shaderSections.ts";
+import facadeShaderSource from "./shaders/glsl/facade.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
+import facadeVertexDeclarations from "./shaders/vertex/facade-vert_decl.vert?raw";
+import facadeVertexMain from "./shaders/vertex/facade-vert_main.vert?raw";
+import facadeFragmentShaderDeclarations from "./shaders/fragment/facade-frag_decl.frag?raw";
+// Facade material + merged-geometry builder for all building masses.
 // One MeshStandardMaterial (extended via onBeforeCompile) draws every wall / roof / trim of a tile in ONE draw call.
 // Per-vertex attributes carry the facade parameters; the fragment shader generates windows procedurally with
 //  - parallax window reveals (real-looking recess depth),
@@ -21,13 +13,16 @@ import __shaderRaw3 from "./shaders/fragment/facade-frag_decl.frag?raw";
 //  - reflective glass (low roughness / curtain-wall metalness so scene.environment reflections apply),
 //  - ground-floor storefronts (piers, lit shop interiors, signage band from atlas, roll-down shutters),
 //  - sills / lintels / belt courses / rain streaks, distance-based anti-aliasing to average colour.
-import { nightK, dnTime } from "../render/daynight.ts"; // (daynight)
+import { nightK, dnTime } from "../render/dayNight.ts"; // (daynight)
 import {
   glassMirrorShared,
   GLSL_GLASS_MIRROR_DECL,
 } from "../render/glassmirror.ts"; // (render r-refl) player / web / near peds in the glass
 import * as THREE from "three";
-import { cityLights } from "../render/citylights.ts"; // (night) shop fronts light the sidewalk
+import { cityLights } from "../render/cityLights.ts";
+
+const facadeShader = lazyShaderSections(() => facadeShaderSource);
+// (night) shop fronts light the sidewalk
 
 export const STYLE = {
   BLANK: 0,
@@ -81,7 +76,7 @@ class GrowBuf {
   }
 }
 // (night) every storefront frontage (facade shader 'storefront zone') is a real warm rect light facing the street
-// (citylights.js), so lit shops light the sidewalk, people and parked cars. One rect per frontage spanning its open
+// (cityLights.ts), so lit shops light the sidewalk, people and parked cars. One rect per frontage spanning its open
 // (unshuttered, not closed-for-the-night) bays, radiance x their share; same per-bay hash as the shader (fh1 in float32).
 const f32 = Math.fround,
   fr = (x) => f32(x - Math.floor(x));
@@ -115,7 +110,7 @@ const nh3 = (a, b, c) =>
   );
 const nh01 = (h) => (h >>> 8) / 16777216;
 const shopSeen = new Set();
-export const SHOP_FRONTS = []; // (night) every storefront frontage (neon.js places signs from it; same bays / hash as the shader)
+export const SHOP_FRONTS = []; // (night) every storefront frontage (neon.ts places signs from it; same bays / hash as the shader)
 export const SHOP_LIGHT = {
   radiance: 0.2,
   /* (night r10) 0.35: with the additive night GI the sidewalks overshot 2x (critic r9) */ range: 12,
@@ -138,7 +133,7 @@ function registerShop(corner, T, W, N, p, gH) {
     seed: p.seed ?? 0,
     resid: !!p.resid,
     topY: p.topY ?? 0,
-  }); // (night) read-only frontage list for neon.js
+  }); // (night) read-only frontage list for neon.ts
   const seed = f32(p.seed ?? 0),
     fw = f32(W);
   const nb = Math.max(1, Math.floor(W / 6.5 + 0.5)),
@@ -962,7 +957,7 @@ export class FacadeBuilder {
 
 let _fragDecl: string | undefined;
 function facadeFragmentDeclarations() {
-  return (_fragDecl ??= injectShader(__shaderRaw3, NFLOOD * 3, NFLOOD));
+  return (_fragDecl ??= injectShader(facadeFragmentShaderDeclarations, NFLOOD * 3, NFLOOD));
 }
 
 export function createFacadeMaterial(T) {
@@ -982,7 +977,7 @@ export function createFacadeMaterial(T) {
     uInteriorGain: { value: 0.5 },
     uShopGain: { value: 0.7 },
     uNightK: nightK,
-    uDnTime: dnTime, // (daynight) shared night factor + clock (src/render/daynight.js)
+    uDnTime: dnTime, // (daynight) shared night factor + clock (src/render/dayNight.ts)
     ...floodU, // (night) crown floodlights
     ...glassMirrorShared, // (render r-refl)
   };
@@ -993,50 +988,50 @@ export function createFacadeMaterial(T) {
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uniforms);
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>",injectShader(__shaderPatch1, __shaderRaw1))
-      .replace("#include <fog_vertex>",injectShader(__shaderPatch2, __shaderRaw2));
+      .replace("#include <common>",injectShader(facadeShader.vertexCommon, facadeVertexDeclarations))
+      .replace("#include <fog_vertex>",injectShader(facadeShader.vertexFogVertex, facadeVertexMain));
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",injectShader(__shaderPatch3, facadeFragmentDeclarations(), GLSL_GLASS_MIRROR_DECL),
+        "#include <common>",injectShader(facadeShader.fragmentCommon, facadeFragmentDeclarations(), GLSL_GLASS_MIRROR_DECL),
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch4,
+        "#include <map_fragment>",facadeShader.fragmentMap,
       )
       .replace(
-        "#include <roughnessmap_fragment>",__shaderPatch5,
+        "#include <roughnessmap_fragment>",facadeShader.fragmentRoughness,
       )
       .replace(
-        "#include <metalnessmap_fragment>",__shaderPatch6,
+        "#include <metalnessmap_fragment>",facadeShader.fragmentMetalness,
       )
       .replace(
-        "#include <normal_fragment_maps>",__shaderPatch7,
+        "#include <normal_fragment_maps>",facadeShader.fragmentNormalMaps,
       )
       .replace(
-        "#include <emissivemap_fragment>",__shaderPatch8,
+        "#include <emissivemap_fragment>",facadeShader.fragmentEmissive,
       )
       .replace(
-        "#include <lights_physical_fragment>",__shaderPatch9,
+        "#include <lights_physical_fragment>",facadeShader.fragmentPhysicalLights,
       )
       // (skyline r2) glass reflects the CITY, not only the sky: the IBL cube is sky-only, so reflection rays that leave a
       // window below the local skyline hit a procedural reflected cityscape (per-tower hashed silhouette of neighbouring
       // towers with sunlit / shaded faces and faint window rows, the streets below). Glass towers seen from above turn
       // dark and structured instead of mirroring bright sky.
       .replace(
-        "#include <lights_fragment_maps>",__shaderPatch10,
+        "#include <lights_fragment_maps>",facadeShader.fragmentLightsMaps,
       );
   };
   mat.customProgramCacheKey = () => "city-facade-v19-night"; // (render r-refl) v18: glass mirror
   return mat;
 }
 // (night) a variant of the facade material sharing its uniforms / shader but with extra defines, e.g. NO_CITYLIGHT for
-// the far shores (surface.js: the Manhattan street-light fill lit their facades as a flat tan band at night)
+// the far shores (surface.ts: the Manhattan street-light fill lit their facades as a flat tan band at night)
 export function deriveFacadeMaterial(base, defines) {
   const m = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     roughness: 0.8,
     metalness: 0,
   });
-  // own userData without the uniform handles: lighting.js scales uInteriorGain / uShopGain per material from a remembered
+  // own userData without the uniform handles: lighting.ts scales uInteriorGain / uShopGain per material from a remembered
   // base (a second material sharing the uniforms would re-read the boosted value and compound the night gain)
   m.userData = { ...base.userData, uniforms: undefined };
   m.onBeforeCompile = base.onBeforeCompile;

@@ -1,4 +1,9 @@
-
-vFac = uv; vF = aF; vS = aS; vW = aW; vX = aX; vTint = aTint;
+vFac = uv;
+vF = aF;
+vS = aS;
+vW = aW;
+vX = aX;
+vTint = aTint;
 vec4 fwp = modelMatrix * vec4(transformed, 1.0);
-vWPos = fwp.xyz; vWN = normalize(mat3(modelMatrix) * objectNormal);
+vWPos = fwp.xyz;
+vWN = normalize(mat3(modelMatrix) * objectNormal);

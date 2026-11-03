@@ -1,26 +1,29 @@
 // @ts-nocheck
-// OWNER: billboards agent. (night) LED screens / billboards / neon as REAL light sources (render/citylights.js).
+// (night) LED screens / billboards / neon as REAL light sources (render/cityLights.ts).
 //   screenLightSet() -> { rect(c, n, u, w, h, avg, k, opt), point(p, col, I, range), halo(...), commit(tag, opt) }
 //     (night r9) opt.uv = the panel's atlas rect [u0, v0, u1, v1] (ts_ads.webp; image u along +u, v up): the panel is lit as
 //       2-4+ tiles (halves / quadrants, <= SL.split m), each with the average colour of ITS part of the image (a red-and-blue
 //       ad throws red on one side, blue on the other). opt.printed: a floodlit print (reflects, SL.printed x an LED's light).
-//       Tile colours come from adstex.js adsGrid() (async: the set registers once the atlas image is decoded).
+//       Tile colours come from advertisingTextures.ts getAdvertisingColorGrid() (async: the set registers once the atlas image is decoded).
 //     rect: one LED panel (centre c, facing normal n, width axis u, size w x h m, linear average colour avg, relative
 //       brightness k). commit() merges small coplanar neighbours into one emitter (flux-preserving: radiance x area is
 //       summed, the colour is the flux-weighted mean) so dense screen walls stay inside the 18 lights / cell budget,
 //       and registers everything with cityLights (night only: the lights scale with nightK, nothing by day).
 //   scrUniforms() / SCR_GLSL_PARS / SCR_GAIN_GLSL: night brightness of screen emissives (see the bottom of the file).
 //   Tunables live in SL (window.__screenLights for A/B: SL.gain / SL.sat then __screenLights.refresh()).
-import __shaderPatch1 from "./shaders/glsl/screenlights-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/screenlights-patch-2.glsl?raw";
-import screenLightsShoulder from "./shaders/glsl/screenlights-shoulder.glsl?raw";
-import screenLightsPars from "./shaders/glsl/screenlights-pars.glsl?raw";
-import screenLightsGain from "./shaders/glsl/screenlights-gain.glsl?raw";
-import { injectShader } from "../render/shader.ts";
+import { lazyShaderSections } from "../shaderSections.ts";
+import screenlightsShaderSource from "./shaders/glsl/screenlights.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
-import { cityLights } from "../render/citylights.ts";
-import { nightK, screenK } from "../render/daynight.ts";
-import { adsGrid } from "./adstex.ts"; // (night r9) per-region ad colours
+import { cityLights } from "../render/cityLights.ts";
+import { nightK, screenK } from "../render/dayNight.ts";
+import {
+  getAdvertisingColorGrid,
+  type AtlasColorGrid,
+} from "./advertisingTextures.ts";
+
+const screenlightsShader = lazyShaderSections(() => screenlightsShaderSource);
+// (night r9) per-region ad colours
 
 export const SL = {
   gain: 1.0, // (r3: 1.9 -> 1.0, critic 'spill reads as sunlight') light radiance scale (x lightDrive(): bright full-bleed ads are compressed, see there)
@@ -120,7 +123,8 @@ export function screenLightSet() {
         }
         st.pending = false;
       };
-      if (need) (opt.grid ?? adsGrid()).then(go, () => go(null));
+      if (need)
+        (opt.grid ?? getAdvertisingColorGrid()).then(go, () => go(null));
       else go(null);
       return st;
     },
@@ -397,36 +401,59 @@ cityLights.addProvider((emit, camera) => {
   SL.emitted = n;
 });
 // (night r9) linear average colour of the part [fx0..fx1] x [fy0..fy1] (fractions, y up) of atlas rect uv in grid G
-export function regionAvg(G, uv, fx0, fx1, fy0, fy1) {
-  const ua = uv[0] + (uv[2] - uv[0]) * fx0,
-    ub = uv[0] + (uv[2] - uv[0]) * fx1,
-    va = uv[1] + (uv[3] - uv[1]) * fy0,
-    vb = uv[1] + (uv[3] - uv[1]) * fy1;
-  const x0 = Math.max(0, Math.floor(Math.min(ua, ub) * G.W)),
-    x1 = Math.min(G.W, Math.max(x0 + 1, Math.round(Math.max(ua, ub) * G.W)));
-  const y0 = Math.max(0, Math.floor((1 - Math.max(va, vb)) * G.H)),
-    y1 = Math.min(
-      G.H,
-      Math.max(y0 + 1, Math.round((1 - Math.min(va, vb)) * G.H)),
-    );
-  let r = 0,
-    g = 0,
-    b = 0,
-    n = 0;
-  for (let y = y0; y < y1; y++)
-    for (let x = x0; x < x1; x++) {
-      const k = (y * G.W + x) * 3;
-      r += G.d[k];
-      g += G.d[k + 1];
-      b += G.d[k + 2];
-      n++;
+export function regionAvg(
+  grid: AtlasColorGrid,
+  uv: readonly [number, number, number, number],
+  startU = 0,
+  endU = 1,
+  startV = 0,
+  endV = 1,
+): [number, number, number] | null {
+  const minU = uv[0] + (uv[2] - uv[0]) * startU;
+  const maxU = uv[0] + (uv[2] - uv[0]) * endU;
+  const minV = uv[1] + (uv[3] - uv[1]) * startV;
+  const maxV = uv[1] + (uv[3] - uv[1]) * endV;
+
+  const xStart = Math.max(0, Math.floor(Math.min(minU, maxU) * grid.width));
+  const xEnd = Math.min(
+    grid.width,
+    Math.max(xStart + 1, Math.round(Math.max(minU, maxU) * grid.width)),
+  );
+  const yStart = Math.max(
+    0,
+    Math.floor((1 - Math.max(minV, maxV)) * grid.height),
+  );
+  const yEnd = Math.min(
+    grid.height,
+    Math.max(
+      yStart + 1,
+      Math.round((1 - Math.min(minV, maxV)) * grid.height),
+    ),
+  );
+
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+  let sampleCount = 0;
+
+  for (let y = yStart; y < yEnd; y += 1) {
+    for (let x = xStart; x < xEnd; x += 1) {
+      const colorOffset = (y * grid.width + x) * 3;
+      red += grid.linearRgb[colorOffset] ?? 0;
+      green += grid.linearRgb[colorOffset + 1] ?? 0;
+      blue += grid.linearRgb[colorOffset + 2] ?? 0;
+      sampleCount += 1;
     }
-  return n ? [r / n, g / n, b / n] : null;
+  }
+
+  return sampleCount
+    ? [red / sampleCount, green / sampleCount, blue / sampleCount]
+    : null;
 }
 
-// (night) displayed brightness of LED screens: by day the lighting.js exposure compensation (screenK); at night
+// (night) displayed brightness of LED screens: by day the lighting.ts exposure compensation (screenK); at night
 // uScrBoost x brighter than that (the screens are the brightest emitters of the night city; lighting2 kept them at ~half
-// their day level). Materials opt out of the lighting.js scan with userData.nightGain = 1 (emissiveIntensity stays at
+// their day level). Materials opt out of the lighting.ts scan with userData.nightGain = 1 (emissiveIntensity stays at
 // its base) and multiply their emissive by SCR_GAIN_GLSL (no per-frame JS: screenK / nightK are uniform-shaped).
 export const uScrBoost = { value: 2.0 },
   uScrDesat = { value: -0.18 }; // desat < 0: LED primaries a touch more saturated at night
@@ -438,8 +465,8 @@ export const scrUniforms = () => ({
   uScrKnee,
   uScrTop,
 });
-export const SCR_GLSL_PARS = screenLightsPars;
-export const SCR_GAIN_GLSL = screenLightsGain;
+export const SCR_GLSL_PARS = screenlightsShader.uniformDeclarations;
+export const SCR_GAIN_GLSL = screenlightsShader.gainExpression;
 // night highlight shoulder: the brightest channel (normalised to the panel's full drive = emissive x gain) rolls off from
 // SCR_KNEE toward SCR_TOP, the whole colour scaled together (hue / saturation kept): whites land just under clip after
 // the x4.5 night exposure + ACES, bloom carries the glow (critic r2: 'screen whites clip at 242+')
@@ -447,7 +474,7 @@ export const uScrKnee = { value: 0.28 },
   uScrTop = { value: 0.46 };
 if (typeof window !== "undefined")
   Object.assign(window.__screenLights, { uScrBoost, uScrKnee, uScrTop }); // (debug A/B)
-export const SCR_SHOULDER_GLSL = injectShader(screenLightsShoulder, SCR_GAIN_GLSL);
+export const SCR_SHOULDER_GLSL = injectShader(screenlightsShader.highlightShoulder, SCR_GAIN_GLSL);
 // wrap a lit emissive material (sign bands, neon, tickers): night gain applied to its final emissive (after any custom
 // emissive code of its own onBeforeCompile)
 export function screenNightMat(m, key) {
@@ -458,9 +485,9 @@ export function screenNightMat(m, key) {
       obc.call(this, sh, r);
     Object.assign(sh.uniforms, scrUniforms());
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>",injectShader(__shaderPatch1, SCR_GLSL_PARS))
+      .replace("#include <common>",injectShader(screenlightsShader.fragmentCommon, SCR_GLSL_PARS))
       .replace(
-        "#include <lights_fragment_begin>",injectShader(__shaderPatch2, SCR_GAIN_GLSL, SCR_SHOULDER_GLSL),
+        "#include <lights_fragment_begin>",injectShader(screenlightsShader.fragmentLightsBegin, SCR_GAIN_GLSL, SCR_SHOULDER_GLSL),
       );
   };
   const ck = m.customProgramCacheKey;

@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Tiny synchronous event bus shared by every game system (open world, combat, UI).
+// Tiny synchronous event bus shared by every game system (open world, combat, UI).
 //   import { on, once, off, emit } from './game/systems/events.ts'   (also on window.__ctx.events)
 //   const unsub = on('crime:engage', (e) => { e.claim(); ...spawn enemies...; later emit('crime:resolve', { id: e.id, success: true }) });
 // Event catalogue (payload):

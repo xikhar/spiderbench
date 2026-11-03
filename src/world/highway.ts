@@ -1,18 +1,15 @@
 // @ts-nocheck
-// OWNER: foundation agent (city remake, round 4). Waterfront highways: a West-Side-Highway-like boulevard along the
+// Waterfront highways: a West-Side-Highway-like boulevard along the
 // Hudson and an FDR-Drive-like road along the East River, both at grade on the widened promenade (layout.SHORE_PUSH):
-//   seawall | esplanade (railing, lamps, benches, trees: props.js, 0..12 m) | highway (HW.W m) | sidewalk | grid
+//   seawall | esplanade (railing, lamps, benches, trees: props.ts, 0..12 m) | highway (HW.W m) | sidewalk | grid
 // 3 lanes each way, shoulders, a planted median with trees, shader-drawn markings (solid edge lines, dashed lane lines,
 // double yellow along the median) and a stream of instanced cars / trucks per lane (1 draw call per kit, CPU moved).
 // Collision (C4): the road surface is flat at promenade height (GY.WALK) so terrainHeight() is unchanged; the
 // markings / median paint are coplanar decals (polygon offset). Median tree trunks get exact cylinders; crowns (foliage)
-// are not solid, like trees.js.
-import __shaderPatch1 from "./shaders/glsl/highway-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/highway-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/highway-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/highway-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/highway-patch-5.glsl?raw";
-import { injectShader } from "../render/shader.ts";
+// are not solid, like trees.ts.
+import { lazyShaderSections } from "../shaderSections.ts";
+import highwayShaderSource from "./shaders/glsl/highway.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import {
   G,
@@ -27,7 +24,14 @@ import {
   BATTERY,
   ZFIX,
 } from "./layout.ts"; // (layout2 r4) vmapAt / batteryAt
-import { createVehicleSet, pickVehicle, paintFor } from "./vehinst.ts"; // (bridges r3) real vehicles (was box kits); trees -> trees.js (was CanopyBatch)
+import {
+  createVehicleSet,
+  getVehiclePaint,
+  pickVehicle,
+} from "./vehicleInstancing.ts";
+
+const highwayShader = lazyShaderSections(() => highwayShaderSource);
+// (bridges r3) real vehicles (was box kits); trees -> trees.ts (was CanopyBatch)
 
 export const HW = { INSET: 12.5, SH: 1.2, LANE: 3.5, MED: 3.0 };
 HW.W = HW.SH * 2 + HW.LANE * 6 + HW.MED; // 26.4 m
@@ -38,7 +42,7 @@ const Y = G.CURB_H; // promenade / sidewalk top
 const YR = Y + (ZFIX ? 0.015 : 0);
 
 // runs of highway centre-line samples per side: [{pts: [{x, z, nx, nz, tx, tz, s}], len}]
-let _runs = null; // (coast r2) memoized: waterfront.js reads the strip too (plaza lawns stay off it)
+let _runs = null; // (coast r2) memoized: waterfront.ts reads the strip too (plaza lawns stay off it)
 export function highwayRuns() {
   if (_runs) return _runs;
   const runs = (_runs = []);
@@ -138,18 +142,18 @@ function createHighwayMaterial(T) {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",highwayShader.vertexCommon,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch2,
+        "#include <fog_vertex>",highwayShader.vertexFogVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",injectShader(__shaderPatch3, HW.SH.toFixed(2), HW.LANE.toFixed(2), (HW.LANE / 2).toFixed(2), HW.W.toFixed(2), HW.SH.toFixed(2), HW.LANE.toFixed(2), HW.MED.toFixed(2)),
+        "#include <common>",injectShader(highwayShader.fragmentCommon, HW.SH.toFixed(2), HW.LANE.toFixed(2), (HW.LANE / 2).toFixed(2), HW.W.toFixed(2), HW.SH.toFixed(2), HW.LANE.toFixed(2), HW.MED.toFixed(2)),
       )
-      .replace("#include <map_fragment>",__shaderPatch4)
+      .replace("#include <map_fragment>",highwayShader.fragmentMap)
       .replace(
-        "#include <roughnessmap_fragment>",__shaderPatch5,
+        "#include <roughnessmap_fragment>",highwayShader.fragmentRoughness,
       );
   };
   mat.customProgramCacheKey = () => "city-highway-v1";
@@ -348,8 +352,8 @@ export function buildHighways({ scene, T, solids = null, models = null }) {
   road.renderOrder = 1;
   group.add(road);
 
-  // ---- median trees (bridges r3: real trees.js street trees instead of CanopyBatch blobs + stick trunks; returned as
-  // tree spots, city.js plants them with the other street trees: same LODs / impostors / bark / trunk collision)
+  // ---- median trees (bridges r3: real trees.ts street trees instead of CanopyBatch blobs + stick trunks; returned as
+  // tree spots, city.ts plants them with the other street trees: same LODs / impostors / bark / trunk collision)
   const rnd = mulberry32(5150);
   const treeSpots = [];
   const mc = HW.SH + 3 * HW.LANE + HW.MED / 2;
@@ -430,18 +434,18 @@ export function buildHighways({ scene, T, solids = null, models = null }) {
       }
     }
   }
-  // (bridges r3) the street traffic's vehicle models (vehinst.js: LOD0 / LOD1 / grouped LOD2, shared vehicle material
+  // Reuse the street-traffic vehicle models (vehicleInstancing.ts: LOD0 / LOD1 / grouped LOD2, shared materials
   // programs, paint mix, taxi toppers) instead of the box kits; small per-car lane offsets
   for (const c of cars) {
-    const T = pickVehicle(rnd());
-    c.t = T.t;
-    c.col = paintFor(T.t, rnd());
+    const vehicleType = pickVehicle(rnd());
+    c.t = vehicleType.type;
+    c.col = getVehiclePaint(vehicleType.type, rnd());
     c.seed = rnd();
     c.off = (rnd() - 0.5) * 0.5;
   }
   const counts = {};
   for (const c of cars) counts[c.t] = (counts[c.t] || 0) + 1;
-  const V = createVehicleSet({
+  const vehicleSet = createVehicleSet({
     models,
     group,
     counts,
@@ -469,7 +473,7 @@ export function buildHighways({ scene, T, solids = null, models = null }) {
     if (!(hx || hz)) hz = c.dir;
     const edge = Math.min(c.s, c.R.len - c.s),
       k2 = Math.min(1, Math.max(0, edge / 25));
-    V.push(
+    vehicleSet.addVehicle(
       c.t,
       x,
       Y - (1 - k2) * 2.6,
@@ -496,25 +500,25 @@ export function buildHighways({ scene, T, solids = null, models = null }) {
           w < e &&
           Math.min(camera.position.x - w, e - camera.position.x) > 300
         ) {
-          if (V && !acc0) {
-            V.hide();
+          if (vehicleSet && !acc0) {
+            vehicleSet.hide();
             acc0 = true;
           }
           return;
         }
       }
       acc0 = false;
-      if (!V || !camera) return;
+      if (!vehicleSet || !camera) return;
       const d = Math.min(acc, 0.25);
       acc = 0;
-      V.begin(camera, 1400);
+      vehicleSet.beginFrame(camera, 1400);
       for (const c of cars) {
         c.s += c.v * d * c.dir;
         if (c.s > c.R.len) c.s -= c.R.len;
         else if (c.s < 0) c.s += c.R.len;
         place(c);
       }
-      V.end();
+      vehicleSet.endFrame();
     },
   };
 }

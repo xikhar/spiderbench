@@ -1,16 +1,19 @@
 // @ts-nocheck
-// OWNER: foundation agent (city remake, round 3). River traffic: ferries, tour boats, barge + tug tows, work boats and
+// River traffic: ferries, tour boats, barge + tug tows, work boats and
 // small craft moving up and down the Hudson / East River channels and across the harbour, each trailing a foam wake
 // (V-shaped Kelvin wake + prop wash) drawn as a transparent, depth-tested quad just above the water.
 // Cost: one InstancedMesh per hull type (5 draw calls) + one instanced wake quad (1 draw call). No collision (boats are
 // unreachable set dressing out on the water; the player never stands on them).
-import __shaderPatch1 from "./shaders/glsl/boats-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/boats-patch-2.glsl?raw";
+import { lazyShaderSections } from "../shaderSections.ts";
+import boatsShaderSource from "./shaders/glsl/boats.glsl?raw";
 import * as THREE from "three";
 import { G, onLand, shoreX, mulberry32 } from "./layout.ts";
 import { farShoreHeight } from "./farshore.ts";
-import { REFL_LAYER } from "./water.ts";
-import { nightK } from "../render/daynight.ts";
+import { REFL_LAYER } from "./waterLayers.ts";
+import { nightK } from "../render/dayNight.ts";
+
+const boatsShader = lazyShaderSections(() => boatsShaderSource);
+
 
 const isWater = (x, z) => !onLand(x, z) && farShoreHeight(x, z) === null;
 
@@ -469,9 +472,9 @@ export function buildBoats({ scene, docks = [], solids = null }) {
   wakeMat.onBeforeCompile = (sh) => {
     sh.uniforms.uNightK = nightK;
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>",__shaderPatch1)
+      .replace("#include <common>",boatsShader.fragmentCommon)
       .replace(
-        "#include <color_fragment>",__shaderPatch2,
+        "#include <color_fragment>",boatsShader.fragmentColor,
       );
   };
   wakeMat.customProgramCacheKey = () => "boat-wake-night-v1";

@@ -1,6 +1,5 @@
 // @ts-nocheck
-// OWNER: animation agent.
-// Derived skeleton metrics (character space) + finger curl + common procedural helpers shared by generators.
+// // Derived skeleton metrics (character space) + finger curl + common procedural helpers shared by generators.
 import * as THREE from "three";
 import { X, Y, Z, frameRot } from "./builder.ts";
 

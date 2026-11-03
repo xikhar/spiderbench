@@ -1,6 +1,5 @@
 // @ts-nocheck
-// OWNER: animation agent.
-// Skeleton model + pose buffers for the animation layer.
+// // Skeleton model + pose buffers for the animation layer.
 //  - "character space" = the local frame of rig.object (X = char left, Y = up, Z = forward, feet at y=0).
 //  - A Pose stores LOCAL quaternions for every bone + local positions (only the root-ish bones translate).
 //  - Everything (clips, procedural generators, blends, mirroring) produces Poses; the animator writes the final

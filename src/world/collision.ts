@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: citygeo. Static collision for the city: exact primitives that mirror the RENDERED geometry (contract C4).
+// Static collision for the city: exact primitives that mirror the RENDERED geometry (contract C4).
 // Every solid that buildings/ground/hero emit is registered here by the same call that emits its triangles, so
 // world.raycast / world.groundHeight agree with what is on screen to well under 2 cm.
 //

@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: city agent. Procedural Midtown-Manhattan chunk. Contract (see src/main.ts):
+// Procedural Midtown-Manhattan chunk. Contract (see src/main.ts):
 //   buildCity({scene, renderer}) -> Promise<world>
 //   world = { raycast(origin, dir, maxDist) -> {point, normal, distance} | null, groundHeight(x,z[,y]), spawn, update(dt, camera),
 //             buildings:[{min,max}], streetsAt(x,z), getMapFeatures(), viewpoints:{street,wall,swing,swingBack,climb}, ... }
@@ -43,14 +43,14 @@ import {
 import { buildHinterland } from "./horizon.ts";
 import { buildBoats } from "./boats.ts";
 import { buildHighways } from "./highway.ts";
-// (citylife bridges) bridgetraffic.js retired: the bridge decks are links of the street traffic (npc/roads.js buildBridgeLinks)
+// (citylife bridges) npc/traffic.ts retired: the bridge decks are links of the street traffic (npc/roads.ts buildBridgeLinks)
 import { buildWetBands } from "./water.ts";
 import { landmarkReserves, buildStandalone, PLAZAS } from "./landmarks.ts";
 import {
   timesSquareReserves,
   buildTimesSquare,
   tsTrimTrees,
-} from "./timessq.ts";
+} from "./timesSquare.ts";
 import { loadCityTextures } from "./textures.ts";
 import { createFacadeMaterial, STYLE, LAYER } from "./facade.ts";
 import { buildHero } from "./hero.ts";
@@ -66,19 +66,20 @@ import {
   collisionDebugLines,
   fitInstancedSolids,
 } from "./collision.ts";
-import { addPropAnchors, createGeoDebug } from "./zippoints.ts";
+import { addPropAnchors, createGeoDebug } from "./zipPoints.ts";
 import { buildProps } from "./props.ts";
-import { buildTrees, meadowDist } from "./trees.ts";
+import { buildTrees } from "./trees.ts";
+import { meadowDist } from "./parkData.ts";
 import { buildPark } from "./park.ts";
 import { buildTraffic, loadVehicleModels } from "./vehicles.ts";
-import { buildPeds } from "./peds.ts";
+import { buildPedestrians } from "./pedestrians.ts";
 import { buildFlags } from "./flags.ts";
 import { buildRooftops } from "./rooftops.ts";
 import { buildSignage } from "./signage.ts"; // billboards: city-wide signage
 import { buildNeon } from "./neon.ts"; // (night) exterior neon + LED strips on shops, awnings, canopies
 import { attachLife } from "./npc/life.ts";
 import { applyDistanceFade } from "./pool.ts";
-import { batchTiles } from "./tilebatch.ts"; // (perf)
+import { batchTiles } from "./tileBatch.ts"; // (perf)
 
 export async function buildCity({ scene, renderer }) {
   const t0 = performance.now();
@@ -104,7 +105,7 @@ export async function buildCity({ scene, renderer }) {
       ...landmarkReserves().filter((r) => !/^ts[A-Z]/.test(r.name)),
       ...timesSquareReserves(),
       ...lincolnReserves(),
-    ], // timessq: Times Square lives in timessq.js; (layout2 r5) Lincoln Center
+    ], // timessq: Times Square lives in timesSquare.ts; (layout2 r5) Lincoln Center
     force: [
       // ref 3 T-junction (street z=560 closed east of avenue x=-250): beige limestone office left, brick mid-rise right
       {
@@ -196,7 +197,7 @@ export async function buildCity({ scene, renderer }) {
   }); // rooftops: roof skins, penthouses, clutter (writes into the tile builders)
   const signage = buildSignage({ scene: root, gen }); // billboards: rooftop billboards, wall ads, blade signs, LED corners (steel -> detail tiles)
   const tileMeshes = [];
-  // (perf) the far-LOD tiles are grouped into 2x2 super-tiles (tilebatch.js): one draw per super-tile while all its
+  // (perf) the far-LOD tiles are grouped into 2x2 super-tiles (tileBatch.ts): one draw per super-tile while all its
   // tiles are far (the far cascades drew ~180 facadeLod tiles). Same per-tile show / hide -> no visible change. Facade /
   // detail tiles stay one mesh each (merged copies of those raised the build's peak memory -> renderer tab crash).
   const facG = [],
@@ -320,7 +321,7 @@ export async function buildCity({ scene, renderer }) {
   await tick("props", "life");
   {
     // (bridges r3) bridge ramp mouths: no street furniture / trees on the apron, the ramp foot or the joined street's
-    // sidewalks and parking lanes at the T (lamps, signal masts / posts stay). Parked cars: npc/roads.js bridgeJunctions.
+    // sidewalks and parking lanes at the T (lamps, signal masts / posts stay). Parked cars: npc/roads.ts bridgeJunctions.
     const K = bridgeKeepOuts(),
       inR = (r, x, z) => x > r.x0 && x < r.x1 && z > r.z0 && z < r.z1;
     const keep = new Set([
@@ -361,7 +362,7 @@ export async function buildCity({ scene, renderer }) {
         p.last?.set?.(1e9, 0, 0);
       }
     }
-    // their collision solids (added by props.js after nSolidsPre), except the kept lamps / masts
+    // their collision solids (added by props.ts after nSolidsPre), except the kept lamps / masts
     const S = gen.solids;
     let nS = 0;
     for (let i = nSolidsPre; i < S.count; i++) {
@@ -465,7 +466,7 @@ export async function buildCity({ scene, renderer }) {
     phase: props.phase,
     models: vehModels,
   });
-  const peds = await buildPeds({
+  const peds = await buildPedestrians({
     scene: root,
     blocks,
     parkPaths: ground.parkPaths,
@@ -480,7 +481,7 @@ export async function buildCity({ scene, renderer }) {
     _sp = null; // (perf r2) tile pre-upload frustum
 
   // ---------------------------------------------------------------- queries
-  // citygeo: exact collision solids + zip points (contracts C2 / C4, see collision.js / zippoints.js)
+  // citygeo: exact collision solids + zip points (contracts C2 / C4, see collision.ts / zipPoints.ts)
   addPropAnchors(gen.zips, props);
   gen.zips.addTreeBlockers?.(trees); // no perch points inside tree canopies
   // citygeo: exact collision for instanced rooftop props (replaces their coarse boxes; C4)
@@ -536,7 +537,7 @@ export async function buildCity({ scene, renderer }) {
     viewpoints,
     streetsAt,
     getZipPoints: (center, radius, kinds) => zips.query(center, radius, kinds),
-    // (bridges r1) halfway rule on the East River bridges (traversal.js bridgeBounce) + deck height for the anchor band
+    // (bridges r1) halfway rule on the East River bridges (traversal.ts bridgeBounce) + deck height for the anchor band
     bridgeLimit: null,
     bridgeDeckY,
     propAnchors: () => props.propAnchors?.() ?? [], // citylife: exact lamp-head / signal-mast / antenna tops + normals
@@ -567,7 +568,7 @@ export async function buildCity({ scene, renderer }) {
         a_("ground", g1_ - g0_);
         a_("highways", g2_ - g1_);
       }
-      // (citylife bridges) bridgeTraffic.update removed: see npc/traffic.js
+      // (citylife bridges) bridgeTraffic.update removed: see npc/traffic.ts
       // foundation: the island now has real far shores -> retire the sky's procedural distant-skyline band (once)
       if (!world._skylineOff) {
         const lg = window.__ctx?.lighting;
@@ -657,7 +658,7 @@ export async function buildCity({ scene, renderer }) {
             lodB.setVisible(tm.i, !near);
           }
           // (perf r2) pre-upload the tile about to appear (one vertex buffer per frame, tiles inside the view frustum
-          // first), so the swap at 650-690 m / 450 m does not upload ~15-20 MB in one frame (100-150 ms hitches)
+          // first), so the swap at 650-690 m / 450 m does not upload ~15-20 MeshBuilder in one frame (100-150 ms hitches)
           if (
             !warmed &&
             d < 850 &&
@@ -782,7 +783,7 @@ function diagTreeSpots(spots, blocks, gen) {
   if (!spots.vmapDone)
     for (const sg of MAPS.flatMap((M) => M.segs))
       for (const side of [-1, 1]) {
-        // (layout2 r3) props.js plants the Village street trees (in pits) itself
+        // (layout2 r3) props.ts plants the Village street trees (in pits) itself
         const off = side * (sg.hw + 1.1),
           ph = (sg.ax * 0.37 + sg.az * 0.11) % 4;
         for (
@@ -857,7 +858,7 @@ function diagTreeSpots(spots, blocks, gen) {
       if (polyArea(c.curb) > 90 && clearOfRoads(x, z, 2.2))
         spots.push({ x, z, kind: "street" });
     }
-  const pav = gen.paverCells; // (layout2 r6) paved Broadway plazas plant their own clustered groves (buildings.js dressSquares)
+  const pav = gen.paverCells; // (layout2 r6) paved Broadway plazas plant their own clustered groves (buildings.ts dressSquares)
   for (const [b, lots] of gen.diagLots ?? []) {
     for (let x = b.px0 + 4; x < b.px1 - 3; x += 7.5)
       for (let z = b.pz0 + 4; z < b.pz1 - 3; z += 7.5) {

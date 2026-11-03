@@ -1,6 +1,5 @@
 // @ts-nocheck
-// OWNER: animation agent.
-// Shim: derive a C1 `player.anim` object from the pre-C1 player.state (old src/player/player.ts), so the new
+// // Shim: derive a C1 `player.anim` object from the pre-C1 player.state (old src/player/player.ts), so the new
 // animation layer runs even before traversal publishes player.anim. Once player.anim exists it is used instead.
 import * as THREE from "three";
 

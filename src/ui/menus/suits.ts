@@ -1,7 +1,7 @@
 // @ts-nocheck
-import __shaderRaw1 from "./shaders/vertex/suits-vertex-1.vert?raw";
-import __shaderRaw2 from "./shaders/fragment/suits-fragment-2.frag?raw";
-// OWNER: systems engineer. Suits screen: suit cards (left) + live 3D preview of Spider-Man (the game camera
+import suitsMenuVertexShader from "./shaders/vertex/suit-preview.vert?raw";
+import suitsMenuFragmentShader from "./shaders/fragment/suit-preview.frag?raw";
+// Suits screen: suit cards (left) + live 3D preview of Spider-Man (the game camera
 // orbits the frozen player on the right half; drag to rotate, shallow depth of field), equip applies instantly.
 import * as THREE from "three";
 import { SUITS } from "../../game/systems/suits.ts";
@@ -134,8 +134,8 @@ export function createSuitsPage(sys) {
         side: THREE.BackSide,
         depthWrite: true,
         vertexShader:
-          __shaderRaw1,
-        fragmentShader: __shaderRaw2,
+          suitsMenuVertexShader,
+        fragmentShader: suitsMenuFragmentShader,
       }),
     );
     cyc.position.y = 6;

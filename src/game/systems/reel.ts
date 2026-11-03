@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. CINEMATIC DEMO REEL (dev menu: "Cinematic demo reel"). Plays a scripted showcase of the game:
+// CINEMATIC DEMO REEL (dev menu: "Cinematic demo reel"). Plays a scripted showcase of the game:
 // ~17 shots of 4-6 s across the best-looking areas (Times Square, Empire State, 5th Av, Billionaires' Row, Grand Central /
 // MetLife, Central Park, the Financial District, Brooklyn Bridge), each a traversal or combat combo (swings with release
 // tricks, zips, point launches, wall runs, dives, the web slingshot, fights with finishers). Meant to be screen-recorded
@@ -8,8 +8,8 @@
 // The camera is ALWAYS the normal game camera (chase camera behind the player, the combat camera in fights). The reel only
 // turns it the way a player would with the mouse: per shot a heading (`yaw`) plus gentle look-around keyframes (`look`),
 // and the movement input is counter-rotated by the look offset, so looking around never changes where he goes.
-// Input: synthetic DOM key / mouse events on window (the same listeners real input uses: player/input.js for traversal,
-// game/combat/input.js for fighting) and the existing debug hooks (traversal.toAir / perchAt, __cmb.debug.fight,
+// Input: synthetic DOM key / mouse events on window (the same listeners real input uses: player/input.ts for traversal,
+// game/combat/input.ts for fighting) and the existing debug hooks (traversal.toAir / perchAt, __cmb.debug.fight,
 // __cmb.slowmo).
 //   const reel = createReel(sys) -> { start(opts), stop(), active, status(), shots, telemetry }
 //   opts: { only: [index...] } plays a subset (tools/reel_check.mjs), { loop: true } repeats.  Esc stops.
@@ -54,7 +54,7 @@ const merge = (...o) => ({
   tap: o.flatMap((x) => x.tap || []),
 });
 
-export const SHOTS = [
+export const SCREENSHOT_PRESETS = [
   {
     id: "ts-swing",
     title: "Times Square · swing",
@@ -783,8 +783,8 @@ export function createReel(sys) {
   function start(opts = {}) {
     if (st.active) stop();
     st.list = opts.only
-      ? opts.only.map((i) => SHOTS[i]).filter(Boolean)
-      : SHOTS.slice();
+      ? opts.only.map((i) => SCREENSHOT_PRESETS[i]).filter(Boolean)
+      : SCREENSHOT_PRESETS.slice();
     if (!st.list.length) return false;
     st.loop = !!opts.loop;
     st.active = true;
@@ -865,7 +865,7 @@ export function createReel(sys) {
   const api = {
     start,
     stop,
-    shots: SHOTS,
+    shots: SCREENSHOT_PRESETS,
     telemetry,
     get active() {
       return st.active;
@@ -873,7 +873,7 @@ export function createReel(sys) {
     status() {
       return st.active
         ? `Shot ${Math.min(st.i + 1, st.list.length)} of ${st.list.length} · ${st.list[st.i]?.title ?? ""}`
-        : `Off: ${SHOTS.length} shots, about ${Math.round(SHOTS.reduce((a, s) => a + s.dur + 0.6, 0))} s · Esc stops`;
+        : `Off: ${SCREENSHOT_PRESETS.length} shots, about ${Math.round(SCREENSHOT_PRESETS.reduce((a, s) => a + s.dur + 0.6, 0))} s · Esc stops`;
     },
   };
   window.__reel = api;

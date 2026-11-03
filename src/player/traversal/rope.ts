@@ -1,7 +1,7 @@
 // @ts-nocheck
-// OWNER: traversal engineer. Web tightrope (T while perched): the shared strand model.
+// Web tightrope (T while perched): the shared strand model.
 // One rope = a straight web strand between two anchors, A (the perch point he shot from) and B (the targeted perch /
-// zip point), used by traversal (walking position), player/ropeweb.js (rendering) and the animator (foot contact).
+// zip point), used by traversal (walking position), player/ropeWebs.ts (rendering) and the animator (foot contact).
 //
 // Shape along u (0 = A, 1 = B):
 //   straight line A -> B

@@ -1,26 +1,10 @@
 // @ts-nocheck
-import __shaderPatch1 from "./shaders/glsl/crowd-patch-1.glsl?raw";
-import __shaderPatch10 from "./shaders/glsl/crowd-patch-10.glsl?raw";
-import __shaderPatch11 from "./shaders/glsl/crowd-patch-11.glsl?raw";
-import __shaderPatch12 from "./shaders/glsl/crowd-patch-12.glsl?raw";
-import __shaderPatch13 from "./shaders/glsl/crowd-patch-13.glsl?raw";
-import __shaderPatch14 from "./shaders/glsl/crowd-patch-14.glsl?raw";
-import __shaderPatch15 from "./shaders/glsl/crowd-patch-15.glsl?raw";
-import __shaderPatch16 from "./shaders/glsl/crowd-patch-16.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/crowd-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/crowd-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/crowd-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/crowd-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/crowd-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/crowd-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/crowd-patch-8.glsl?raw";
-import __shaderPatch9 from "./shaders/glsl/crowd-patch-9.glsl?raw";
-import { injectShader } from "../../render/shader.ts";
-import __shaderRaw1 from "./shaders/vertex/crowd-vertex-1.vert?raw";
-import __shaderRaw2 from "./shaders/fragment/crowd-fragment-2.frag?raw";
-import crowdDogPose from "./shaders/glsl/crowd-dog-pose.glsl?raw";
-import crowdSkinning from "./shaders/glsl/crowd-skinning.glsl?raw";
-// OWNER: citylife engineer. Pedestrian crowd: Blender-modelled people (tools/blender/city_npc.py ->
+import { lazyShaderSections } from "../../shaderSections.ts";
+import crowdShaderSource from "./shaders/glsl/crowd.glsl?raw";
+import { injectShader } from "../../render/shaderInjection.ts";
+import crowdVertexShader from "./shaders/vertex/crowd-shadow.vert?raw";
+import crowdFragmentShader from "./shaders/fragment/crowd-shadow.frag?raw";
+// Pedestrian crowd: Blender-modelled people (tools/blender/city_npc.py ->
 // public/city/npc/people.{json,bin}) rendered as instanced meshes with GPU skinning from a baked animation
 // texture (18 bones, 14 clips, per-instance clip cross-fades + head look-at), 3 LODs, per-instance outfit colours.
 //
@@ -44,13 +28,16 @@ import {
   MAPS,
   vmapAt,
 } from "../layout.ts"; // (layout2 r3) VMAP, vmapAt: Village walkers
-import { PARK_MEADOWS, meadowDist } from "../trees.ts";
-import { tsCrowdSpots } from "../timessq.ts"; // + timessq: static Times Square plaza crowd
+import { PARK_MEADOWS, meadowDist } from "../parkData.ts";
+import { tsCrowdSpots } from "../timesSquare.ts"; // + timessq: static Times Square plaza crowd
 import { PLAZA_CROWD_SPOTS } from "../props.ts"; // (street r7) forecourt-plaza people
-import { PARK_CROWD_SPOTS } from "../park.ts"; // (peds r6) lawn + park-edge people (were box figures in park.js)
+import { PARK_CROWD_SPOTS } from "../park.ts"; // (peds r6) lawn + park-edge people (were box figures in park.ts)
 import { GC_CROWD_SPOTS } from "../grandcentral.ts"; // (street r7) Park Av podium roof garden + colonnade people
-import { perf2Off } from "../tilebatch.ts"; // (perf r2) A/B switch
-import { cityLights } from "../../render/citylights.ts"; // (night) people cast city-light shadows
+import { isPerformanceFeatureDisabled } from "../performanceFlags.ts"; // (perf r2) A/B switch
+import { cityLights } from "../../render/cityLights.ts";
+
+const crowdShader = lazyShaderSections(() => crowdShaderSource);
+// (night) people cast city-light shadows
 
 const RP = 270; // sidewalk population radius around the camera
 const RNEAR = [
@@ -61,7 +48,7 @@ const PCELL = 48; // park streaming cell size
 const RPARK = [210, 250]; // park cell populate / release distance; park agents despawn beyond RPARK[1]
 const LOD_D = [24, 70, 300]; // LOD0 / LOD1 / LOD2 max distance
 const LOD_MAX = [110, 320, 1100];
-const SLICE2 = !perf2Off("nocrowdopt"); // (perf r2) finer sim time-slicing + cached heights (?nocrowdopt: old path)
+const SLICE2 = !isPerformanceFeatureDisabled("nocrowdopt"); // (perf r2) finer sim time-slicing + cached heights (?nocrowdopt: old path)
 const SPEED_WALK = [0.95, 1.4]; // (peds r2) with the measured clip strides: playback 0.85-1.25 (critic: lockstep / sliding)
 const STRIDE = 1.5; // metres per walk cycle at scale 1 (clip 'walk' is 32 frames @30fps)
 const RUN_STRIDE = 2.6; // clip 'run' (19 frames)
@@ -338,28 +325,28 @@ function makeMaterials(animTex, meta, pedTex, bakeTex) {
     uNeck: { value: new THREE.Vector3(...meta.bones[3].head) },
     uHead: { value: new THREE.Vector3(...meta.bones[4].head) },
   };
-  const common = crowdSkinning;
+  const common = crowdShader.pedestrianSkinningFunctions;
   const mat = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0 });
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>", injectShader(__shaderPatch1, common))
-      .replace("#include <beginnormal_vertex>", __shaderPatch2)
+      .replace("#include <common>", injectShader(crowdShader.vertexCommon, common))
+      .replace("#include <beginnormal_vertex>", crowdShader.vertexBeginNormalVertex)
       .replace(
         "#include <begin_vertex>",
         injectShader(
-          __shaderPatch3,
+          crowdShader.vertexBeginVertex,
           ((meta.legY ?? 0.98) * (meta.legK ?? 1)).toFixed(5),
           (meta.legK ?? 1).toFixed(5),
           ((meta.legY ?? 0.98) * (1 - (meta.legK ?? 1))).toFixed(5),
         ),
       );
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>", __shaderPatch4)
-      .replace("#include <color_fragment>", __shaderPatch5)
-      .replace("#include <roughnessmap_fragment>", __shaderPatch6)
-      .replace("#include <normal_fragment_maps>", __shaderPatch7) // (peds r1) cloth folds
-      .replace("#include <emissivemap_fragment>", __shaderPatch8);
+      .replace("#include <common>", crowdShader.fragmentCommon)
+      .replace("#include <color_fragment>", crowdShader.fragmentColor)
+      .replace("#include <roughnessmap_fragment>", crowdShader.fragmentRoughness)
+      .replace("#include <normal_fragment_maps>", crowdShader.fragmentNormalMaps) // (peds r1) cloth folds
+      .replace("#include <emissivemap_fragment>", crowdShader.fragmentEmissive);
   };
   mat.customProgramCacheKey = () => "city-people-v8";
   const depth = new THREE.MeshDepthMaterial({
@@ -368,11 +355,11 @@ function makeMaterials(animTex, meta, pedTex, bakeTex) {
   depth.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>", injectShader(__shaderPatch9, common))
-      .replace("#include <begin_vertex>", __shaderPatch10);
+      .replace("#include <common>", injectShader(crowdShader.vertexCommonCrowdSkinningFunctions, common))
+      .replace("#include <begin_vertex>", crowdShader.vertexBeginVertexCrowdBodyPose);
   };
   depth.customProgramCacheKey = () => "city-people-depth-v2";
-  // (night) city-light shadows (citylights.js addCaster): a distance material patched like the depth one (skinning +
+  // (night) city-light shadows (cityLights.ts addCaster): a distance material patched like the depth one (skinning +
   // body shape animate), so people near a street lamp / headlight cast a real shadow on the sidewalk
   const dist = new THREE.MeshDistanceMaterial();
   dist.onBeforeCompile = depth.onBeforeCompile;
@@ -553,7 +540,7 @@ function createDogs(scene, bin, D) {
   const PV = D.pivots,
     PT = D.parts;
   const glsl = injectShader(
-    crowdDogPose,
+    crowdShader.dogPoseFunctions,
     PT.legFL,
     PT.legFR,
     PT.legBL,
@@ -570,11 +557,11 @@ function createDogs(scene, bin, D) {
   const mat = new THREE.MeshStandardMaterial({ roughness: 0.85, metalness: 0 });
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>", injectShader(__shaderPatch11, glsl))
-      .replace("#include <begin_vertex>", __shaderPatch12);
+      .replace("#include <common>", injectShader(crowdShader.vertexCommonDogPoseDeclarations, glsl))
+      .replace("#include <begin_vertex>", crowdShader.vertexBeginVertexDogPose);
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>", __shaderPatch13)
-      .replace("#include <color_fragment>", __shaderPatch14);
+      .replace("#include <common>", crowdShader.fragmentCommonByDogPosition)
+      .replace("#include <color_fragment>", crowdShader.fragmentColorByDogPosition);
   };
   mat.customProgramCacheKey = () => "city-dog-v1";
   const depth = new THREE.MeshDepthMaterial({
@@ -582,8 +569,8 @@ function createDogs(scene, bin, D) {
   });
   depth.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>", injectShader(__shaderPatch15, glsl))
-      .replace("#include <begin_vertex>", __shaderPatch16);
+      .replace("#include <common>", injectShader(crowdShader.vertexCommonDogSkinningFunctions, glsl))
+      .replace("#include <begin_vertex>", crowdShader.vertexBeginVertexDogPoseDepth);
   };
   depth.customProgramCacheKey = () => "city-dog-depth-v1";
   const dist = new THREE.MeshDistanceMaterial(); // (night) city-light shadows (LOD0)
@@ -646,7 +633,7 @@ function createDogs(scene, bin, D) {
   leash.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   scene.add(leash);
   let nl = 0;
-  const M4 = new THREE.Matrix4(),
+  const createTransformMatrix = new THREE.Matrix4(),
     Q = new THREE.Quaternion(),
     V0 = new THREE.Vector3(),
     V1 = new THREE.Vector3(),
@@ -715,8 +702,8 @@ function createDogs(scene, bin, D) {
         V1.divideScalar(len || 1);
         Q.setFromUnitVectors(UP, V1);
         SC.set(1, len, 1);
-        M4.compose(V0, Q, SC);
-        M4.toArray(leash.instanceMatrix.array, nl * 16);
+        createTransformMatrix.compose(V0, Q, SC);
+        createTransformMatrix.toArray(leash.instanceMatrix.array, nl * 16);
         nl++;
       }
     },
@@ -778,8 +765,8 @@ function createBlobs(scene, animTex, meta) {
       uFL: { value: H(13) },
       uFR: { value: H(16) },
     },
-    vertexShader: __shaderRaw1,
-    fragmentShader: __shaderRaw2,
+    vertexShader: crowdVertexShader,
+    fragmentShader: crowdFragmentShader,
     transparent: true,
     depthWrite: false,
     polygonOffset: true,
@@ -910,7 +897,7 @@ export async function createCrowd({
       );
       // (perf r2) 23 variants x 2 LODs = 46 shadow draws per cascade -> 23: LOD0 (< 24 m) casts into cascades 0-1 only,
       // LOD1 (24-70 m) into 1-2 only (cascade 0 covers < ~14 m, cascade 2 > ~50 m: only very long low-sun shadows differ)
-      if (!perf2Off("nocrowdopt")) {
+      if (!isPerformanceFeatureDisabled("nocrowdopt")) {
         if (li === 0) p.mesh.userData.maxCascade = 1;
         else if (li === 1) p.mesh.userData.minCascade = 1;
       }
@@ -2074,7 +2061,7 @@ export async function createCrowd({
         statics.push(b2);
       }
     }
-    // + timessq: Times Square plaza crowd (standing groups, cafe + TKTS-step sitters) from timessq.js
+    // + timessq: Times Square plaza crowd (standing groups, cafe + TKTS-step sitters) from timesSquare.ts
     for (const sp of typeof location !== "undefined" &&
     /[?&]notscrowd/.test(location.search)
       ? []
@@ -2121,7 +2108,7 @@ export async function createCrowd({
       }
       statics.push(a);
     }
-    // (peds r6) Central Park lawn + park-edge people (user: 'in the park thing, we still have block people'): park.js used to
+    // (peds r6) Central Park lawn + park-edge people (user: 'in the park thing, we still have block people'): park.ts used to
     // draw ~3.7k instanced 40-tri box figures at every distance; they are now crowd statics with the real models / LODs.
     // Lawn: sunbathers sit on the grass (bench 'sit' clip sunk so the hips rest on the lawn, shins under the grass),
     // standers chat. Edge sidewalks: singles walk the perimeter walk (a straight 'path'), knots stand and talk.

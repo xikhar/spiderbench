@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: traversal engineer. C1 contract: `player.anim`, written by traversal every frame, read by the animation layer.
+// C1 contract: `player.anim`, written by traversal every frame, read by the animation layer.
 // {
 //   mode: 'ground'|'air'|'swing'|'zip'|'perch'|'wall'|'rope'|'land'|'combat',
 //   sub:  ground: idle | walk | run | sprint | jumpCharge | vault | slingshot (web slingshot, see anim.sling)
@@ -55,7 +55,7 @@
 //          {active, t (s since the press), hand 'L'|'R' (the web hand), anchor: Vector3 (web end, world), hitT (s: web
 //           reaches the anchor = yank + impulse moment), web (strand still attached; snaps off ~0.26 s after hitT), seq
 //           (increments per press), k (chain strength 1 .. 0.55)} -> animator postQuickYank: one-arm reach + yank to chest.
-//   rope: web tightrope strand (traversal/rope.js; ropePoint(anim.rope, u) gives the strand point, dip included):
+//   rope: web tightrope strand (traversal/rope.ts; ropePoint(anim.rope, u) gives the strand point, dip included):
 //          {active (mode 'rope'), a / b: Vector3 anchors (start perch point / target), u 0..1 (his feet), len, lenH
 //           (horizontal A-B), sag, dip, loadU (point-load shape), face +1 walks / faces toward b, -1 toward a,
 //           speed (m/s along the line, >= 0), lean -1..1 (A / D sway), t (s since T), fireT / hitT / pinT, fromStand}

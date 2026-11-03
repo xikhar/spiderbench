@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Photo mode UI: left control panel (Camera / Filters / Frames tabs), live frame overlay,
+// Photo mode UI: left control panel (Camera / Filters / Frames tabs), live frame overlay,
 // rule-of-thirds grid, key hints, capture flash + saved-print card, landmark-in-frame indicator.
 import { icon } from "./icons.ts";
 import {

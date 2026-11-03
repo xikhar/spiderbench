@@ -29,7 +29,7 @@ export default defineConfig({
               test: /[/\\]node_modules[/\\]three[/\\]/,
               maxSize: maximumChunkSize,
               entriesAware: true,
-              priority: 30,
+              priority: 50,
             },
             {
               name: 'postprocessing',
@@ -44,6 +44,21 @@ export default defineConfig({
               maxSize: maximumChunkSize,
               entriesAware: true,
               priority: 25,
+            },
+            {
+              name: 'layoutConstants',
+              test: /[/\\]src[/\\]world[/\\]layoutConstants\.ts$/,
+              priority: 40,
+            },
+            {
+              name: 'performanceFlags',
+              test: /[/\\]src[/\\]world[/\\]performanceFlags\.ts$/,
+              priority: 40,
+            },
+            {
+              name: 'vehicleLighting',
+              test: /[/\\]src[/\\]world[/\\]vehicleLighting\.ts$/,
+              priority: 40,
             },
             {
               name: 'world',

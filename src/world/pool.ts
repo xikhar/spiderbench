@@ -1,23 +1,15 @@
 // @ts-nocheck
-// OWNER: city agent. Distance-culled instancing: one InstancedMesh per prop type; the instances near the camera
+// Distance-culled instancing: one InstancedMesh per prop type; the instances near the camera
 // are repacked every time the camera moves a few metres (static props) or every frame (dynamic sets).
-import __shaderPatch1 from "./shaders/glsl/pool-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/pool-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/pool-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/pool-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/pool-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/pool-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/pool-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/pool-patch-8.glsl?raw";
-import poolLodVertPars from "./shaders/glsl/pool-lod-vert-pars.glsl?raw";
-import poolLodVert from "./shaders/glsl/pool-lod-vert.glsl?raw";
-import poolLodFragPars from "./shaders/glsl/pool-lod-frag-pars.glsl?raw";
-import poolLodFrag from "./shaders/glsl/pool-lod-frag.glsl?raw";
-import { injectShader } from "../render/shader.ts";
+import { lazyShaderSections } from "../shaderSections.ts";
+import poolShaderSource from "./shaders/glsl/pool.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
-import { csmShared } from "../render/csm.ts";
-import { perf2Off } from "./tilebatch.ts"; // (perf r2) A/B switch
-const NOWEDGE = perf2Off("nowedge");
+import { cascadedShadowState } from "../render/cascadedShadows.ts";
+import { isPerformanceFeatureDisabled } from "./performanceFlags.ts";
+
+const poolShader = lazyShaderSections(() => poolShaderSource);
+const isViewWedgeDisabled = isPerformanceFeatureDisabled("nowedge");
 
 // ---- dithered LOD fades. Every Pool writes a per-instance aLod = (in0, in1, out0, out1) (horizontal camera distance):
 // the instance fades IN over [in0, in1] and OUT over [out0, out1] by a screen-space dither (interleaved gradient noise
@@ -25,10 +17,10 @@ const NOWEDGE = perf2Off("nowedge");
 // over [a, b] and a far LOD fading in over the same [a, b] use complementary dither thresholds -> no hole, no double.
 // The distance is computed per vertex from the live camera, so fades are continuous even though pools only repack
 // after the camera has moved a few metres (pools include instances out to far + fade margin).
-const LOD_VERT_PARS = poolLodVertPars;
-const LOD_VERT = poolLodVert;
-const LOD_FRAG_PARS = poolLodFragPars;
-const LOD_FRAG = poolLodFrag;
+const LOD_VERT_PARS = poolShader.lodVertexDeclarations;
+const LOD_VERT = poolShader.lodVertexFade;
+const LOD_FRAG_PARS = poolShader.lodFragmentDeclarations;
+const LOD_FRAG = poolShader.lodFragmentFade;
 export function applyLodFade(mat) {
   if (!mat || mat.userData.lodFade) return mat;
   mat.userData.lodFade = true;
@@ -36,16 +28,16 @@ export function applyLodFade(mat) {
     prevKey = mat.customProgramCacheKey;
   mat.onBeforeCompile = (sh, r) => {
     prev?.call(mat, sh, r);
-    sh.uniforms.uLodFrame = { value: csmShared.params };
+    sh.uniforms.uLodFrame = { value: cascadedShadowState.params };
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>",injectShader(__shaderPatch1, LOD_VERT_PARS))
+      .replace("#include <common>",injectShader(poolShader.vertexCommon, LOD_VERT_PARS))
       .replace(
-        "#include <project_vertex>",injectShader(__shaderPatch2, LOD_VERT),
+        "#include <project_vertex>",injectShader(poolShader.vertexProjectVertex, LOD_VERT),
       );
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>",injectShader(__shaderPatch3, LOD_FRAG_PARS))
+      .replace("#include <common>",injectShader(poolShader.fragmentCommon, LOD_FRAG_PARS))
       .replace(
-        "#include <clipping_planes_fragment>",injectShader(__shaderPatch4, LOD_FRAG),
+        "#include <clipping_planes_fragment>",injectShader(poolShader.fragmentClipping, LOD_FRAG),
       );
   };
   mat.customProgramCacheKey = () =>
@@ -225,8 +217,8 @@ export class Pool {
   // wedge (csm._viewWedge: frustum corners + 60 deg margin) are not written; repack after a 20 deg turn or when the
   // wedge switches on / off. Shadow casters (within shadowFar) are kept in every direction.
   viewDue() {
-    const V = csmShared.view;
-    if (NOWEDGE || !V || !this.far || this.far <= this.shadowFar) return false;
+    const V = cascadedShadowState.view;
+    if (isViewWedgeDisabled || !V || !this.far || this.far <= this.shadowFar) return false;
     const on = V.cos > -1;
     if (on !== !!this.vOn) return true;
     return on && V.x * this.vx + V.z * this.vz < 0.94;
@@ -255,8 +247,8 @@ export class Pool {
     )
       return;
     this.last.copy(cam);
-    const V = csmShared.view,
-      wedge = !NOWEDGE && !!V && V.cos > -1 && this.far > this.shadowFar; // (perf r2) view wedge
+    const V = cascadedShadowState.view,
+      wedge = !isViewWedgeDisabled && !!V && V.cos > -1 && this.far > this.shadowFar; // (perf r2) view wedge
     this.vOn = wedge;
     if (wedge) {
       this.vx = V.x;
@@ -368,21 +360,21 @@ export function applyDistanceFade(mat, d0, d1) {
   mat.onBeforeCompile = (sh, r) => {
     prev?.call(mat, sh, r);
     sh.uniforms.uLodFrame = sh.uniforms.uLodFrame || {
-      value: csmShared.params,
+      value: cascadedShadowState.params,
     };
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch5,
+        "#include <common>",poolShader.vertexCommonByDistanceFade,
       )
       .replace(
-        "#include <project_vertex>",injectShader(__shaderPatch6, d1.toFixed(1), (d1 - d0).toFixed(1)),
+        "#include <project_vertex>",injectShader(poolShader.vertexProjectVertexByDistanceFade, d1.toFixed(1), (d1 - d0).toFixed(1)),
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch7,
+        "#include <common>",poolShader.fragmentCommonByDistanceFade,
       )
       .replace(
-        "#include <clipping_planes_fragment>",__shaderPatch8,
+        "#include <clipping_planes_fragment>",poolShader.fragmentClippingByDistanceFade,
       );
   };
   mat.customProgramCacheKey = () =>

@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Collectibles screen: categories (backpacks / landmarks / secret photos / towers /
+// Collectibles screen: categories (backpacks / landmarks / secret photos / towers /
 // crimes) with completion, item grid per district; landmark thumbnails from your photos; secret-photo hints
 // rendered live from the actual location as aged sepia prints (one render per frame while the page is open).
 import { badge, icon } from "./icons.ts";

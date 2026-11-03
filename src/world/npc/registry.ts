@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: citylife engineer. Shared static facts between the city-life modules (filled by props.js at build time,
+// Shared static facts between the city-life modules (filled by props.ts at build time,
 // read by traffic/crowd): things occupying road lanes or curb parking so vehicles route around them.
 export const registry = {
   laneObstacles: [], // {x, z, r}   objects standing in a moving lane (steam stacks) -> cars avoid that lane link

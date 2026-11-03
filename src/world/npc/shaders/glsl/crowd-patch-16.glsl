@@ -1,1 +1,0 @@
-vec3 transformed = dogPose(position);

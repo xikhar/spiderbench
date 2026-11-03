@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Collectibles:
+// Collectibles:
 //   backpacks   – webbed to walls / roofs; tap [F] within ~3.5 m (or brush past) to grab. Emits collectible:pickup
 //                 and calls player.playGesture?.('pickup') / player.onPickup?.(info) for the animation layer.
 //   landmarks   – photograph them ([F] when framed, or from photo mode) -> collectible:photo

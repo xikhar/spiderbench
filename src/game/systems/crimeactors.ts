@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Street-crime actors: thugs + civilians built from public/thug.glb (same skeleton as
+// Street-crime actors: thugs + civilians built from public/thug.glb (same skeleton as
 // Spider-Man, so the clips of spiderman.glb play on it directly, see public/SPIDERMAN.md).
 //   const A = createActors(ctx); await A.ready();  const a = A.spawn({ pos, yaw, variant: 'a'|'b'|'c', role: 'thug'|'victim' })
 //   a.play('thugIdle') · a.face(vec3) · a.runTo(vec3, speed) · a.hit() · a.knockDown() · a.dispose()

@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: combat engineer. One combat enemy wrapping a crime actor (src/game/systems/crimeactors.js): thug.glb with its
+// One combat enemy wrapping a crime actor (src/game/systems/crimeActors.ts): thug.glb with its
 // own brawler clips (thugIdle, thugPunch1/2, thugKick, directional stumbles, thugKnockdown / thugGetUp, gun aim / fire,
 // bruteSlam, thugWebbedStruggle) plus Spider-Man's walk / jog / run for locomotion. Stumbles, knockdown and get-up carry
 // root motion (actor.rootDelta): the body travels with the feet, never slides or snaps back.
@@ -7,19 +7,19 @@
 // Types: 'melee' (street thug), 'gunman' (pistol, keeps distance, fires bursts), 'brute' (big, super-armoured heavy hitter).
 // States: hold · approach · attack · aim · fire · stagger · air · knock · down · getup · webbed · stuck · out
 import * as THREE from "three";
-import { makePistol, Cocoon } from "./fx.ts";
+import { makePistol, Cocoon } from "./combatEffects.ts";
 import {
   clamp,
-  damp,
+  dampValue,
   dampAngle,
-  angWrap,
-  yawTo,
-  hdist,
-  rnd,
-  pick,
-  smooth,
-  UP,
-} from "./util.ts";
+  wrapAngle,
+  yawToTarget,
+  horizontalDistance,
+  randomBetween,
+  chooseRandom,
+  smoothstep01,
+  WORLD_UP,
+} from "./combatMath.ts";
 
 const _v = new THREE.Vector3(),
   _v2 = new THREE.Vector3(),
@@ -98,7 +98,7 @@ export class Enemy {
     this.web = 0;
     this.webT = 0;
     this.stun = 0;
-    this.cd = rnd(0.6, 2.0);
+    this.cd = randomBetween(0.6, 2.0);
     this.flinch = 0;
     this.flinchDir = 0;
     this.pitch = 0;
@@ -199,7 +199,7 @@ export class Enemy {
     if (h.stunBrute && this.type === "brute") this.stun = 3.8;
     this.hp -= h.dmg * (armored ? 0.55 : 1);
     this.faceYaw = Math.atan2(-h.dir.x, -h.dir.z); // toward the attacker (turned to quickly, never snapped)
-    const rel = angWrap(this.faceYaw - this.yaw); // attacker bearing in his frame (+ = on his left)
+    const rel = wrapAngle(this.faceYaw - this.yaw); // attacker bearing in his frame (+ = on his left)
     const dead = this.hp <= 0;
     this.actor.hp = dead
       ? 0
@@ -277,7 +277,7 @@ export class Enemy {
     if (!this.alive) return;
     this.set("yanked");
     this.yk = { from: this.pos.clone(), to: to.clone(), dur, prev: 0 };
-    this.faceYaw = yawTo(this.pos, to);
+    this.faceYaw = yawToTarget(this.pos, to);
     this.turnRate = 16;
     this.play("thugKnockdown", { fade: 0.06, once: true, ts: 0.3, at: 0.1 }); // chest pulled forward, arms flung
     this.c.onEnemyInterrupted(this);
@@ -417,7 +417,7 @@ export class Enemy {
           _v2.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)),
           0.8,
         ),
-      UP,
+      WORLD_UP,
       { size: 2.1 },
     );
     this.c.onEnemyOut(this, "ground");
@@ -467,8 +467,8 @@ export class Enemy {
     this.cd -= dt;
     this.stun -= dt;
     this.flinch = Math.max(0, this.flinch - dt * 5);
-    const dist = hdist(this.pos, P);
-    const faceP = yawTo(this.pos, P);
+    const dist = horizontalDistance(this.pos, P);
+    const faceP = yawToTarget(this.pos, P);
     let moving = 0;
     // safety: never stay airborne / sliding forever (stuck on geometry, lost juggle)
     if ((this.state === "knock" || this.state === "air") && this.st > 3.5) {
@@ -479,7 +479,7 @@ export class Enemy {
     }
     if (this.faceYaw != null && this.turnRate) {
       this.yaw = dampAngle(this.yaw, this.faceYaw, this.turnRate, dt);
-      if (Math.abs(angWrap(this.faceYaw - this.yaw)) < 0.02) this.turnRate = 0;
+      if (Math.abs(wrapAngle(this.faceYaw - this.yaw)) < 0.02) this.turnRate = 0;
     }
     if (["stagger", "knock", "down", "getup"].includes(this.state))
       this.rootMotion();
@@ -496,7 +496,7 @@ export class Enemy {
           : Math.min(0.55, L * 1.5);
         // speed eases (no instant start / stop), clip picked from the actual speed
         const want = L > 0.15 ? sp : 0;
-        this.spd = damp(
+        this.spd = dampValue(
           this.spd || 0,
           want,
           want > (this.spd || 0) ? 5 : 8,
@@ -520,7 +520,7 @@ export class Enemy {
         // committed melee attack: close in, start the swing ~1 m out (he steps in during the wind-up)
         const reach = this.T.reach;
         const sp = dist > 4 ? 6.0 : 4.2;
-        this.spd = damp(this.spd || 0, dist > reach + 0.9 ? sp : 2.2, 6, dt);
+        this.spd = dampValue(this.spd || 0, dist > reach + 0.9 ? sp : 2.2, 6, dt);
         if (dist > reach + 0.9) {
           const d = _v.set(P.x - this.pos.x, 0, P.z - this.pos.z).normalize();
           this.moveXZ(d.x * this.spd * dt, d.z * this.spd * dt);
@@ -528,9 +528,9 @@ export class Enemy {
           this.locomote(this.spd, 0.2);
         }
         this.yaw = dampAngle(this.yaw, faceP, 12, dt);
-        if (dist <= reach + 1.0 && Math.abs(angWrap(faceP - this.yaw)) < 0.6)
+        if (dist <= reach + 1.0 && Math.abs(wrapAngle(faceP - this.yaw)) < 0.6)
           this.startSwing();
-        else if (this.st > 2.4 || c.spidey.airborne) {
+        else if (this.st > 2.4 || c.combatCharacter.airborne) {
           this.set("hold");
           c.releaseToken(this);
         }
@@ -572,7 +572,7 @@ export class Enemy {
         if (this.swung && a && a.time >= a.getClip().duration - 0.12) {
           this.set("hold");
           this.play("thugIdle", { fade: 0.25 });
-          this.cd = rnd(1.3, 2.8) * (this.type === "brute" ? 1.3 : 1);
+          this.cd = randomBetween(1.3, 2.8) * (this.type === "brute" ? 1.3 : 1);
           c.releaseToken(this);
         }
         break;
@@ -602,7 +602,7 @@ export class Enemy {
         if (this.shots >= 3 && this.st > 0.85) {
           this.set("hold");
           this.play("thugIdle", { fade: 0.3 });
-          this.cd = rnd(2.6, 4.2);
+          this.cd = randomBetween(2.6, 4.2);
           c.releaseToken(this);
         }
         break;
@@ -627,7 +627,7 @@ export class Enemy {
         if (this.st > this.stagT) {
           this.set("hold");
           this.play("thugIdle", { fade: 0.25 });
-          this.cd = Math.max(this.cd, rnd(0.8, 1.6));
+          this.cd = Math.max(this.cd, randomBetween(0.8, 1.6));
         }
         break;
       }
@@ -642,7 +642,7 @@ export class Enemy {
         this.moveXZ(this.vel.x * dt, this.vel.z * dt);
         this.pos.y += this.vel.y * dt;
         // lie back in the air while juggled; body rights itself as he falls
-        this.pitch = damp(this.pitch, this.juggle > 0 ? -1.15 : -0.6, 6, dt);
+        this.pitch = dampValue(this.pitch, this.juggle > 0 ? -1.15 : -0.6, 6, dt);
         if (this.juggle <= 0 && !this.falling && this.vel.y < -1) {
           this.falling = true;
           this.play("thugKnockdown", { fade: 0.2, once: true, at: 0.3, ts: 1 });
@@ -704,7 +704,7 @@ export class Enemy {
         break;
       }
       case "down": {
-        this.pitch = damp(this.pitch, 0, 8, dt);
+        this.pitch = dampValue(this.pitch, 0, 8, dt);
         if (this.st > this.downT) {
           if (this.hp <= 0) {
             this.out = true;
@@ -721,7 +721,7 @@ export class Enemy {
         if (this.st > 1.4 / 1.1 - 0.12) {
           this.set("hold");
           this.play("thugIdle", { fade: 0.25 });
-          this.cd = rnd(0.8, 1.8);
+          this.cd = randomBetween(0.8, 1.8);
         }
         break;
       case "webbed": {
@@ -735,7 +735,7 @@ export class Enemy {
       }
       case "stuck":
       case "out":
-        this.pitch = damp(this.pitch, 0, 8, dt);
+        this.pitch = dampValue(this.pitch, 0, 8, dt);
         break;
     }
     if (
@@ -760,8 +760,8 @@ export class Enemy {
     ) {
       // (not 'yanked': it sets its own height)
       const gy = this.ground();
-      this.pos.y = damp(this.pos.y, gy, 20, dt);
-      this.pitch = damp(this.pitch, 0, 8, dt);
+      this.pos.y = dampValue(this.pos.y, gy, 20, dt);
+      this.pitch = dampValue(this.pitch, 0, 8, dt);
       const dyn = this.c.ctx.world.collideDynamic?.(
         this.pos,
         0.34 * this.T.scale,
@@ -792,14 +792,14 @@ export class Enemy {
     this.vel.set(0, 0, 0);
     this.airborne = false;
     this.dusted = false;
-    this.downT = this.hp <= 0 ? 1.1 : rnd(1.3, 2.0);
+    this.downT = this.hp <= 0 ? 1.1 : randomBetween(1.3, 2.0);
     if (this.web >= 0.95 || this.knockWeb) {
       this.stickGround();
     }
   }
   startSwing() {
-    let atk = pick(this.T.attacks);
-    if (atk === this.atk && Math.random() < 0.6) atk = pick(this.T.attacks);
+    let atk = chooseRandom(this.T.attacks);
+    if (atk === this.atk && Math.random() < 0.6) atk = chooseRandom(this.T.attacks);
     this.atk = atk;
     this.swung = false;
     this.loco = null;
@@ -823,7 +823,7 @@ export class Enemy {
       .sub(_v.set(0, piv, 0).applyQuaternion(_q));
     // hit flinch: spine/head snap (additive on top of the clip)
     if (this.flinch > 0 && B.spine2) {
-      const f = smooth(this.flinch);
+      const f = smoothstep01(this.flinch);
       B.spine2.quaternion.multiply(_q.setFromAxisAngle(X, -0.35 * f));
       if (B.head)
         B.head.quaternion.multiply(
@@ -838,13 +838,13 @@ export class Enemy {
       const tgt = this.c.playerChest(_v2),
         sh = this.chest(_v3);
       const pitch = clamp(
-        Math.atan2(tgt.y - sh.y, Math.max(1, hdist(tgt, sh))),
+        Math.atan2(tgt.y - sh.y, Math.max(1, horizontalDistance(tgt, sh))),
         -0.6,
         0.9,
       );
-      this.aimP = damp(this.aimP || 0, pitch, 8, dt);
+      this.aimP = dampValue(this.aimP || 0, pitch, 8, dt);
       B.spine2.quaternion.multiply(
-        _q.setFromAxisAngle(X, -this.aimP * 0.8 * smooth(this.aimW)),
+        _q.setFromAxisAngle(X, -this.aimP * 0.8 * smoothstep01(this.aimW)),
       );
     }
     // helper bones follow their base bones (SPIDERMAN.md v3 contract)
@@ -861,7 +861,7 @@ export class Enemy {
       B.handR.getWorldQuaternion(_q);
       const fwd = _v2.set(0, 1, 0).applyQuaternion(_q);
       this.gun.position.copy(_v).addScaledVector(fwd, 0.085 * this.T.scale);
-      const up = _v3.copy(UP).addScaledVector(fwd, -fwd.y).normalize();
+      const up = _v3.copy(WORLD_UP).addScaledVector(fwd, -fwd.y).normalize();
       const x = new THREE.Vector3().crossVectors(up, fwd).normalize();
       this.gun.quaternion.setFromRotationMatrix(
         new THREE.Matrix4().makeBasis(x, up, fwd),
@@ -894,4 +894,4 @@ export class Enemy {
   }
 }
 
-export { HIT_T, angWrap };
+export { HIT_T, wrapAngle };

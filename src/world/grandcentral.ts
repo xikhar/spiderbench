@@ -1,40 +1,22 @@
 // @ts-nocheck
-// OWNER: street agent. Grand-Central-like Beaux-Arts terminal across Park Av (x=430, z -148..-92), the Park-Avenue-
+// Grand-Central-like Beaux-Arts terminal across Park Av (x=430, z -148..-92), the Park-Avenue-
 // viaduct-like ramp + terrace in front of it, and the MetLife-like slab straddling Park Av behind it (z -220..-180).
 // Terminal: custom merged mesh (limestone ashlar shader, copper roof, arched glass) with collision that mirrors it
 // (boxes / cylinders / ramps; arch heads stepped). MetLife: facade-builder masses (same facade shader as the city).
-// Exports GC_KEEP_OUT (props keep out), PARK_VIADUCT (lane closure / mast keep-out) for props.js / traffic.
-import __shaderPatch1 from "./shaders/glsl/grandcentral-patch-1.glsl?raw";
-import __shaderPatch10 from "./shaders/glsl/grandcentral-patch-10.glsl?raw";
-import __shaderPatch11 from "./shaders/glsl/grandcentral-patch-11.glsl?raw";
-import __shaderPatch12 from "./shaders/glsl/grandcentral-patch-12.glsl?raw";
-import __shaderPatch13 from "./shaders/glsl/grandcentral-patch-13.glsl?raw";
-import __shaderPatch14 from "./shaders/glsl/grandcentral-patch-14.glsl?raw";
-import __shaderPatch15 from "./shaders/glsl/grandcentral-patch-15.glsl?raw";
-import __shaderPatch16 from "./shaders/glsl/grandcentral-patch-16.glsl?raw";
-import __shaderPatch17 from "./shaders/glsl/grandcentral-patch-17.glsl?raw";
-import __shaderPatch18 from "./shaders/glsl/grandcentral-patch-18.glsl?raw";
-import __shaderPatch19 from "./shaders/glsl/grandcentral-patch-19.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/grandcentral-patch-2.glsl?raw";
-import __shaderPatch20 from "./shaders/glsl/grandcentral-patch-20.glsl?raw";
-import __shaderPatch21 from "./shaders/glsl/grandcentral-patch-21.glsl?raw";
-import __shaderPatch22 from "./shaders/glsl/grandcentral-patch-22.glsl?raw";
-import __shaderPatch23 from "./shaders/glsl/grandcentral-patch-23.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/grandcentral-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/grandcentral-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/grandcentral-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/grandcentral-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/grandcentral-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/grandcentral-patch-8.glsl?raw";
-import __shaderPatch9 from "./shaders/glsl/grandcentral-patch-9.glsl?raw";
-import { injectShader } from "../render/shader.ts";
+// Exports GC_KEEP_OUT (props keep out), PARK_VIADUCT (lane closure / mast keep-out) for props.ts / traffic.
+import { lazyShaderSections } from "../shaderSections.ts";
+import grandcentralShaderSource from "./shaders/glsl/grandcentral.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import { G, ZFIX } from "./layout.ts"; // (zfix) ZFIX: ?nozfix A/B
-import { MB } from "./geom.ts";
+import { MeshBuilder } from "./meshBuilder.ts";
 import { STYLE, LAYER } from "./facade.ts";
 import { registry } from "./npc/registry.ts";
-import { REFL_LAYER } from "./water.ts";
-import { BIG_CASTER_LAYER } from "../render/csm.ts";
+import { REFL_LAYER } from "./waterLayers.ts";
+import { BIG_CASTER_LAYER } from "../render/cascadedShadows.ts";
+
+const grandcentralShader = lazyShaderSections(() => grandcentralShaderSource);
+
 
 const CX = 430,
   X0 = 394,
@@ -88,7 +70,7 @@ const STONE = 0xbab09a,
   /* (street r8) darker, matches the street asphalt (was 0x6a6c6d) */ IRON = 0x2c3130,
   CREAM = 0xe6dcc0;
 
-// append a (non-indexed or indexed) BufferGeometry into an MB through matrix m
+// append a (non-indexed or indexed) BufferGeometry into an MeshBuilder through matrix m
 function addGeo(mb, geo, m, color, part) {
   const g = geo.index ? geo.toNonIndexed() : geo;
   const P = g.attributes.position,
@@ -268,26 +250,26 @@ function stoneMaterial(T) {
     sh.uniforms.tGWH = { value: T?.wallsHao ?? null }; // (textures r5) stone grain + soot streak sheet
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",grandcentralShader.vertexCommon,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch2,
+        "#include <fog_vertex>",grandcentralShader.vertexFogVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch3,
+        "#include <common>",grandcentralShader.fragmentCommon,
       )
       .replace(
-        "#include <map_fragment>",injectShader(__shaderPatch4, H_COR.toFixed(1), CX.toFixed(1), H_ENT0.toFixed(2), (H_ATTIC - 1.0).toFixed(2), (TER_Y - 1.0).toFixed(2), H_ATTIC.toFixed(1), H_ATTIC.toFixed(1), H_ENT0.toFixed(2), (H_ATTIC - 1.0).toFixed(2), H_ENT0.toFixed(2)),
+        "#include <map_fragment>",injectShader(grandcentralShader.fragmentMap, H_COR.toFixed(1), CX.toFixed(1), H_ENT0.toFixed(2), (H_ATTIC - 1.0).toFixed(2), (TER_Y - 1.0).toFixed(2), H_ATTIC.toFixed(1), H_ATTIC.toFixed(1), H_ENT0.toFixed(2), (H_ATTIC - 1.0).toFixed(2), H_ENT0.toFixed(2)),
       )
       .replace(
-        "#include <roughnessmap_fragment>",__shaderPatch5,
+        "#include <roughnessmap_fragment>",grandcentralShader.fragmentRoughness,
       )
       .replace(
-        "#include <metalnessmap_fragment>",__shaderPatch6,
+        "#include <metalnessmap_fragment>",grandcentralShader.fragmentMetalness,
       )
       .replace(
-        "#include <normal_fragment_maps>",__shaderPatch7,
+        "#include <normal_fragment_maps>",grandcentralShader.fragmentNormalMaps,
       );
   };
   m.customProgramCacheKey = () => "gc-stone-v10"; // (textures r5)
@@ -305,27 +287,27 @@ function glassMaterial() {
   m.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch8,
+        "#include <common>",grandcentralShader.vertexCommonByGrandCentralWorldNormal,
       )
-      .replace("#include <uv_vertex>",__shaderPatch9)
+      .replace("#include <uv_vertex>",grandcentralShader.vertexUvVertex)
       .replace(
-        "#include <fog_vertex>",__shaderPatch10,
+        "#include <fog_vertex>",grandcentralShader.vertexFogVertexByGrandCentralWorldNormal,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch11,
+        "#include <common>",grandcentralShader.fragmentCommonByGrandCentralWorldNormal,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch12,
+        "#include <map_fragment>",grandcentralShader.fragmentMapByGrandCentralWorldPosition,
       )
       .replace(
-        "#include <roughnessmap_fragment>",__shaderPatch13,
+        "#include <roughnessmap_fragment>",grandcentralShader.fragmentRoughnessStreetFixtures,
       )
       .replace(
-        "#include <metalnessmap_fragment>",__shaderPatch14,
+        "#include <metalnessmap_fragment>",grandcentralShader.fragmentMetalnessStreetFixtures,
       )
       .replace(
-        "#include <emissivemap_fragment>",__shaderPatch15,
+        "#include <emissivemap_fragment>",grandcentralShader.fragmentEmissive,
       );
   };
   m.customProgramCacheKey = () => "gc-glass-v6";
@@ -335,9 +317,9 @@ function glassMaterial() {
 export function buildGrandCentral({ scene, gen, T }) {
   const S = gen.solids,
     Z = gen.zips;
-  const mb = new MB(),
+  const mb = new MeshBuilder(),
     glass = [],
-    gw = new MB(); // (street r7) gw: unlit 'glow' geometry (lit shop windows / signs)
+    gw = new MeshBuilder(); // (street r7) gw: unlit 'glow' geometry (lit shop windows / signs)
   const box = (
     x0,
     y0,
@@ -591,7 +573,7 @@ export function buildGrandCentral({ scene, gen, T }) {
       0.45,
     );
     if (S) S.box(CX + u0, Y0, ZF - 0.02, CX + u1, H_ENT0, ZF + 1.0, "wall");
-    // (street r5) flags on angled poles from the pavilion fronts (flags.js cloth pool; gilt poles drawn here)
+    // (street r5) flags on angled poles from the pavilion fronts (flags.ts cloth pool; gilt poles drawn here)
     if (gen.buildings)
       for (const e of [u0 + 2.6, u1 - 2.6]) {
         const bx0 = CX + e,
@@ -2554,7 +2536,7 @@ export function buildGrandCentral({ scene, gen, T }) {
 
 // (street r2) low dark-glass podium with a roof garden on the east side of Park Av south of 42nd St (ref 04's right
 // foreground): pilotis ground floor (recessed lobby behind a colonnade), 3 floors of bronze curtain wall with real
-// inset mullion fins, a planter parapet with autumn shrubs and small trees on the roof deck. Lot reserved in landmarks.js.
+// inset mullion fins, a planter parapet with autumn shrubs and small trees on the roof deck. Lot reserved in landmarks.ts.
 // (street r8) Park Av podium curtain wall: near-black bronze glass whose panes each get their own tint, roughness and a
 // slight tilt (so the sky reflection breaks up pane by pane instead of one mirror), opaque bronze spandrels, mullions,
 // and a parallax office interior per bay (ceiling light rows in the lit bays, back wall with desk silhouettes, part-drawn
@@ -2568,29 +2550,29 @@ function podiumGlassMaterial(Y0, FH, BW) {
   m.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch16,
+        "#include <common>",grandcentralShader.vertexCommonByPavementWorldNormal,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch17,
+        "#include <fog_vertex>",grandcentralShader.vertexFogVertexByPavementWorldNormal,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch18,
+        "#include <common>",grandcentralShader.fragmentCommonByPavementWorldNormal,
       )
       .replace(
-        "#include <map_fragment>",injectShader(__shaderPatch19, Y0.toFixed(2), FH.toFixed(2), BW.toFixed(2), BW.toFixed(2), BW.toFixed(2), BW.toFixed(2), Y0.toFixed(2), FH.toFixed(2), BW.toFixed(2)),
+        "#include <map_fragment>",injectShader(grandcentralShader.fragmentMapByPavementWorldPosition, Y0.toFixed(2), FH.toFixed(2), BW.toFixed(2), BW.toFixed(2), BW.toFixed(2), BW.toFixed(2), Y0.toFixed(2), FH.toFixed(2), BW.toFixed(2)),
       )
       .replace(
-        "#include <roughnessmap_fragment>",__shaderPatch20,
+        "#include <roughnessmap_fragment>",grandcentralShader.fragmentRoughnessWindowGlass,
       )
       .replace(
-        "#include <metalnessmap_fragment>",__shaderPatch21,
+        "#include <metalnessmap_fragment>",grandcentralShader.fragmentMetalnessWindowGlass,
       )
       .replace(
-        "#include <normal_fragment_maps>",__shaderPatch22,
+        "#include <normal_fragment_maps>",grandcentralShader.fragmentNormalMapsWindowPane,
       )
       .replace(
-        "#include <emissivemap_fragment>",__shaderPatch23,
+        "#include <emissivemap_fragment>",grandcentralShader.fragmentEmissiveByPavementWorldNormal,
       );
   };
   m.customProgramCacheKey = () => "gc-podium-glass-v2";
@@ -2598,13 +2580,13 @@ function podiumGlassMaterial(Y0, FH, BW) {
 }
 
 export const GC_PODIUM = { x0: 456, x1: 494, z0: -70, z1: -10 }; // (street r11) x0 447 -> 456: the podium's west face lines up with the terminal's east pavilion down Park Av (ref 04)
-// (street r11) Park Av forecourts south of 42nd St (granite paving + trees / benches / people by props.js plaza dressing)
+// (street r11) Park Av forecourts south of 42nd St (granite paving + trees / benches / people by props.ts plaza dressing)
 export const GC_FORECOURTS = [
   { x0: 402, z0: -71, x1: 414, z1: -9, nx: 1, nz: 0, W: 12, L: 62 },
   { x0: 446, z0: -71, x1: 456, z1: -9, nx: -1, nz: 0, W: 10, L: 62 },
 ];
-export const GC_TREE_SPOTS = []; // (street r3) roof-garden vegetation spots -> props.js treeSpots -> trees.js
-export const GC_CROWD_SPOTS = []; // (street r7) static people on the podium roof garden / colonnade -> npc/crowd.js statics
+export const GC_TREE_SPOTS = []; // (street r3) roof-garden vegetation spots -> props.ts treeSpots -> trees.ts
+export const GC_CROWD_SPOTS = []; // (street r7) static people on the podium roof garden / colonnade -> npc/crowd.ts statics
 function buildParkPodium(gen, scene, T) {
   const S = gen.solids,
     Z = gen.zips,
@@ -2704,7 +2686,7 @@ function buildParkPodium(gen, scene, T) {
   }
   S.box(R.x0 + IN, Y0, R.z0 + IN, R.x1 - IN, YL, R.z1 - IN, "wall");
   S.box(R.x0, YL, R.z0, R.x1, YT, R.z1, "wall");
-  const mb = new MB();
+  const mb = new MeshBuilder();
   const bx = (x0, y0, z0, x1, y1, z1, c, part, kind = null) => {
     mb.setColor(c).setPart(part).box(x0, y0, z0, x1, y1, z1);
     if (kind && S) S.box(x0, y0, z0, x1, y1, z1, kind);
@@ -2829,7 +2811,7 @@ function buildParkPodium(gen, scene, T) {
     };
   })();
   // (street r3) critic: 'uniform yellow-green balloon / popcorn shrubs'. The planting is now leaf-card vegetation from
-  // trees.js (GC_TREE_SPOTS, consumed by props.js -> treeSpots): low 'small'-kind shrubs of mixed species in raised
+  // trees.ts (GC_TREE_SPOTS, consumed by props.ts -> treeSpots): low 'small'-kind shrubs of mixed species in raised
   // planters, a few multi-stem trees, gravel + paver walks, teak benches, a steel guard rail on the parapet.
   const zc = (R.z0 + R.z1) / 2,
     xc = (R.x0 + R.x1) / 2;
@@ -3270,7 +3252,7 @@ function buildParkPodium(gen, scene, T) {
   // (street r7) critic: 'empty base with pilotis, no lobby lighting or signage'. Lit lobby soffit (recessed light
   // panels in the colonnade ceiling), bronze-and-lit letter sign over the Park Av doors, two flags on angled poles.
   {
-    const gw = new MB(),
+    const gw = new MeshBuilder(),
       zm = (R.z0 + R.z1) / 2,
       xg = R.x0 + IN;
     gw.setColor(0xf4e6c4);
@@ -3392,7 +3374,7 @@ function buildMetLife(gen) {
     glass: 2,
     lintel: 3,
     seed: 46.37,
-  }; /* (street r11) lintel 3 = facade.js dark louvre band: dark grey plant louvres, not a sky-blue stripe (critic) */ // (street r9) near-full-height dark glass louvre bands (ref 04: the two dark bands read strongly) // (street r6) mechanical floors = dark ribbon windows in grey precast (ref 04), not a sky-blue curtain stripe
+  }; /* (street r11) lintel 3 = facade.ts dark louvre band: dark grey plant louvres, not a sky-blue stripe (critic) */ // (street r9) near-full-height dark glass louvre bands (ref 04: the two dark bands read strongly) // (street r6) mechanical floors = dark ribbon windows in grey precast (ref 04), not a sky-blue curtain stripe
   const LOBBY = {
     ...P,
     layer: LAYER.METAL,
@@ -3470,7 +3452,7 @@ function buildMetLife(gen) {
   }
   // fins at every bay boundary of the facade shader's grid (margin 0.1, bays of ~1.45 m), where the face is exposed
   {
-    const fm = new MB();
+    const fm = new MeshBuilder();
     fm.setColor(0xb8ae9b).setPart(1);
     const inside = (x, z) =>
       M.some(

@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: render agent. Shared material helpers for the city / character agents.
+// Shared material helpers for the city / character agents.
 //
 // USAGE (all functions return standard three.js materials, so shadows/IBL/fog/AO all just work):
 //
@@ -33,20 +33,13 @@
 //    fresh white paint ~0.75). Don't compensate darkness with emissive; tell the render agent instead.
 //  * Don't set scene.fog / scene.background / scene.environment / tone mapping: the render pipeline owns them.
 //  * Shadows: set castShadow/receiveShadow on meshes; cascades are handled globally (no per-material setup).
-import __shaderPatch1 from "./shaders/glsl/materials-patch-1.glsl?raw";
-import __shaderPatch10 from "./shaders/glsl/materials-patch-10.glsl?raw";
-import __shaderPatch11 from "./shaders/glsl/materials-patch-11.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/materials-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/materials-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/materials-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/materials-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/materials-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/materials-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/materials-patch-8.glsl?raw";
-import __shaderPatch9 from "./shaders/glsl/materials-patch-9.glsl?raw";
+import { lazyShaderSections } from "../shaderSections.ts";
+import materialsShaderSource from "./shaders/glsl/materials.glsl?raw";
 import * as THREE from "three";
 
-// ------------------------------------------------------------------------------------------ patch chaining
+const materialsShader = lazyShaderSections(() => materialsShaderSource);
+
+//  patch chaining
 export function addShaderPatch(material, key, fn) {
   const ud = material.userData;
   if (!ud.__patches) {
@@ -71,7 +64,7 @@ export function addShaderPatch(material, key, fn) {
   return material;
 }
 
-// ------------------------------------------------------------------------------------------ glass
+//  glass
 export function makeGlassMaterial({
   tint = 0x1b2530,
   roughness = 0.04,
@@ -94,7 +87,7 @@ export function makeGlassMaterial({
   return m;
 }
 
-// ------------------------------------------------------------------------------------------ suit rubber
+//  suit rubber
 export function makeSuitRubber({
   color = 0xa0141c,
   roughness = 0.42,
@@ -114,7 +107,7 @@ export function makeSuitRubber({
   });
 }
 
-// ------------------------------------------------------------------------------------------ detail normal
+//  detail normal
 export function enhanceStandard(
   material,
   { detailNormal = null, detailScale = 6, detailStrength = 0.4 } = {},
@@ -131,25 +124,20 @@ export function enhanceStandard(
     Object.assign(shader.uniforms, uniforms);
     if (!shader.vertexShader.includes("vDetailUv")) {
       shader.vertexShader = shader.vertexShader
-        .replace(
-          "#include <common>",__shaderPatch1,
-        )
-        .replace(
-          "#include <uv_vertex>",__shaderPatch2,
-        );
+        .replace("#include <common>", materialsShader.vertexCommon)
+        .replace("#include <uv_vertex>", materialsShader.vertexUvVertex);
     }
     shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", materialsShader.fragmentCommon)
       .replace(
-        "#include <common>",__shaderPatch3,
-      )
-      .replace(
-        "#include <normal_fragment_maps>",__shaderPatch4,
+        "#include <normal_fragment_maps>",
+        materialsShader.fragmentNormalMaps,
       );
   });
   return material;
 }
 
-// ------------------------------------------------------------------------------------------ interior mapping
+// interior mapping
 export function makeInteriorWindowMaterial({
   base = { color: 0x8a7a68, roughness: 0.85 },
   room = [3.8, 3.4, 5.0],
@@ -174,26 +162,30 @@ export function makeInteriorWindowMaterial({
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
       .replace(
-        "#include <common>",__shaderPatch5,
+        "#include <common>",
+        materialsShader.vertexCommonInteriorWindowPosition,
       )
       .replace(
-        "#include <project_vertex>",__shaderPatch6,
+        "#include <project_vertex>",
+        materialsShader.vertexProjectVertex,
       );
     shader.fragmentShader = shader.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch7,
+        "#include <common>",
+        materialsShader.fragmentCommonInteriorWindow,
+      )
+      .replace("#include <map_fragment>", materialsShader.fragmentMap)
+      .replace(
+        "#include <roughnessmap_fragment>",
+        materialsShader.fragmentRoughness,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch8,
+        "#include <metalnessmap_fragment>",
+        materialsShader.fragmentMetalness,
       )
       .replace(
-        "#include <roughnessmap_fragment>",__shaderPatch9,
-      )
-      .replace(
-        "#include <metalnessmap_fragment>",__shaderPatch10,
-      )
-      .replace(
-        "#include <emissivemap_fragment>",__shaderPatch11,
+        "#include <emissivemap_fragment>",
+        materialsShader.fragmentEmissive,
       );
   });
   return m;

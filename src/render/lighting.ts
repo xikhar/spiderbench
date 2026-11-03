@@ -1,6 +1,5 @@
 // @ts-nocheck
-// OWNER: render agent.
-// createLighting({renderer, scene}) -> lighting
+// // createLighting({renderer, scene}) -> lighting
 //   lighting.sun            DirectionalLight carrying the key-light radiance (sun, or moon at night; cascade 0 of the CSM)
 //   lighting.update(camera) call once per frame before rendering (fits shadow cascades, re-bakes env if dirty,
 //                           follows the player with the high-res character shadow cascade)
@@ -13,22 +12,23 @@
 //   lighting.timeOfDay      current hour (informational)
 //
 // TIME OF DAY (lighting2 r3, Insomniac-style): NO clock / cycle. Fixed hand-tuned presets (PRESETS below): day (default),
-//   morning, sunrise, sunset, dusk, night, overcast (rain: wet city + puddle ripples in surface.js, streaks in pipeline).
+//   morning, sunrise, sunset, dusk, night, overcast (rain: wet city + puddle ripples in surface.ts, streaks in pipeline).
 //   Settings > Time of Day -> lighting.setTimeMode(name) (blends ~2.5 s, env re-baked one cube face per frame).
 //   ?tod=<preset> pins a preset (screenshots / blind pairs); ?shot= / ?playtest= pin 'day'. Old names map (golden ->
 //   sunset, dawn -> sunrise, default / noon / afternoon -> day, rain -> overcast).
 //   console: setTOD('night') (blended) | __ctx.lighting.setTimeOfDay('dusk') (instant)
-//   Night-city hooks read nightK (src/render/daynight.js), set per preset (night 1, dusk 0.7, overcast 0.3).
-import __shaderPatch1 from "./shaders/glsl/lighting-patch-1.glsl?raw";
+//   Night-city hooks read nightK (src/render/dayNight.ts), set per preset (night 1, dusk 0.7, overcast 0.3).
+import { lazyShaderSections } from "../shaderSections.ts";
+import lightingShaderSource from "./shaders/glsl/lighting.glsl?raw";
 import * as THREE from "three";
 import { getQuality } from "./quality.ts";
 import { createSky } from "./sky.ts";
-import { CSM } from "./csm.ts";
+import { CascadedShadowMaps } from "./cascadedShadows.ts";
 import { installSurfaceChunks, ambShared } from "./surface.ts";
-import { cityLights, installCityLightChunks } from "./citylights.ts"; // (night) real local lights
+import { cityLights, installCityLightChunks } from "./cityLights.ts"; // (night) real local lights
 import { sunTransmittance } from "./atmosphere.ts";
 
-// (daynight) ONE shared global for the night city (src/render/daynight.js): 0 = day .. 1 = full night. Also exposed as
+// (daynight) ONE shared global for the night city (src/render/dayNight.ts): 0 = day .. 1 = full night. Also exposed as
 // window.__nightK and lighting.nightK.
 import {
   nightK,
@@ -36,7 +36,10 @@ import {
   screenK,
   syncNightMeshes,
   tickNightMeshes,
-} from "./daynight.ts";
+} from "./dayNight.ts";
+
+const lightingShader = lazyShaderSections(() => lightingShaderSource);
+
 export { nightK };
 
 // Manhattan, early September. Our world: -Z is north, +X is east; azimuth measured from +X toward +Z.
@@ -66,7 +69,7 @@ export function solarPosition(hour) {
 // Look parameters (everything the time of day changes besides the sun position).
 //  env: diffuse sky fill, envSpec: specular (reflection) env level, envSat: ambient saturation, sun: key-light gain,
 //  warm: key-light warmth (0..1), fog: fog density scale, mie: haze aerosols, clouds: coverage, exposure: grade exposure,
-//  bounce / groundBounce: street + facade bounce GI (surface.js), glow: golden aureole around a low sun (sky.js),
+//  bounce / groundBounce: street + facade bounce GI (surface.ts), glow: golden aureole around a low sun (sky.ts),
 //  fogTint: aerial-perspective in-scatter tint.
 // (daynight) keyframes by SUN ELEVATION, blended smoothly (no popping anywhere in the day-night cycle). 'afternoon'
 // (el 24) is the tuned gameplay look (lighting2 r2: warm late afternoon), 'noon' is the lighting2 r1 midday look.
@@ -191,7 +194,7 @@ function lookAt(el) {
 // (lighting2 r3) INSOMNIAC-STYLE FIXED PRESETS (user: "don't make a realistic cycle, follow what Insomniac does"): no clock,
 // the player picks one hand-tuned look (Settings > Time of Day). Each preset = a FIXED sun (or moon) direction + look
 // overrides on top of the elevation keyframes above. Azimuth: degrees from +X (east) toward +Z (south); game -Z = grid
-// north. Extra look keys: windows (nightK for the night city), wet / rain (surface.js / pipeline rain), flare (sun glare /
+// north. Extra look keys: windows (nightK for the night city), wet / rain (surface.ts / pipeline rain), flare (sun glare /
 // shafts), moonEl / moonAz (night key light + moon disc), skyDusk (sunset band strength).
 // History: (street r8 / atmosphere r1-r2 / lighting2 r1-r2) the old single default look evolved into 'day' below.
 export const PRESETS = {
@@ -282,7 +285,7 @@ export const PRESETS = {
       fogTint: [0.78, 0.7, 0.72],
     },
   },
-  // night: its own config (dark sky, moon key low, the city lit by windows / street + TS light (surface.js city term))
+  // night: its own config (dark sky, moon key low, the city lit by windows / street + TS light (surface.ts city term))
   night: {
     elevation: -14,
     azimuth: 190,
@@ -357,9 +360,14 @@ export function createLighting({ renderer, scene }) {
   renderer.shadowMap.autoUpdate = true;
 
   const sky = createSky(renderer, quality);
-  const csm = new CSM({ scene, quality, reversed, renderer });
+  const cascadedShadows = new CascadedShadowMaps({
+    scene,
+    quality,
+    reversed,
+    renderer,
+  });
   installCityLightChunks(renderer, scene); // (night) after the CSM patch of lights_fragment_begin
-  const sun = csm.sun;
+  const sun = cascadedShadows.sun;
 
   scene.background = null;
   const fogBase = { density: 0.00013, heightFalloff: 1 / 300 }; // (timessq r6) falloff 1/420 -> 1/300: the extra day haze sits low in the street canyons, aerial views barely change // (foundation: was 0.0002 -> far shores / horizon bleached to a milky wall)
@@ -468,7 +476,7 @@ export function createLighting({ renderer, scene }) {
     ); // (night) no pink horizon band (esb ref horizon ~ sRGB 45/46/63)
     p.night = night;
     p.stars = night * (1 - dayF) * 0.04; // (night) 0.4: the refs show almost no stars over Manhattan // (lighting2 r3) Manhattan light pollution: only the brightest stars
-    // (lighting2 r2) golden aureole around a low sun (sky.js): warm haze toward the sun
+    // (lighting2 r2) golden aureole around a low sun (sky.ts): warm haze toward the sun
     p.sunGlow = [1.05, 0.5, 0.08, (L.glow ?? 1) * smooth(-4, 1, el)];
     // moon: follows the solar arc 12 h later (rises around sunset), clamped high enough for usable shadows
     // (lighting2 r3) presets give the moon a fixed direction (moonEl / moonAz); the moon disc (pipeline) uses the same dir
@@ -519,7 +527,7 @@ export function createLighting({ renderer, scene }) {
     tod.moonK = moonK; // sunK also gates the sun flare / glare (overcast: none)
     tod.rain = L.rain ?? 0;
     ambShared.wx.x = L.wet ?? 0;
-    ambShared.wx.z = tod.rain; // (lighting2 r3) overcast rain: wet city (surface.js), streaks (pipeline)
+    ambShared.wx.z = tod.rain; // (lighting2 r3) overcast rain: wet city (surface.ts), streaks (pipeline)
     nightK.value = tod.windows;
     syncNightMeshes();
     screenK.value = Math.min(
@@ -543,7 +551,7 @@ export function createLighting({ renderer, scene }) {
       sc.b * bk * 0.8,
       lerp(1, 0.04, night),
     );
-    // (atmosphere r3) street-level bounce boost (surface.js): people / cars / shop fronts standing in building shade in
+    // (atmosphere r3) street-level bounce boost (surface.ts): people / cars / shop fronts standing in building shade in
     // the canyons (Times Square) went near-black -- they get the warm light bounced off the sunlit street and facades
     ambShared.shape.w = (L.groundBounce ?? 2.4) * (1 - night);
     ambShared.shape.y = lerp(1, 0.62, night); // (night r5) less sky fill on up-facing roofs / ground: pale roofs read frosted from above (critic r4)
@@ -553,7 +561,7 @@ export function createLighting({ renderer, scene }) {
       (1 - (L.vertFill ?? 1)) * 0.8,
       cityLights.enabled ? 1 : 0,
     ); // w: (night) local city lights on -> the analytic street glow only lights the far field // z: canyon skylight occlusion (daylight only) // (lighting2 r6) vertical-surface fill (daylight presets < 1)
-    // (lighting2 r3) night city light (surface.js): sodium street-level fill + Times Square screen-colour spill
+    // (lighting2 r3) night city light (surface.ts): sodium street-level fill + Times Square screen-colour spill
     const cl = tod.windows;
     ambShared.city.set(
       city.street * cl,
@@ -582,7 +590,7 @@ export function createLighting({ renderer, scene }) {
     }
     // re-fit the shadow cascades only when the key light turned noticeably (setSunDirection re-renders every cascade)
     if (key.lastDir.angleTo(_keyDir) > 0.0012 || env) {
-      csm.setSunDirection(_keyDir);
+      cascadedShadows.setSunDirection(_keyDir);
       key.lastDir.copy(_keyDir);
     }
     sun.intensity = 1.0;
@@ -613,7 +621,8 @@ export function createLighting({ renderer, scene }) {
             kind: "emis",
             ei: m.emissiveIntensity ?? 1,
             gain: m.userData.nightGain,
-          }; // (lighting2 r4) per-material override
+          };
+        // (lighting2 r4) per-material override
         else if (m.userData?.nightLit)
           b = { kind: "emis", ei: m.userData.nightLit, base0: true }; // (lighting2 r3) printed billboards: 0 by day, lamp-lit at night
         else if (u?.uInteriorGain || u?.uShopGain)
@@ -639,7 +648,8 @@ export function createLighting({ renderer, scene }) {
             ei: m.emissiveIntensity,
             gain: 0.1,
             screen: true,
-          }; // the night exposure (x4.5) already makes them pop (lighting2 r3: 0.35 -> 0.13, director: TS ads blown to white, must stay readable + saturated)
+          };
+        // the night exposure (x4.5) already makes them pop (lighting2 r3: 0.35 -> 0.13, director: TS ads blown to white, must stay readable + saturated)
         else b = { kind: "none" };
         nightBase.set(m, b);
       }
@@ -667,7 +677,8 @@ export function createLighting({ renderer, scene }) {
     m.onBeforeCompile = function (sh, r) {
       obc.call(this, sh, r);
       sh.fragmentShader = sh.fragmentShader.replace(
-        /totalEmissiveRadiance \+= diffuseColor\.rgb \* ([0-9.]+);/g,__shaderPatch1,
+        /totalEmissiveRadiance \+= diffuseColor\.rgb \* ([0-9.]+);/g,
+        lightingShader.emissiveNightGain,
       );
     };
     const key = m.customProgramCacheKey;
@@ -840,7 +851,7 @@ export function createLighting({ renderer, scene }) {
 
   const lighting = {
     sun,
-    csm,
+    cascadedShadows,
     sky,
     fog,
     quality,
@@ -902,7 +913,7 @@ export function createLighting({ renderer, scene }) {
     update(camera, dt = 1 / 60) {
       const nowS = performance.now() / 1000,
         rdt = state.lastT ? Math.min(nowS - state.lastT, 0.1) : dt;
-      state.lastT = nowS; // (main.js passes no dt)
+      state.lastT = nowS; // (main.ts passes no dt)
       if (blend.on) stepBlend(rdt);
       stepEnv();
       scene.environmentIntensity = state.envIntensity;
@@ -943,11 +954,11 @@ export function createLighting({ renderer, scene }) {
         typeof window !== "undefined" ? window.__ctx?.player?.object : null;
       if (po) {
         po.getWorldPosition(_pp);
-        csm.setFocus(_pp);
+        cascadedShadows.setFocus(_pp);
         if ((state.charScan = (state.charScan || 0) + 1) % 30 === 1)
-          csm.setCharacter(po);
-      } else csm.setFocus(null);
-      csm.update(camera, scene);
+          cascadedShadows.setCharacter(po);
+      } else cascadedShadows.setFocus(null);
+      cascadedShadows.update(camera, scene);
       cityLights.build(camera); // (night) local light grid around the camera
       {
         const o = cityLights.shared.origin;

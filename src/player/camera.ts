@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: traversal engineer. Insomniac-feel chase camera.
+// Insomniac-feel chase camera.
 // - Orbit with mouse / right stick; smooth auto-recenter behind the direction of travel when the player isn't orbiting.
 // - Spring-follow with speed lag + velocity lead, distance / FOV grow with speed, pulls back and pitches down in dives,
 //   frames the swing arc (lifts, leans toward the anchor, rolls with the bank), looks up the wall while wall-running.

@@ -1,37 +1,27 @@
 // @ts-nocheck
-import __shaderPatch1 from "./shaders/glsl/trees-patch-1.glsl?raw";
-import __shaderPatch10 from "./shaders/glsl/trees-patch-10.glsl?raw";
-import __shaderPatch11 from "./shaders/glsl/trees-patch-11.glsl?raw";
-import __shaderPatch12 from "./shaders/glsl/trees-patch-12.glsl?raw";
-import __shaderPatch13 from "./shaders/glsl/trees-patch-13.glsl?raw";
-import __shaderPatch14 from "./shaders/glsl/trees-patch-14.glsl?raw";
-import __shaderPatch15 from "./shaders/glsl/trees-patch-15.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/trees-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/trees-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/trees-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/trees-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/trees-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/trees-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/trees-patch-8.glsl?raw";
-import __shaderPatch9 from "./shaders/glsl/trees-patch-9.glsl?raw";
-import { injectShader } from "../render/shader.ts";
-import __shaderRaw1 from "./shaders/vertex/trees-vertex-1.vert?raw";
-import __shaderRaw2 from "./shaders/fragment/trees-fragment-2.frag?raw";
-// OWNER: city agent. Autumn trees: branching trunks + dense alpha-tested leaf-cluster cards with spherical normals,
+import { lazyShaderSections } from "../shaderSections.ts";
+import treesShaderSource from "./shaders/glsl/trees.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
+import treesVertexShader from "./shaders/vertex/tree-shadow.vert?raw";
+import treesFragmentShader from "./shaders/fragment/tree-shadow.frag?raw";
+// Autumn trees: branching trunks + dense alpha-tested leaf-cluster cards with spherical normals,
 // per-instance two-tone autumn tint, canopy self-occlusion. Two LODs per kind, instanced through distance pools.
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
 import { G, mulberry32, PARK_WATER, parkWaterAt } from "./layout.ts";
-import { PARK_SITES, PARK_ROCKS } from "./park.ts";
+import { PARK_MEADOWS, PARK_ROCKS, PARK_SITES, meadowDist } from "./parkData.ts";
 import { Pool } from "./pool.ts";
-import { csmShared } from "../render/csm.ts";
+import { cascadedShadowState } from "../render/cascadedShadows.ts";
 import {
   trunkSkeleton,
   trunkMesh,
   TRUNK_LOD,
   barkMaterial,
   BARK,
-} from "./treetrunk.ts"; // (veg r1) natural trunks + bark
+} from "./treeTrunk.ts";
+
+const treesShader = lazyShaderSections(() => treesShaderSource);
+// (veg r1) natural trunks + bark
 
 // Canopy = leaf-spray cards grouped in clumps (a few per lobe), like real crowns: every clump is a small dome of cards
 // whose vertex normals blend the clump radial, the lobe radial and the card's own normal, so light wraps around each
@@ -229,7 +219,7 @@ function addCore(P, N, UV, R, I, lobes, scale, seed, maxLobes = 9, detail = 1) {
   }
 }
 
-// (veg r1) trunkGeometry (cylinders butted together) replaced by treetrunk.js: one swept, tapered, leaning trunk with a
+// (veg r1) trunkGeometry (cylinders butted together) replaced by treeTrunk.ts: one swept, tapered, leaning trunk with a
 // root flare and limbs that peel off their parent (smooth forks), textured with the image-generated bark array
 
 // Leaf atlas (tools/blender/city_props_leaves.py): R value, G hue selector (>= .97 twig), B depth in spray, A coverage;
@@ -260,13 +250,13 @@ function leafMaterial(T) {
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = mat.userData.uTime;
     sh.uniforms.uLeafN = { value: LT.nrm };
-    sh.uniforms.uLeafFrame = { value: csmShared.params };
+    sh.uniforms.uLeafFrame = { value: cascadedShadowState.params };
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",treesShader.vertexCommon,
       )
       .replace(
-        "#include <begin_vertex>",__shaderPatch2,
+        "#include <begin_vertex>",treesShader.vertexBeginVertex,
       );
     // capture the (CSM-shadowed) sun radiance + direction right after the key light is evaluated -> leaf translucency
     let lf = THREE.ShaderChunk.lights_fragment_begin;
@@ -282,25 +272,25 @@ function leafMaterial(T) {
     lf = e > 60 ? lf.slice(0, e) + cap + lf.slice(e) : lf;
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch3,
+        "#include <common>",treesShader.fragmentCommon,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch4,
+        "#include <map_fragment>",treesShader.fragmentMap,
       )
       .replace(
-        "#include <alphatest_fragment>",__shaderPatch5,
+        "#include <alphatest_fragment>",treesShader.fragmentAlphaTest,
       )
       .replace(
-        "#include <normal_fragment_begin>",__shaderPatch6,
+        "#include <normal_fragment_begin>",treesShader.fragmentNormalBegin,
       )
       .replace(
-        "#include <lights_fragment_begin>",injectShader(__shaderPatch7, lf),
+        "#include <lights_fragment_begin>",injectShader(treesShader.fragmentLightsBegin, lf),
       )
       .replace(
-        "#include <lights_fragment_end>",__shaderPatch8,
+        "#include <lights_fragment_end>",treesShader.fragmentLightsEnd,
       )
       .replace(
-        "#include <emissivemap_fragment>",__shaderPatch9,
+        "#include <emissivemap_fragment>",treesShader.fragmentEmissive,
       );
   };
   mat.userData.uTime = { value: 0 };
@@ -465,14 +455,14 @@ const PARK_AUTUMN = [
     : p
   ).map((c) => desat(c, 0.22).map((v) => v * 0.94)),
 ); // (park r10) critic r9: 'saturated yellow / orange patches look painted on' -> a further 22 % toward grey; (park r8) critic r7: 'saturated orange clumps' -> muted
-// smooth 0..1 fields from a few sines (cheap, deterministic, mirrored in ground.js' lawn shader for parkOpen)
+// smooth 0..1 fields from a few sines (cheap, deterministic, mirrored in ground.ts' lawn shader for parkOpen)
 const fld = (x, z, f, ph) =>
   0.5 +
   0.5 *
     (0.55 * Math.sin(x * f + ph) * Math.cos(z * f * 0.83 - ph * 1.7) +
       0.3 * Math.sin((x * 0.6 - z * 0.8) * f * 2.1 + ph * 2.3) +
       0.15 * Math.sin((x * 0.9 + z * 0.4) * f * 4.3 + ph * 0.7));
-// open woodland (scattered trees on lawn, ref 09 / 10) where > ~0.64; ground.js lightens the woodland floor there
+// open woodland (scattered trees on lawn, ref 09 / 10) where > ~0.64; ground.ts lightens the woodland floor there
 export function parkOpen(x, z) {
   return fld(x, z, 1 / 55, 4.1);
 }
@@ -655,74 +645,33 @@ function crownMaterial() {
   const mat = new THREE.MeshStandardMaterial({ map: LT.col, roughness: 0.85 });
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uLeafN = { value: LT.nrm };
-    sh.uniforms.uLeafFrame = { value: csmShared.params };
+    sh.uniforms.uLeafFrame = { value: cascadedShadowState.params };
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch10,
+        "#include <common>",treesShader.vertexCommonLeafCanopyData,
       )
       .replace(
-        "#include <begin_vertex>",__shaderPatch11,
+        "#include <begin_vertex>",treesShader.vertexBeginVertexLeafCanopyData,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch12,
+        "#include <common>",treesShader.fragmentCommonLeafCanopyData,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch13,
+        "#include <map_fragment>",treesShader.fragmentMapByLeafTintB,
       )
       .replace(
-        "#include <normal_fragment_maps>",__shaderPatch14,
+        "#include <normal_fragment_maps>",treesShader.fragmentNormalMaps,
       )
       .replace(
-        "#include <emissivemap_fragment>",__shaderPatch15,
+        "#include <emissivemap_fragment>",treesShader.fragmentEmissiveLeafLightTransmission,
       );
   };
   mat.customProgramCacheKey = () => "park-crown-v6";
   return mat;
 }
-// ground.js skips its CanopyBatch grove fill: the park woodland + its crown LODs live here (park round 1)
+// ground.ts skips its CanopyBatch grove fill: the park woodland + its crown LODs live here (park round 1)
 export const PARK_CANOPY_EXTERNAL = true;
-// Open lawns inside the park (Sheep-Meadow / Great-Lawn / North-Meadow-like + small glades). Shared with the crowd
-// (people sunbathing, playing, chatting) — keep in sync by importing, never copy.
-// (positions are fractions of the park: fx across west->east, fz from the south edge (0) to the north edge (1))
-const _PK = G.PARK,
-  _pm = (fx, fz, rx, rz, a) => ({
-    x: _PK.x0 + fx * (_PK.x1 - _PK.x0),
-    z: _PK.z1 - fz * (_PK.z1 - _PK.z0),
-    rx,
-    rz,
-    a,
-  });
-export const PARK_MEADOWS = [
-  _pm(0.36, 0.12, 100, 58, 0.1),
-  _pm(0.52, 0.44, 95, 80, -0.15),
-  _pm(0.6, 0.8, 110, 75, 0.2), // Sheep Meadow, Great Lawn, North Meadow
-  _pm(0.8, 0.1, 45, 32, 0.5),
-  _pm(0.16, 0.2, 42, 30, -0.4),
-  _pm(0.84, 0.36, 40, 36, 0.3),
-  _pm(0.2, 0.47, 38, 50, 0.2),
-  _pm(0.25, 0.72, 55, 36, -0.3),
-  _pm(0.82, 0.22, 34, 26, 0),
-  _pm(0.3, 0.9, 50, 34, 0.1),
-  _pm(0.82, 0.68, 40, 50, -0.2),
-];
-// normalised elliptical distance to the nearest meadow (with a wobbly edge): <1 inside
-export function meadowDist(x, z) {
-  let best = 9;
-  for (const m of PARK_MEADOWS) {
-    const dx = x - m.x,
-      dz = z - m.z,
-      c = Math.cos(m.a),
-      s = Math.sin(m.a);
-    const u = (dx * c - dz * s) / m.rx,
-      v = (dx * s + dz * c) / m.rz;
-    const ang = Math.atan2(v, u);
-    const wob =
-      1 + 0.09 * Math.sin(ang * 3 + m.x) + 0.06 * Math.sin(ang * 5 + m.z);
-    best = Math.min(best, Math.hypot(u, v) / wob);
-  }
-  return best;
-}
 // 0..1 grove density: dense woods (Ramble-like) vs scattered specimen trees on open lawn
 function groveDensity(x, z) {
   const n =
@@ -769,8 +718,8 @@ function canopyShade(pts) {
   const mat = new THREE.ShaderMaterial({
     glslVersion: THREE.GLSL3,
     uniforms: { uSun: { value: sun }, uY: { value: G.CURB_H + 0.03 } },
-    vertexShader: __shaderRaw1,
-    fragmentShader: __shaderRaw2,
+    vertexShader: treesVertexShader,
+    fragmentShader: treesFragmentShader,
     transparent: true,
     depthWrite: false,
     blending: THREE.MultiplyBlending,
@@ -1084,8 +1033,8 @@ export function buildTrees({ scene, T, spots, parkPaths }) {
     add("street", x, P.z0 - 2.3, 1.0 + rnd() * 0.35);
   }
   // (park round 1) park interior: one dense, continuous woodland (the same grove field the lawn shader darkens under,
-  // ground.js) around the open meadows, glades and path lanes; trees crowd up to the banks; the Met-like museum's lot
-  // (park.js PARK_SITES) stays clear. Crowns overlap (~40%) so from the air the canopy is closed, not a lollipop field.
+  // ground.ts) around the open meadows, glades and path lanes; trees crowd up to the banks; the Met-like museum's lot
+  // (park.ts PARK_SITES) stays clear. Crowns overlap (~40%) so from the air the canopy is closed, not a lollipop field.
   const meadows = PARK_MEADOWS;
   const segs = [];
   for (const p of parkPaths)
@@ -1484,7 +1433,7 @@ export function buildTrees({ scene, T, spots, parkPaths }) {
       }
   }
   // (veg r1) trunk collision: one vertical frustum (CYL) per tree, about the trunk radius, from just under the base to
-  // <= 4 m (static, in the collision grid: no per-frame cost). The shrub border is walk-through. city.js calls this
+  // <= 4 m (static, in the collision grid: no per-frame cost). The shrub border is walk-through. city.ts calls this
   // after the props refit (fitInstancedSolids may cull solids inside a prop footprint).
   out.addSolids = (S) => {
     const m = new THREE.Matrix4(),

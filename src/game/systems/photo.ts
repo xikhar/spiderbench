@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Photo mode core: free camera (tethered to the player), FOV / roll / DoF / exposure,
+// Photo mode core: free camera (tethered to the player), FOV / roll / DoF / exposure,
 // colour filters (via pipeline.grade), frames (drawn on a 2D overlay + baked into captures), hide HUD / hide
 // Spider-Man, PNG capture + download, landmark / secret-photo detection on capture. Also `snap()` for quick
 // in-game photos (landmarks) which only produces a thumbnail.

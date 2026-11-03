@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: citylife engineer. Camera-centred streaming traffic over the whole road network (npc/roads.js):
+// Camera-centred streaming traffic over the whole road network (npc/roads.ts):
 //  * every lane link within RA metres of the camera is "active": it is populated when it enters the radius
 //    (always at the fogged edge once play starts) and its cars are dropped when it leaves; boundary links spawn
 //    inflow, cars leaving the radius are retired. No wrap-around teleports.
@@ -21,11 +21,11 @@ import {
 import { connector, connAt, mapPhase, bridgeJunctions } from "./roads.ts";
 import { createJunctions } from "./junctions.ts"; // (citylife junctions) conflict / reservation model
 import { registry, curbBlocked } from "./registry.ts";
-import { createContactAO, createHeadlightPools } from "../contactao.ts"; // (daynight) + headlight pools // (street r7) contact AO decals under cars
-import { csmShared, SHADOW_PROXY_LAYER } from "../../render/csm.ts"; // (perf r2) shadow proxies
-import { perf2Off } from "../tilebatch.ts"; // (perf r2) A/B switch
-import { cityLights } from "../../render/citylights.ts"; // (night) real headlight / tail-light lighting
-import { nightK } from "../../render/daynight.ts"; // (night)
+import { createVehicleContactShadows, createHeadlightPools } from "../vehicleLighting.ts"; // (daynight) + headlight pools // (street r7) contact AO decals under cars
+import { cascadedShadowState, SHADOW_PROXY_LAYER } from "../../render/cascadedShadows.ts"; // (perf r2) shadow proxies
+import { isPerformanceFeatureDisabled } from "../performanceFlags.ts"; // (perf r2) A/B switch
+import { cityLights } from "../../render/cityLights.ts"; // (night) real headlight / tail-light lighting
+import { nightK } from "../../render/dayNight.ts"; // (night)
 
 const RA = 640; // streaming radius (m)
 const PARK_R = 500; // parked cars exist on links within this radius ((citylife r2) 420 -> 500: no pop-in seen from rooftops, inside the haze)
@@ -43,7 +43,7 @@ const PLAYER_R = 0.5; // player body half-width used by drivers (arms + stance),
 // populate put down (measured: av 36, st 45, wide st 23, Broadway 48, street maps 54). The streamed area used to drain
 // (the edge inflow can't replace the cars driving out of the 640 m radius: ~1000 cars at load -> ~320 after 5 min with the
 // camera parked), so a stationary view emptied out whatever the spawn gaps were. The refill below tops links up out of view.
-const DENSITY = { av: 31, st: 44, ws: 20, dg: 41, dg1: 80, map: 27, br: 31 }; // br: bridge decks (roads.js BRIDGE_DENSITY) // dg1: one-way lower Broadway (2 lanes carry what 4 did)
+const DENSITY = { av: 31, st: 44, ws: 20, dg: 41, dg1: 80, map: 27, br: 31 }; // br: bridge decks (roads.ts BRIDGE_DENSITY) // dg1: one-way lower Broadway (2 lanes carry what 4 did)
 let densityScale = 1; // api.setDensity(k): scales DENSITY
 
 export const VTYPES = {
@@ -181,7 +181,7 @@ class Inst {
 }
 
 // ------------------------------------------------------------------ honk: (audio r1) routed to the game's audio system
-// (tonal, distance-filtered horn samples through an HRTF panner at the car; window.__audio from systems/audio.js)
+// (tonal, distance-filtered horn samples through an HRTF panner at the car; window.__audio from systems/audio.ts)
 function makeHorn() {
   let last = -1;
   return (dist, big, x, z, y = 1) => {
@@ -256,12 +256,12 @@ export function createTraffic({
       all.push(tiers[t][k]);
     }
   }
-  const cao = createContactAO(scene, 1600); // (street r7)
+  const cao = createVehicleContactShadows(scene, 1600); // (street r7)
   const hlp = createHeadlightPools(scene, 600); // (daynight, lighting2 r4) headlight pools on the road at night (fallback: ?nocl)
-  // (night) car lights (citylights.js): every moving car (and a parked one on hazards / at the bus stop) within CL_R of
+  // (night) car lights (cityLights.ts): every moving car (and a parked one on hazards / at the bus stop) within CL_R of
   // the camera whose beam can reach the view is a candidate; the CL_MAX nearest get a real forward headlight spot
   // (cool white, lights the road ahead, the car in front, pedestrians, with a little lit haze) and the nearer ones a
-  // weak red tail-light point at the rear (brighter while braking). Parked cars are dark (instance state -1: partmat.js
+  // weak red tail-light point at the rear (brighter while braking). Parked cars are dark (instance state -1: partMaterials.ts
   // keeps their head / tail lamps off). Gathered in render() (after placeCar), emitted from the provider below
   // (cityLights.build runs after world.update). No allocation per frame; nothing by day.
   const CL_MAX = 50,
@@ -703,7 +703,7 @@ export function createTraffic({
     void first;
   };
   // (citylife junctions) a curb spot inside Broadway's roadway (where it crosses a street / avenue) is no parking spot
-  // (citylife bridges) the bridge T mouths: no parking, double-parking, taxi or bus stops (roads.js bridgeJunctions)
+  // (citylife bridges) the bridge T mouths: no parking, double-parking, taxi or bus stops (roads.ts bridgeJunctions)
   const inBJ = (x, z) =>
     bridgeJunctions().some((b) => x > b.x0 && x < b.x1 && z > b.z0 && z < b.z1);
   const onDiag = (x, z, pad, own = null) => {
@@ -1594,7 +1594,7 @@ export function createTraffic({
     }
     return C;
   };
-  // (citylife junctions) movements + conflict table (npc/junctions.js); signal hooks: may c go now? is o's light red?
+  // (citylife junctions) movements + conflict table (npc/junctions.ts); signal hooks: may c go now? is o's light red?
   const jx = createJunctions(roads, getConn);
   const jStats = { broken: 0, lc: 0, refill: 0, drain: 0 };
   const camPos = new THREE.Vector3(1e9, 0, 0);
@@ -1619,7 +1619,7 @@ export function createTraffic({
       (M.kind === "x" ? M.L : M.inL).axis,
       M.kind === "x" ? M.L : M.inL,
     ) === 0;
-  // (citylife junctions r2) the street-map junctions (no crosswalks) run roads.js mapPhase: the grid's 22 / 11 s split starved their streets
+  // (citylife junctions r2) the street-map junctions (no crosswalks) run roads.ts mapPhase: the grid's 22 / 11 s split starved their streets
   // (citylife bridges) the bridge T's run the same even split: the bridge gets half the cycle to empty into the city
   for (const L of links)
     L.mapSig = !!(
@@ -1860,7 +1860,11 @@ export function createTraffic({
   const events = [];
   let proxyOn = false; // (perf r2) csm hides the hi cars from cascades >= 2 (userData.maxCascade) once proxies can cast
   const render = (camera, clear) => {
-    if (!proxyOn && csmShared.proxyShadows && !perf2Off("noproxy")) {
+    if (
+      !proxyOn &&
+      cascadedShadowState.proxyShadows &&
+      !isPerformanceFeatureDisabled("noproxy")
+    ) {
       proxyOn = true;
       for (const t in tiers)
         if (tiers[t].proxy) {

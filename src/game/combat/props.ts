@@ -1,8 +1,8 @@
 // @ts-nocheck
-// OWNER: combat engineer. Environmental throwables spawned around a fight (NYC litter bin, wooden crate, oil drum):
+// Environmental throwables spawned around a fight (NYC litter bin, wooden crate, oil drum):
 // webbed with both hands, yanked overhead, hurled at an enemy (R / L1+R1).
 import * as THREE from "three";
-import { clamp, rnd } from "./util.ts";
+import { clamp, randomBetween } from "./combatMath.ts";
 
 const _v = new THREE.Vector3(),
   _v2 = new THREE.Vector3();
@@ -25,11 +25,11 @@ function woodTex() {
     g.moveTo(0, y);
     g.bezierCurveTo(
       80,
-      y + rnd(-4, 4),
+      y + randomBetween(-4, 4),
       170,
-      y + rnd(-4, 4),
+      y + randomBetween(-4, 4),
       256,
-      y + rnd(-3, 3),
+      y + randomBetween(-3, 3),
     );
     g.stroke();
   }
@@ -148,7 +148,7 @@ export function createProps(c) {
       const W = ctx.world;
       for (let k = 0, tries = 0; k < n && tries < 40; tries++) {
         const a = Math.random() * Math.PI * 2,
-          r = rnd(3, 8.5);
+          r = randomBetween(3, 8.5);
         const x = center.x + Math.cos(a) * r,
           z = center.z + Math.sin(a) * r;
         const gy = W.groundHeight(x, z, center.y + 2);
@@ -230,7 +230,7 @@ export function createProps(c) {
       pr.target = target;
       const to = target.chest(_v);
       pr.vel.subVectors(to, pr.pos).normalize().multiplyScalar(26);
-      pr.spin.set(rnd(-9, 9), rnd(-6, 6), rnd(-9, 9));
+      pr.spin.set(randomBetween(-9, 9), randomBetween(-6, 6), randomBetween(-9, 9));
     },
     clear() {
       for (const p of list) scene.remove(p.g);
@@ -280,7 +280,7 @@ export function createProps(c) {
                 for (let j = 0; j < 14; j++)
                   c.fx.alpha.emit({
                     pos: pr.pos,
-                    vel: _v.set(rnd(-5, 5), rnd(1, 6), rnd(-5, 5)),
+                    vel: _v.set(randomBetween(-5, 5), randomBetween(1, 6), randomBetween(-5, 5)),
                     life: 0.9,
                     size: 0.09,
                     size1: 0.07,

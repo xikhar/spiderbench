@@ -1,16 +1,18 @@
 // @ts-nocheck
-import __shaderPatch1 from "./shaders/glsl/markers-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/markers-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/markers-patch-3.glsl?raw";
+import { lazyShaderSections } from "../../shaderSections.ts";
+import markersShaderSource from "./shaders/glsl/markers.glsl?raw";
 import markerVertex from "./shaders/vertex/markers.vert?raw";
 import towerBeamFragment from "./shaders/fragment/tower-beam.frag?raw";
 import waypointPillarFragment from "./shaders/fragment/waypoint-pillar.frag?raw";
-// OWNER: systems engineer. 3D world objects for open-world systems (all procedural, merged / instanced):
+// 3D world objects for open-world systems (all procedural, merged / instanced):
 //   research towers (lattice mast + dish + beacon), backpacks (webbed to walls / roofs), subway entrances,
 //   waypoint light pillar, tower "district scan" pulse. ~12 draw calls total.
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
+
+const markersShader = lazyShaderSections(() => markersShaderSource);
+
 
 const _up = new THREE.Vector3(0, 1, 0),
   _z = new THREE.Vector3(0, 0, 1);
@@ -367,8 +369,8 @@ export function createMarkers(scene, renderer) {
       value: 0.6,
     };
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>", __shaderPatch1)
-      .replace("#include <emissivemap_fragment>", __shaderPatch2);
+      .replace("#include <common>", markersShader.fragmentCommon)
+      .replace("#include <emissivemap_fragment>", markersShader.fragmentEmissive);
   };
   packMat.customProgramCacheKey = () => "sys-backpack";
 
@@ -792,7 +794,7 @@ export function createMarkers(scene, renderer) {
   crimeCol.material = pillar.material.clone();
   crimeCol.material.fragmentShader = crimeCol.material.fragmentShader.replace(
     "vec3(1.6,1.05,0.25)",
-    __shaderPatch3,
+    markersShader.crimeOverlayColor,
   );
   crimeCol.visible = false;
   root.add(crimeCol);

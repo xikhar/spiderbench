@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: foundation agent (city remake); rebuilt by the bridges agent (bridges r1). East River bridges (definitions:
+// East River bridges (definitions:
 // layout.BRIDGES). Every bridge is a complete road from a Manhattan street to the far shore:
 //   Manhattan street / avenue (at grade) -> approach plaza (apron over the sidewalk, lots cleared) -> approach viaduct
 //   (masonry arcade over block interiors, steel spans over streets / avenues / the waterfront) -> anchorage (stone, in
@@ -15,39 +15,23 @@
 //   cantilever Queensboro-like: through truss whose top chord peaks over stone piers with pinnacle towers, crossing
 //              the Roosevelt-like islet
 // Traversal (bridges r1): towers, anchorages, cable segments and truss chords go into world.buildings (web-swing anchor
-// faces, anchors.js); the main cables and truss top chords are solid (thin ramps: run up a cable, perch on it) with zip
+// faces, anchors.ts); the main cables and truss top chords are solid (thin ramps: run up a cable, perch on it) with zip
 // points; lamp heads are lampTop zip points (low swings along the deck). bridgeLimits() is the halfway rule: past a
-// bridge's mid-span the player is web-yanked back toward Manhattan (traversal.js bridgeBounce).
+// bridge's mid-span the player is web-yanked back toward Manhattan (traversal.ts bridgeBounce).
 // Geometry is merged per material over all bridges: stone, deck, cables, steel (vertex colours: one draw for every
 // bridge), truss / railings (lattice shader) = 5 draw calls.
-import __shaderPatch1 from "./shaders/glsl/bridges-patch-1.glsl?raw";
-import __shaderPatch10 from "./shaders/glsl/bridges-patch-10.glsl?raw";
-import __shaderPatch11 from "./shaders/glsl/bridges-patch-11.glsl?raw";
-import __shaderPatch12 from "./shaders/glsl/bridges-patch-12.glsl?raw";
-import __shaderPatch13 from "./shaders/glsl/bridges-patch-13.glsl?raw";
-import __shaderPatch14 from "./shaders/glsl/bridges-patch-14.glsl?raw";
-import __shaderPatch15 from "./shaders/glsl/bridges-patch-15.glsl?raw";
-import __shaderPatch16 from "./shaders/glsl/bridges-patch-16.glsl?raw";
-import __shaderPatch17 from "./shaders/glsl/bridges-patch-17.glsl?raw";
-import __shaderPatch18 from "./shaders/glsl/bridges-patch-18.glsl?raw";
-import __shaderPatch19 from "./shaders/glsl/bridges-patch-19.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/bridges-patch-2.glsl?raw";
-import __shaderPatch20 from "./shaders/glsl/bridges-patch-20.glsl?raw";
-import __shaderPatch21 from "./shaders/glsl/bridges-patch-21.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/bridges-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/bridges-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/bridges-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/bridges-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/bridges-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/bridges-patch-8.glsl?raw";
-import __shaderPatch9 from "./shaders/glsl/bridges-patch-9.glsl?raw";
-import { injectShader } from "../render/shader.ts";
-import { nightK, nightOnly } from "../render/daynight.ts"; // (daynight)
-import { cityLights } from "../render/citylights.ts"; // (night) real deck-lamp lighting
+import { lazyShaderSections } from "../shaderSections.ts";
+import bridgesShaderSource from "./shaders/glsl/bridges.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
+import { nightK, nightOnly } from "../render/dayNight.ts"; // (daynight)
+import { cityLights } from "../render/cityLights.ts"; // (night) real deck-lamp lighting
 import * as THREE from "three";
 import { G, BRIDGES, shoreX, onRoad, streetsAt, addCurbCut } from "./layout.ts";
 import { FAR_LANDS, FAR_Y } from "./farshore.ts";
-import { REFL_LAYER } from "./water.ts";
+import { REFL_LAYER } from "./waterLayers.ts";
+
+const bridgesShader = lazyShaderSections(() => bridgesShaderSource);
+
 
 const LW = 3.4; // lane width (m)
 
@@ -366,17 +350,17 @@ function stoneMaterial(T) {
     sh.uniforms.tSN = { value: T.noise };
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",bridgesShader.vertexCommon,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch2,
+        "#include <fog_vertex>",bridgesShader.vertexFogVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch3,
+        "#include <common>",bridgesShader.fragmentCommon,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch4,
+        "#include <map_fragment>",bridgesShader.fragmentMap,
       );
   };
   m.customProgramCacheKey = () => "bridge-stone-v1";
@@ -394,17 +378,17 @@ function steelMaterial() {
     sh.uniforms.uNightK = nightK;
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch5,
+        "#include <common>",bridgesShader.vertexCommonByCableGlow,
       )
       .replace(
-        "#include <begin_vertex>",__shaderPatch6,
+        "#include <begin_vertex>",bridgesShader.vertexBeginVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch7,
+        "#include <common>",bridgesShader.fragmentCommonByCableGlow,
       )
       .replace(
-        "#include <emissivemap_fragment>",__shaderPatch8,
+        "#include <emissivemap_fragment>",bridgesShader.fragmentEmissive,
       );
   };
   m.customProgramCacheKey = () => "bridge-steel-v2";
@@ -422,22 +406,22 @@ function cableMaterial() {
     sh.uniforms.uNightK = nightK; // (daynight) necklace lights along the cables at night
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch9,
+        "#include <common>",bridgesShader.vertexCommonByCableNeck,
       )
       .replace(
-        "#include <begin_vertex>",__shaderPatch10,
+        "#include <begin_vertex>",bridgesShader.vertexBeginVertexCableBend,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch11,
+        "#include <common>",bridgesShader.fragmentCommonCableLighting,
       )
       // (night) the distance-fattened cables read as pale bars against the night sky (moon / sky sheen on 2+ px tubes):
       // darker, less metallic at night, so only the necklace bulbs carry the catenaries from afar
       .replace(
-        "#include <metalnessmap_fragment>",__shaderPatch12,
+        "#include <metalnessmap_fragment>",bridgesShader.fragmentMetalness,
       )
       .replace(
-        "#include <emissivemap_fragment>",__shaderPatch13,
+        "#include <emissivemap_fragment>",bridgesShader.fragmentEmissiveCableLighting,
       );
   };
   m.customProgramCacheKey = () => "bridge-cable-minpx-v6";
@@ -455,12 +439,12 @@ function latticeMaterial() {
   });
   m.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>",__shaderPatch14)
-      .replace("#include <begin_vertex>",__shaderPatch15);
+      .replace("#include <common>",bridgesShader.vertexCommonByTubeUv)
+      .replace("#include <begin_vertex>",bridgesShader.vertexBeginVertexByTubeUv);
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>",__shaderPatch16)
+      .replace("#include <common>",bridgesShader.fragmentCommonByTubeUv)
       .replace(
-        "#include <clipping_planes_fragment>",__shaderPatch17,
+        "#include <clipping_planes_fragment>",bridgesShader.fragmentClipping,
       );
   };
   m.customProgramCacheKey = () => "bridge-lattice-v2";
@@ -476,17 +460,17 @@ function deckMaterial(T) {
     sh.uniforms.tSN = { value: T.noise };
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch18,
+        "#include <common>",bridgesShader.vertexCommonByDeckExtras,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch19,
+        "#include <fog_vertex>",bridgesShader.vertexFogVertexByDeckUv,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch20,
+        "#include <common>",bridgesShader.fragmentCommonDeckMaterial,
       )
       .replace(
-        "#include <map_fragment>",injectShader(__shaderPatch21, LW.toFixed(1), LW.toFixed(1), LW.toFixed(1), LW.toFixed(1)),
+        "#include <map_fragment>",injectShader(bridgesShader.fragmentMapByDeckUv, LW.toFixed(1), LW.toFixed(1), LW.toFixed(1), LW.toFixed(1)),
       );
   };
   m.customProgramCacheKey = () => "bridge-deck-v2";
@@ -559,7 +543,7 @@ function joinX(xL, zl) {
   return xL - 12;
 }
 
-// resolved spans for each bridge (shared with farshore.js for keeping the approach corridors free); memoised: the layout
+// resolved spans for each bridge (shared with farshore.ts for keeping the approach corridors free); memoised: the layout
 // and the far lands are static
 let _spans = null;
 export function bridgeSpans() {
@@ -607,8 +591,8 @@ export function roadProfile(B) {
   return pts;
 }
 // (bridges r3) ramp-mouth junction footprints (Manhattan side): the apron, the ramp foot and the whole joined street
-// (both sidewalks + parking lanes) +-22 m past the deck. Street furniture and trees keep off (city.js); it matches the
-// traffic's no-parking T footprint (npc/roads.js bridgeJunctions, built later with the road network).
+// (both sidewalks + parking lanes) +-22 m past the deck. Street furniture and trees keep off (city.ts); it matches the
+// traffic's no-parking T footprint (npc/roads.ts bridgeJunctions, built later with the road network).
 export function bridgeKeepOuts() {
   return bridgeSpans()
     .filter((B) => B.mLand !== null)
@@ -625,7 +609,7 @@ export function bridgeKeepOuts() {
       };
     });
 }
-// building-exclusion rects under the Manhattan approaches (city.js -> generateBuildings exclude): apron + viaduct
+// building-exclusion rects under the Manhattan approaches (city.ts -> generateBuildings exclude): apron + viaduct
 export function approachRects() {
   return bridgeSpans()
     .filter((B) => B.mLand !== null)
@@ -708,7 +692,7 @@ export function buildBridges({
     solids,
     zips,
     boxes,
-  }; // (night) lamps: real lights (citylights.js)
+  }; // (night) lamps: real lights (cityLights.ts)
   const spans = bridgeSpans();
   for (const B of spans) {
     const col = new THREE.Color(B.color ?? 0x6f7a80);
@@ -737,7 +721,7 @@ export function buildBridges({
   add(K.steel, steelMaterial(), "bridgeSteel", true, { color: true, ex: true });
   add(K.lat, latticeMaterial(), "bridgeTruss", false, { color: true });
   {
-    // (bridges r2) lamp light pools on the decks at night: one additive decal mesh (like props.js lampPool), no draw by day
+    // (bridges r2) lamp light pools on the decks at night: one additive decal mesh (like props.ts lampPool), no draw by day
     const cv = document.createElement("canvas");
     cv.width = cv.height = 64;
     const g2 = cv.getContext("2d"),
@@ -776,7 +760,7 @@ export function buildBridges({
       group.add(nightOnly(m));
     } // (night) replaced by the real lamp light below
     // (night) every deck lamp is a real light: roadway cobra heads = warm down-facing spots (like the street lamps,
-    // props.js), anchorage twin globes = soft warm points
+    // props.ts), anchorage twin globes = soft warm points
     for (const L of K.lamps)
       cityLights.add(
         L.globe
@@ -1450,7 +1434,7 @@ function farApproach(B, K) {
     z = B.z,
     hw = B.sec.hw;
   const yAt = (x) => yA + ((yB - yA) * (x - ra)) / (rb - ra);
-  // spans over far-shore cross streets every ~120 m and the Flushing-Line-like el (farshore.js RAIL, x = 1450)
+  // spans over far-shore cross streets every ~120 m and the Flushing-Line-like el (farshore.ts RAIL, x = 1450)
   const gaps = [];
   for (let x = ra + 60; x < rb - 60; x += 118) gaps.push([x, x + 16]);
   gaps.push([1440, 1462]);

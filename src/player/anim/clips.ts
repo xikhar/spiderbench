@@ -1,6 +1,5 @@
 // @ts-nocheck
-// OWNER: animation agent.
-// Clip library: samplers by name, root-motion lock, and automatic clip analysis
+// // Clip library: samplers by name, root-motion lock, and automatic clip analysis
 // (natural locomotion speed, left-foot touchdown phase, landing contact time, turn direction).
 import * as THREE from "three";
 import { Pose, ClipSampler } from "./skeleton.ts";

@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Persistent progress (localStorage). One JSON blob, debounced writes.
+// Persistent progress (localStorage). One JSON blob, debounced writes.
 // In automated runs (?playtest=1 / ?shot=) the save is in-memory only (fresh every run) unless ?save=1,
 // so scenarios stay deterministic and never clobber a player's real save. ?newgame wipes the stored save.
 const KEY = "spiderbench.save.v1";
@@ -11,7 +11,7 @@ export const DEFAULT_SETTINGS = {
   fpsLimit: "auto",
   mouseSensitivity: 1,
   invertY: false,
-  // (user r-mixdefaults) the user's tuned mix (80 / 4 / 16 / 10 / 6 %) is baked into audio.js TRIM: it is now 100 / 70 / 70 / 70 / 70
+  // (user r-mixdefaults) the user's tuned mix (80 / 4 / 16 / 10 / 6 %) is baked into audio.ts TRIM: it is now 100 / 70 / 70 / 70 / 70
   masterVolume: 1,
   musicVolume: 0.7,
   sfxVolume: 0.7,

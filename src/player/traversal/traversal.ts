@@ -1,8 +1,8 @@
 // @ts-nocheck
-// OWNER: traversal engineer. Insomniac-style traversal state machine.
+// Insomniac-style traversal state machine.
 //   modes: ground | air | swing | zip | perch | wall | rope   (+ C1 anim.mode 'land' while a landing recovery plays)
-//   rope = web tightrope (T while perched, see ./rope.js): shoot a web to the targeted point, walk the strand
-// Writes the C1 contract struct `anim` every frame (see src/main.ts / traversal/anim.js) and exposes the body root transform
+//   rope = web tightrope (T while perched, see ./rope.ts): shoot a web to the targeted point, walk the strand
+// Writes the C1 contract struct `anim` every frame (see src/main.ts / traversal/anim.ts) and exposes the body root transform
 // (rootPos = feet, bodyQ) for the animation layer.
 //
 // Physics conventions: s.pos = body centre (feet + H); 120 Hz substeps; gravity 24 m/s^2; speed cap 45 m/s.
@@ -13,7 +13,7 @@ import {
   pushOutCapsule,
   pushOutRays,
 } from "./collide.ts";
-import { createZipPoints, createZipTargeting } from "./zippoints.ts";
+import { createZipPoints, createZipTargeting } from "./zipPoints.ts";
 import { createAnchorFinder } from "./anchors.ts";
 import { makeAnim, writeAnim } from "./anim.ts";
 import { ROPE, makeRope, ropePoint, stepRopeSpring } from "./rope.ts";
@@ -76,7 +76,7 @@ const UP = new THREE.Vector3(0, 1, 0);
 // a speed boost). The boost lands at the trick's snap moment (snap * dur seconds in), not at release:
 //   boost = m/s added along the horizontal travel direction (x skill 'swingReleaseBoost'), up = m/s vertical,
 //   steer = max rad the heading turns toward the stick, side = m/s lateral drift (toward the stick),
-//   dur must match animator.js PTRICK.
+//   dur must match animator.ts PTRICK.
 const TRICK_DEF = {
   tuckFlip: { dur: 0.9, snap: 0.35, boost: 5.5, up: 0.8 }, // tucked front somersault (user r10c; replaces the flat dive-out)
   layout: { dur: 1.3, snap: 0.35, boost: 4.0, up: 2.5 }, // loose layout flip (slow, eased): speed + a bit of height
@@ -198,7 +198,7 @@ export function createTraversal({ world, cam, web, rig, camera }) {
     pitch: 0,
     bank: 0,
     rollSpin: 0,
-    wallNormal: null, // alias kept for shots.js (player.state.wallNormal)
+    wallNormal: null, // alias kept for screenshotPresets.ts (player.state.wallNormal)
     lookDir: new THREE.Vector3(0, 0, 1),
     // web slingshot (Ctrl held on the ground): anchors [{p, n, side -1 L / +1 R, t}], pull (m back from origin), tension 0..1
     sling: {
@@ -1144,7 +1144,7 @@ export function createTraversal({ world, cam, web, rig, camera }) {
     );
     return true;
   }
-  // (bridges r1) Halfway rule on the East River bridges (world.bridgeLimit, bridges.js bridgeLimits): past a bridge's
+  // (bridges r1) Halfway rule on the East River bridges (world.bridgeLimit, bridges.ts bridgeLimits): past a bridge's
   // mid-span (on the deck, swinging, perched on a cable or falling) he is web-yanked back toward Manhattan on a
   // ballistic arc onto the deck, like the water bounce (no teleport; no glide / air control / re-attach until he lands).
   function bridgeBounce(L) {
@@ -3649,14 +3649,14 @@ export function createTraversal({ world, cam, web, rig, camera }) {
     s.vel.set(0, 0, 0);
   }
 
-  // ------------------------------------------------------------------ web tightrope (T while perched; ./rope.js)
+  // ------------------------------------------------------------------ web tightrope (T while perched; ./rope.ts)
   // T on a perch with the zip reticle on a point: validate (length 6-120 m, incline <= 30 deg, clear line for the strand
   // and his body) -> ropeShoot: right arm up + point, one web flies to the target (ROPE.AIM s), the hand brings the near
   // end down and pins it at our perch point (ROPE.PIN s after the hit) -> ropeStand (0.5 s up from the crouch onto the
   // start of the line, facing along it) -> ropeIdle / ropeWalk (W toward the far point, S back toward the start; he
   // turns round on the line to face the way he walks: ropeTurn) -> the far end = standing perch there (perchStand), the
   // start = standing perch back on the start point. Exits: Space jump, E zip (only with a target), C / Ctrl drop,
-  // RMB hop into a swing, combat engage (player.js -> ropeFall). The strand lingers ROPE.LINGER s after he leaves, then
+  // RMB hop into a swing, combat engage (player.ts -> ropeFall). The strand lingers ROPE.LINGER s after he leaves, then
   // lets go at the far end and falls away.
   function ropeFail(reason) {
     events.push({ type: "ropeFail", reason });

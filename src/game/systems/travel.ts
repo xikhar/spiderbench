@@ -1,10 +1,10 @@
 // @ts-nocheck
-// OWNER: systems engineer. Waypoints, GPS route, fast travel, objective management, minimap overlay.
+// Waypoints, GPS route, fast travel, objective management, minimap overlay.
 //   setWaypoint(Vector3|null) -> HUD objective (hud.setObjective) + light pillar + GPS route line on the minimap
 //   fastTravel(station)       -> fade / subway loading card -> player.teleport -> fade in
 //   With no waypoint, the HUD objective points at the nearest inactive research tower (Insomniac onboarding).
 // The minimap overlay is drawn onto the HUD's `.mm-map canvas` right after hud.update (systems run after the HUD
-// each frame) using the same transform as hud.js (VIEW_M = 260 m across, player at 50% / 62%, camera-heading-up).
+// each frame) using the same transform as hud.ts (VIEW_M = 260 m across, player at 50% / 62%, camera-heading-up).
 import * as THREE from "three";
 import { emit } from "./events.ts";
 import { findRoute, routeLength } from "./route.ts";
@@ -177,7 +177,7 @@ export function createTravel(sys) {
       g.drawImage(im, X - s / 2, Y - s / 2, s, s);
       g.globalAlpha = 1;
     }
-    // player arrow on top of the icons (same shape/transform as hud.js so it simply re-covers the HUD's arrow)
+    // player arrow on top of the icons (same shape/transform as hud.ts so it simply re-covers the HUD's arrow)
     {
       const vel = player.velocity;
       const face =

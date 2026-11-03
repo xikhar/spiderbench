@@ -1,23 +1,19 @@
 // @ts-nocheck
-// OWNER: city agent. Procedural low-poly vehicles (lofted bodies, glass cabins, pillars, wheels, lights) +
+// Procedural low-poly vehicles (lofted bodies, glass cabins, pillars, wheels, lights) +
 // cheap lane-following traffic with IDM car-following and traffic-light stops. All instanced (1 draw per model).
 // Model frame: +x forward, y up, wheels on y=0.
-import __shaderPatch1 from "./shaders/glsl/vehicles-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/vehicles-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/vehicles-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/vehicles-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/vehicles-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/vehicles-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/vehicles-patch-7.glsl?raw";
-import vehicleVertexDeclarations from "./shaders/glsl/vehicles-vertex-declarations.glsl?raw";
-import vehicleVertexMain from "./shaders/glsl/vehicles-vertex-main.glsl?raw";
+import { lazyShaderSections } from "../shaderSections.ts";
+import vehiclesShaderSource from "./shaders/glsl/vehicles.glsl?raw";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
 
-import { MB } from "./geom.ts";
-import { createPartMaterial, PART } from "./partmat.ts";
+import { MeshBuilder } from "./meshBuilder.ts";
+import { createPartMaterial, MATERIAL_PART } from "./partMaterials.ts";
 import { buildRoads } from "./npc/roads.ts";
 import { createTraffic } from "./npc/traffic.ts";
+
+const vehiclesShader = lazyShaderSections(() => vehiclesShaderSource);
+
 
 // loft of rounded-rectangle sections. st: [{x, yb, yt, w, r}] from rear to front
 function loft(b, st, seg = 3, caps = true) {
@@ -79,14 +75,14 @@ function loft(b, st, seg = 3, caps = true) {
 // winding check helper: our ring goes CCW in (z,y) seen from +x -> quads (i,k)->(i+1,k)->(i+1,k2) face outward
 function wheel(b, x, z, r, w) {
   const side = Math.sign(z);
-  b.setPart(PART.RUBBER).setColor(0x151515);
+  b.setPart(MATERIAL_PART.RUBBER).setColor(0x151515);
   b.with(
     new THREE.Matrix4()
       .makeRotationX((side * Math.PI) / 2)
       .setPosition(x, r, z - (side * w) / 2),
     (d) => d.cyl(0, 0, 0, r, r, w, 9, true),
   );
-  b.setPart(PART.METAL).setColor(0x9a9ea2);
+  b.setPart(MATERIAL_PART.METAL).setColor(0x9a9ea2);
   b.with(
     new THREE.Matrix4()
       .makeRotationX((side * Math.PI) / 2)
@@ -109,10 +105,10 @@ function car({
   taxi = false,
   wagon = false,
 } = {}) {
-  const b = new MB();
+  const b = new MeshBuilder();
   const h2 = L / 2;
   // lower body
-  b.setPart(PART.PAINT).setColor(0xffffff);
+  b.setPart(MATERIAL_PART.PAINT).setColor(0xffffff);
   loft(b, [
     { x: -h2, yb: 0.34, yt: belt - 0.2, w: W - 0.14, r: 0.12 },
     { x: -h2 + 0.12, yb: 0.28, yt: belt - 0.02, w: W - 0.04, r: 0.14 },
@@ -122,7 +118,7 @@ function car({
     { x: h2 - 0.05, yb: 0.32, yt: hood - 0.28, w: W - 0.18, r: 0.12 },
   ]);
   // cabin glass
-  b.setPart(PART.GLASS).setColor(0x000000);
+  b.setPart(MATERIAL_PART.GLASS).setColor(0x000000);
   const cw = W - 0.14,
     rw = W - 0.34;
   loft(
@@ -143,7 +139,7 @@ function car({
     2,
   );
   // roof skin + pillars (paint)
-  b.setPart(PART.PAINT).setColor(0xffffff);
+  b.setPart(MATERIAL_PART.PAINT).setColor(0xffffff);
   const r0 = wagon ? cab0 + 0.12 : roof0 + 0.06,
     r1 = roof1 - 0.04;
   loft(
@@ -181,14 +177,14 @@ function car({
     );
   }
   // bumpers, grille, rockers
-  b.setPart(PART.PLASTIC).setColor(0x1a1a1a);
+  b.setPart(MATERIAL_PART.PLASTIC).setColor(0x1a1a1a);
   b.box(h2 - 0.12, 0.28, -W / 2 + 0.12, h2 + 0.02, 0.5, W / 2 - 0.12);
   b.box(-h2 - 0.02, 0.28, -W / 2 + 0.12, -h2 + 0.12, 0.5, W / 2 - 0.12);
   b.box(h2 - 0.06, 0.52, -0.45, h2 - 0.02, 0.66, 0.45);
   b.box(-h2 + 0.9, 0.2, -W / 2 - 0.005, h2 - 0.9, 0.3, W / 2 + 0.005, 0b110011);
   // lights
   for (const s of [-1, 1]) {
-    b.setPart(PART.HEAD)
+    b.setPart(MATERIAL_PART.HEADLIGHT)
       .setColor(0xc8ccd0)
       .box(
         h2 - 0.16,
@@ -198,7 +194,7 @@ function car({
         hood - 0.27,
         s * (W / 2 - 0.16) + 0.16,
       );
-    b.setPart(PART.TAIL)
+    b.setPart(MATERIAL_PART.TAILLIGHT)
       .setColor(0xb01010)
       .box(
         -h2 - 0.03,
@@ -210,22 +206,22 @@ function car({
       );
   }
   // plates
-  b.setPart(PART.BASE)
+  b.setPart(MATERIAL_PART.BASE)
     .setColor(taxi ? 0xe6d27a : 0xe9e4d4)
     .box(-h2 - 0.04, 0.55, -0.26, -h2 - 0.02, 0.7, 0.26);
   b.box(h2 + 0.02, 0.36, -0.26, h2 + 0.04, 0.5, 0.26);
   if (taxi) {
-    b.setPart(PART.PLASTIC)
+    b.setPart(MATERIAL_PART.PLASTIC)
       .setColor(0x151515)
       .box(-0.3, H, -0.28, 0.14, H + 0.04, 0.28);
-    b.setPart(PART.TAXI)
+    b.setPart(MATERIAL_PART.TAXI)
       .setColor(0xd8d2b0)
       .box(-0.26, H + 0.04, -0.26, 0.1, H + 0.3, 0.26);
-    b.setPart(PART.PLASTIC)
+    b.setPart(MATERIAL_PART.PLASTIC)
       .setColor(0x2a2a2a)
       .box(-0.24, H + 0.08, -0.265, 0.08, H + 0.26, 0.265, 0b110000);
     // checker stripe
-    b.setPart(PART.BASE)
+    b.setPart(MATERIAL_PART.BASE)
       .setColor(0x111111)
       .box(
         -1.2,
@@ -243,33 +239,33 @@ function car({
 }
 
 function boxTruck() {
-  const b = new MB();
+  const b = new MeshBuilder();
   const W = 2.3;
   // cab
-  b.setPart(PART.BASE).setColor(0xe8e8e6);
+  b.setPart(MATERIAL_PART.BASE).setColor(0xe8e8e6);
   loft(b, [
     { x: 1.6, yb: 0.45, yt: 2.5, w: W, r: 0.1 },
     { x: 2.6, yb: 0.45, yt: 2.45, w: W, r: 0.15 },
     { x: 3.2, yb: 0.5, yt: 1.45, w: W - 0.1, r: 0.15 },
     { x: 3.5, yb: 0.55, yt: 1.1, w: W - 0.2, r: 0.12 },
   ]);
-  b.setPart(PART.GLASS)
+  b.setPart(MATERIAL_PART.GLASS)
     .setColor(0)
     .box(2.62, 1.55, -W / 2 + 0.1, 3.08, 2.3, W / 2 - 0.1, 0b000001);
   b.box(1.9, 1.5, -W / 2 - 0.01, 2.55, 2.25, W / 2 + 0.01, 0b110000);
   // cargo box
-  b.setPart(PART.PAINT)
+  b.setPart(MATERIAL_PART.PAINT)
     .setColor(0xffffff)
     .box(-3.6, 0.9, -W / 2 - 0.05, 1.55, 3.5, W / 2 + 0.05);
-  b.setPart(PART.PLASTIC)
+  b.setPart(MATERIAL_PART.PLASTIC)
     .setColor(0x222222)
     .box(-3.62, 0.5, -1.0, 1.6, 0.9, 1.0);
   b.box(-3.7, 0.6, -W / 2, -3.55, 0.8, W / 2);
   for (const s of [-1, 1]) {
-    b.setPart(PART.HEAD)
+    b.setPart(MATERIAL_PART.HEADLIGHT)
       .setColor(0xf0f0f0)
       .box(3.45, 0.85, s * 0.9 - 0.15, 3.52, 1.0, s * 0.9 + 0.15);
-    b.setPart(PART.TAIL)
+    b.setPart(MATERIAL_PART.TAILLIGHT)
       .setColor(0xb01010)
       .box(-3.72, 1.0, s * 1.0 - 0.1, -3.65, 1.2, s * 1.0 + 0.1);
   }
@@ -279,12 +275,12 @@ function boxTruck() {
 }
 
 function bus({ tour = false } = {}) {
-  const b = new MB();
+  const b = new MeshBuilder();
   const L = tour ? 11 : 12.2,
     W = 2.55,
     H = tour ? 4.3 : 3.1;
   const h2 = L / 2;
-  const body = tour ? PART.PAINT : PART.BASE;
+  const body = tour ? MATERIAL_PART.PAINT : MATERIAL_PART.BASE;
   b.setPart(body).setColor(tour ? 0xffffff : 0xeeeeea);
   loft(
     b,
@@ -297,7 +293,7 @@ function bus({ tour = false } = {}) {
     3,
   );
   // window bands (glass slightly proud of the body)
-  b.setPart(PART.GLASS).setColor(0);
+  b.setPart(MATERIAL_PART.GLASS).setColor(0);
   const bands = tour
     ? [
         [1.25, 2.1],
@@ -318,7 +314,7 @@ function bus({ tour = false } = {}) {
   }
   if (!tour) {
     // MTA blue stripe
-    b.setPart(PART.BASE)
+    b.setPart(MATERIAL_PART.BASE)
       .setColor(0x1f4fa3)
       .box(
         -h2 + 0.05,
@@ -329,11 +325,11 @@ function bus({ tour = false } = {}) {
         W / 2 + 0.014,
         0b110011,
       );
-    b.setPart(PART.SCREEN)
+    b.setPart(MATERIAL_PART.SCREEN)
       .setColor(0xff9a20)
       .box(h2 + 0.016, 2.62, -0.8, h2 + 0.02, 2.9, 0.8, 0b000001);
   } else {
-    b.setPart(PART.BASE)
+    b.setPart(MATERIAL_PART.BASE)
       .setColor(0xd9b34a)
       .box(
         -h2 + 0.05,
@@ -345,14 +341,14 @@ function bus({ tour = false } = {}) {
         0b110011,
       );
   }
-  b.setPart(PART.PLASTIC)
+  b.setPart(MATERIAL_PART.PLASTIC)
     .setColor(0x1a1a1a)
     .box(-h2 - 0.03, 0.3, -W / 2, h2 + 0.03, 0.6, W / 2, 0b000011);
   for (const s of [-1, 1]) {
-    b.setPart(PART.HEAD)
+    b.setPart(MATERIAL_PART.HEADLIGHT)
       .setColor(0xf0f0f0)
       .box(h2 + 0.01, 0.7, s * 1.0 - 0.15, h2 + 0.03, 0.85, s * 1.0 + 0.15);
-    b.setPart(PART.TAIL)
+    b.setPart(MATERIAL_PART.TAILLIGHT)
       .setColor(0xb01010)
       .box(-h2 - 0.03, 0.8, s * 1.1 - 0.08, -h2 - 0.01, 1.3, s * 1.1 + 0.08);
   }
@@ -417,7 +413,7 @@ function vanRear(g0) {
 
 // Load the Blender-built models (tools/blender/city_vehicles.py). Returns {geos: {name: BufferGeometry}, atlas} or null.
 // (vehicles r1) 13 models x 3 LODs: <name> (LOD0), <name>_l1, <name>_l2; atlas = vehicles_atlas2.webp (imagegen pack).
-let _vehLoad = null; // one fetch/parse shared by the city traffic and systems/crimes.js (car chase)
+let _vehLoad = null; // one fetch/parse shared by the city traffic and systems/crimes.ts (car chase)
 export function loadVehicleModels(renderer) {
   if (_vehLoad) return _vehLoad;
   _vehLoad = (async () => {
@@ -468,19 +464,19 @@ export function loadVehicleModels(renderer) {
   return _vehLoad;
 }
 
-// (vehicles) car-paint material: the shared part material (partmat.js) + clearcoat over paint / taxi / glass (crisp env
+// (vehicles) car-paint material: the shared part material (partMaterials.ts) + clearcoat over paint / taxi / glass (crisp env
 // reflections from scene.environment), tinted glass that shows the imagegen interior cards (seats, driver) darkened
 // under the reflections, and road grime + dull paint on the lower panels (model-space height). physical=false for LOD2.
 export function createVehicleMaterial({ name, map, physical = true }) {
   const mat = createPartMaterial({
     name,
-    instTint: true,
-    instState: true,
+    instanceTint: true,
+    instanceState: true,
     physical,
     map,
-    extraVert: vehicleVertexDeclarations,
+    extraVertexDeclarations: vehiclesShader.vertexAttributeDeclarations,
     // (vehicles r2) taxi toppers map ad slot 0 (atlas2 u 0.5-0.75, v 0-170/2048); re-target one of 8 ad tiles per car
-    extraVertMain: vehicleVertexMain,
+    extraVertexSetup: vehiclesShader.vertexMain,
   });
   if (physical) {
     mat.clearcoat = 1.0;
@@ -490,19 +486,19 @@ export function createVehicleMaterial({ name, map, physical = true }) {
   mat.onBeforeCompile = (sh, r) => {
     base(sh, r);
     sh.fragmentShader = sh.fragmentShader
-      .replace("#include <common>", __shaderPatch1)
+      .replace("#include <common>", vehiclesShader.fragmentCommon)
       .replace(
         "diffuseColor.rgb = vec3(0.012, 0.014, 0.016); pR = 0.04;",
-        __shaderPatch2,
+        vehiclesShader.fragmentPaintBaseColor,
       ) // (vehicles r3) brighter interior, softer sun glint
       // (vehicles r3) studio-style "horizon line" reflection: the scene env is a near-uniform sky/facade mix, so paint
       // and glass reflected almost nothing readable. vehHorizon() keeps the env's sky above the horizon, darkens a
       // blocky skyline band + the street below it -> the classic bright-over-dark reflection line on doors / hood / glass.
-      .replace("#include <lights_physical_pars_fragment>", __shaderPatch3)
-      .replace("#include <lights_fragment_maps>", __shaderPatch4)
-      .replace("roughnessFactor = pR;", __shaderPatch5)
-      .replace("#include <aomap_fragment>", __shaderPatch6)
-      .replace("#include <lights_physical_fragment>", __shaderPatch7);
+      .replace("#include <lights_physical_pars_fragment>", vehiclesShader.fragmentPhysicalLightDeclarations)
+      .replace("#include <lights_fragment_maps>", vehiclesShader.fragmentLightsMaps)
+      .replace("roughnessFactor = pR;", vehiclesShader.fragmentRoughnessFromVehicleMaterial)
+      .replace("#include <aomap_fragment>", vehiclesShader.fragmentAmbientOcclusion)
+      .replace("#include <lights_physical_fragment>", vehiclesShader.fragmentPhysicalLights);
   };
   mat.customProgramCacheKey = () => `city-veh-${name}-${physical}`;
   return mat;
@@ -510,17 +506,17 @@ export function createVehicleMaterial({ name, map, physical = true }) {
 
 // far-LOD proxy (~60 tris): body + cabin boxes, dark glass band, wheels as dark boxes
 function proxy(type) {
-  const b = new MB();
+  const b = new MeshBuilder();
   const big = type === "truck" || type === "bus" || type === "tour";
   if (!big) {
     const L = type === "suv" ? 5.0 : 4.9,
       W = type === "suv" ? 1.95 : 1.84,
       H = type === "suv" ? 1.8 : 1.46,
       belt = type === "suv" ? 1.12 : 0.95;
-    b.setPart(PART.PAINT)
+    b.setPart(MATERIAL_PART.PAINT)
       .setColor(0xffffff)
       .box(-L / 2, 0.28, -W / 2, L / 2, belt, W / 2);
-    b.setPart(PART.GLASS)
+    b.setPart(MATERIAL_PART.GLASS)
       .setColor(0)
       .box(
         type === "suv" ? -2.2 : -1.3,
@@ -531,7 +527,7 @@ function proxy(type) {
         W / 2 - 0.08,
         0b110111,
       );
-    b.setPart(PART.PAINT)
+    b.setPart(MATERIAL_PART.PAINT)
       .setColor(0xffffff)
       .box(
         type === "suv" ? -2.15 : -0.8,
@@ -542,7 +538,7 @@ function proxy(type) {
         W / 2 - 0.12,
         0b000100,
       );
-    b.setPart(PART.TAIL)
+    b.setPart(MATERIAL_PART.TAILLIGHT)
       .setColor(0xb01010)
       .box(
         -L / 2 - 0.02,
@@ -554,10 +550,10 @@ function proxy(type) {
         0b000010,
       );
     if (type === "taxi")
-      b.setPart(PART.TAXI)
+      b.setPart(MATERIAL_PART.TAXI)
         .setColor(0xd8d2b0)
         .box(-0.26, H, -0.26, 0.1, H + 0.28, 0.26);
-    b.setPart(PART.RUBBER)
+    b.setPart(MATERIAL_PART.RUBBER)
       .setColor(0x111111)
       .box(
         -L / 2 + 0.6,
@@ -569,25 +565,25 @@ function proxy(type) {
         0b110011,
       );
   } else if (type === "truck") {
-    b.setPart(PART.BASE)
+    b.setPart(MATERIAL_PART.BASE)
       .setColor(0xe8e8e6)
       .box(1.6, 0.45, -1.15, 3.5, 2.45, 1.15);
-    b.setPart(PART.GLASS)
+    b.setPart(MATERIAL_PART.GLASS)
       .setColor(0)
       .box(2.62, 1.55, -1.05, 3.1, 2.3, 1.05, 0b000001);
-    b.setPart(PART.PAINT)
+    b.setPart(MATERIAL_PART.PAINT)
       .setColor(0xffffff)
       .box(-3.6, 0.9, -1.2, 1.55, 3.5, 1.2);
-    b.setPart(PART.RUBBER)
+    b.setPart(MATERIAL_PART.RUBBER)
       .setColor(0x111111)
       .box(-3.0, 0, -1.0, 3.0, 0.9, 1.0, 0b110011);
   } else {
     const L = type === "tour" ? 11 : 12.2,
       H = type === "tour" ? 4.3 : 3.1;
-    b.setPart(type === "tour" ? PART.PAINT : PART.BASE)
+    b.setPart(type === "tour" ? MATERIAL_PART.PAINT : MATERIAL_PART.BASE)
       .setColor(type === "tour" ? 0xffffff : 0xeeeeea)
       .box(-L / 2, 0.3, -1.27, L / 2, H, 1.27);
-    b.setPart(PART.GLASS)
+    b.setPart(MATERIAL_PART.GLASS)
       .setColor(0)
       .box(
         -L / 2 + 0.6,
@@ -599,7 +595,7 @@ function proxy(type) {
         0b110001,
       );
     if (type !== "tour")
-      b.setPart(PART.BASE)
+      b.setPart(MATERIAL_PART.BASE)
         .setColor(0x1f4fa3)
         .box(-L / 2, 1.0, -1.29, L / 2, 1.15, 1.29, 0b110011);
   }
@@ -633,7 +629,7 @@ const GRP_REP = {
   tour: "tour",
 };
 
-// Streaming traffic over the whole road network (see npc/traffic.js). `phase` = shared signal phase (props.phase).
+// Streaming traffic over the whole road network (see npc/traffic.ts). `phase` = shared signal phase (props.phase).
 export function buildTraffic({ scene, phase, models = null }) {
   const proc = {
     taxi: car({ taxi: true }),
@@ -683,8 +679,8 @@ export function buildTraffic({ scene, phase, models = null }) {
     : {
         hi: createPartMaterial({
           name: "vehglb",
-          instTint: true,
-          instState: true,
+          instanceTint: true,
+          instanceState: true,
           map,
         }),
         mid: null,
@@ -693,8 +689,8 @@ export function buildTraffic({ scene, phase, models = null }) {
   if (!glb) {
     mats.low = createPartMaterial({
       name: "veh",
-      instTint: true,
-      instState: true,
+      instanceTint: true,
+      instanceState: true,
     });
     mats.mid = mats.low;
     mats.far = mats.low;

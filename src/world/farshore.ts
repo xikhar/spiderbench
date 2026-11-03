@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: foundation agent (city remake). The far shores across the rivers: New-Jersey-like west bank (Hoboken /
+// The far shores across the rivers: New-Jersey-like west bank (Hoboken /
 // Jersey City), Bronx / Queens / Brooklyn-like east bank, Roosevelt-like and Governors-like islets, a Staten-Island-like
 // strip far south.
 //
@@ -11,34 +11,25 @@
 //   - the land slabs carry a baked ground map (streets, sidewalks, yards, parks, parking) so the fabric reads between
 //     buildings and beyond the modelled band all the way to the horizon.
 // terrain: farShoreHeight(x,z) -> FAR_Y | null (water). Piers are collision boxes (kind 'pier').
-import __shaderPatch1 from "./shaders/glsl/farshore-patch-1.glsl?raw";
-import __shaderPatch10 from "./shaders/glsl/farshore-patch-10.glsl?raw";
-import __shaderPatch11 from "./shaders/glsl/farshore-patch-11.glsl?raw";
-import __shaderPatch12 from "./shaders/glsl/farshore-patch-12.glsl?raw";
-import __shaderPatch13 from "./shaders/glsl/farshore-patch-13.glsl?raw";
-import __shaderPatch14 from "./shaders/glsl/farshore-patch-14.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/farshore-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/farshore-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/farshore-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/farshore-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/farshore-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/farshore-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/farshore-patch-8.glsl?raw";
-import __shaderPatch9 from "./shaders/glsl/farshore-patch-9.glsl?raw";
-import { injectShader } from "../render/shader.ts";
-import { nightK } from "../render/daynight.ts"; // (daynight)
+import { lazyShaderSections } from "../shaderSections.ts";
+import farshoreShaderSource from "./shaders/glsl/farshore.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
+import { nightK } from "../render/dayNight.ts"; // (daynight)
 import * as THREE from "three";
 import { mulberry32, hash2, pointInPoly, onLand, shoreX, G } from "./layout.ts";
 import { FacadeBuilder, STYLE, LAYER, deriveFacadeMaterial } from "./facade.ts";
 import { bridgeSpans } from "./bridges.ts";
-import { REFL_LAYER } from "./water.ts";
+import { REFL_LAYER } from "./waterLayers.ts";
 import { CanopyBatch } from "./canopy.ts";
-import { farCoastOwns, COAST } from "./waterfront.ts"; // (coast r1) near banks rebuilt by waterfront.js
+import { farCoastOwns, COAST } from "./waterfront.ts";
+
+const farshoreShader = lazyShaderSections(() => farshoreShaderSource);
+// (coast r1) near banks rebuilt by waterfront.ts
 
 export const FAR_Y = 1.2;
 // polygons [[x, z], ...]
 export const FAR_LANDS = [
-  // (the outer vertices run out toward the 150 km far plane; the hinterland (horizon.js) fills the first 20 km)
+  // (the outer vertices run out toward the 150 km far plane; the hinterland (horizon.ts) fills the first 20 km)
   {
     name: "nj",
     pts: [
@@ -392,7 +383,7 @@ export function buildFarShore({ scene, facadeMat, solids = null }) {
   const FR = new FacadeBuilder(); // (round 4) rooftop kits + container stacks / cranes: small casters (near cascades only)
   const bulk = new FacadeBuilder(); // bulkheads, piers
   const M = { P: [], N: [], C: [], I: [], n: 0 }; // far massed blocks (vertex colours)
-  const wetSegs = []; // water-line edges for the wet tidal band (water.js buildWetBands)
+  const wetSegs = []; // water-line edges for the wet tidal band (water.ts buildWetBands)
   const W = Math.round((MAP.x1 - MAP.x0) / MAP.px),
     H = Math.round((MAP.z1 - MAP.z0) / MAP.px);
   const cv = document.createElement("canvas");
@@ -449,7 +440,7 @@ export function buildFarShore({ scene, facadeMat, solids = null }) {
         Math.max(Math.abs(az), Math.abs(bz)) > 11000
       )
         continue;
-      if (farCoastOwns(L.name, i)) continue; // (coast r1) seawall / fill / wet band built by waterfront.js
+      if (farCoastOwns(L.name, i)) continue; // (coast r1) seawall / fill / wet band built by waterfront.ts
       const Lh = Math.hypot(bx - ax, bz - az);
       let nx = (bz - az) / Lh,
         nz = -(bx - ax) / Lh;
@@ -1178,7 +1169,7 @@ export function buildFarShore({ scene, facadeMat, solids = null }) {
   let nearTrees = 0;
   const canopy = new CanopyBatch(4711);
   // (coast r2) user: 'no low-poly blobs' on the far shores seen from Manhattan. Crowns within ~560 m of the island
-  // (Roosevelt, the LIC / Williamsburg / Brooklyn / Hoboken waterfronts) become real trees.js trees (leaf cards, trunks,
+  // (Roosevelt, the LIC / Williamsburg / Brooklyn / Hoboken waterfronts) become real trees.ts trees (leaf cards, trunks,
   // LOD / impostor tiers) via COAST.trees; the rest stay cheap canopy blobs in the haze. The canopy rng is still drawn.
   // (bridges r3) and every crown round a bridge's far landing (the approach viaduct down to the far ground, seen from
   // the mid-span): real trees there too, not blobs
@@ -1634,7 +1625,7 @@ export function buildFarShore({ scene, facadeMat, solids = null }) {
         const qr = mulberry32(5152);
         const rockP = { style: STYLE.BLANK, layer: LAYER.GRANITE, seed: 7 };
         for (let i = 0; i < L.pts.length; i++) {
-          if (farCoastOwns(L.name, i)) continue; // (coast r1) riprap / seawall by waterfront.js
+          if (farCoastOwns(L.name, i)) continue; // (coast r1) riprap / seawall by waterfront.ts
           const [ax, az] = L.pts[i],
             [bx2, bz2] = L.pts[(i + 1) % L.pts.length];
           const Lh = Math.hypot(bx2 - ax, bz2 - az),
@@ -3356,16 +3347,16 @@ export function buildFarShore({ scene, facadeMat, solids = null }) {
   // averages out once sub-pixel, so the hinterland out to the horizon never reads as one flat slab
   landMat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>",__shaderPatch1)
+      .replace("#include <common>",farshoreShader.vertexCommon)
       .replace(
-        "#include <fog_vertex>",__shaderPatch2,
+        "#include <fog_vertex>",farshoreShader.vertexFogVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch3,
+        "#include <common>",farshoreShader.fragmentCommon,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch4,
+        "#include <map_fragment>",farshoreShader.fragmentMap,
       );
   };
   landMat.customProgramCacheKey = () => "far-land-v5";
@@ -3395,7 +3386,7 @@ export function buildFarShore({ scene, facadeMat, solids = null }) {
     m.layers.enable(REFL_LAYER);
     group.add(m);
   }
-  console.log("[city] (coast r2) far-shore crowns -> trees.js", nearTrees);
+  console.log("[city] (coast r2) far-shore crowns -> trees.ts", nearTrees);
   return {
     group,
     count: nNear + nFar,
@@ -3417,16 +3408,16 @@ function createCliffMaterial() {
   });
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
-      .replace("#include <common>",__shaderPatch5)
+      .replace("#include <common>",farshoreShader.vertexCommonByCliffWorldPosition)
       .replace(
-        "#include <fog_vertex>",__shaderPatch6,
+        "#include <fog_vertex>",farshoreShader.vertexFogVertexByCliffWorldPosition,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch7,
+        "#include <common>",farshoreShader.fragmentCommonByCliffWorldPosition,
       )
       .replace(
-        "#include <map_fragment>",injectShader(__shaderPatch8, (PAL_Y - 12).toFixed(1), PAL_Y.toFixed(1), (FAR_Y + 16).toFixed(1)),
+        "#include <map_fragment>",injectShader(farshoreShader.fragmentMapByCliffWorldPosition, (PAL_Y - 12).toFixed(1), PAL_Y.toFixed(1), (FAR_Y + 16).toFixed(1)),
       );
   };
   mat.customProgramCacheKey = () => "palisades-cliff-v1";
@@ -3440,28 +3431,28 @@ function createMassMaterial() {
     roughness: 0.85,
     metalness: 0,
   });
-  mat.defines = { NO_CITYLIGHT: "" }; // (lighting2 r3) the Manhattan street-light fill (surface.js) lit the far-shore masses as a pale band
+  mat.defines = { NO_CITYLIGHT: "" }; // (lighting2 r3) the Manhattan street-light fill (surface.ts) lit the far-shore masses as a pale band
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uNightK = nightK; // (daynight)
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch9,
+        "#include <common>",farshoreShader.vertexCommonByGlassMask,
       )
       .replace(
-        "#include <color_vertex>",__shaderPatch10,
+        "#include <color_vertex>",farshoreShader.vertexColorVertex,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch11,
+        "#include <fog_vertex>",farshoreShader.vertexFogVertexByMountainWorldPosition,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch12,
+        "#include <common>",farshoreShader.fragmentCommonByGlassMask,
       )
       .replace(
-        "#include <color_fragment>",injectShader(__shaderPatch13, FAR_Y.toFixed(1)),
+        "#include <color_fragment>",injectShader(farshoreShader.fragmentColor, FAR_Y.toFixed(1)),
       )
       .replace(
-        "#include <emissivemap_fragment>",__shaderPatch14,
+        "#include <emissivemap_fragment>",farshoreShader.fragmentEmissive,
       );
   };
   mat.customProgramCacheKey = () => "far-mass-v3-night";

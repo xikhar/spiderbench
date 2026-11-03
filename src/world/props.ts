@@ -1,29 +1,8 @@
 // @ts-nocheck
-// OWNER: citylife engineer. Street furniture + rooftop clutter: geometry (procedural low-poly, vertex coloured, part ids) + placement + pools.
+// Street furniture + rooftop clutter: geometry (procedural low-poly, vertex coloured, part ids) + placement + pools.
 // Local prop frame: +x along the curb, +z toward the roadway, y=0 at the sidewalk surface.
-import __shaderPatch1 from "./shaders/glsl/props-patch-1.glsl?raw";
-import __shaderPatch10 from "./shaders/glsl/props-patch-10.glsl?raw";
-import __shaderPatch11 from "./shaders/glsl/props-patch-11.glsl?raw";
-import __shaderPatch12 from "./shaders/glsl/props-patch-12.glsl?raw";
-import __shaderPatch13 from "./shaders/glsl/props-patch-13.glsl?raw";
-import __shaderPatch14 from "./shaders/glsl/props-patch-14.glsl?raw";
-import __shaderPatch15 from "./shaders/glsl/props-patch-15.glsl?raw";
-import __shaderPatch16 from "./shaders/glsl/props-patch-16.glsl?raw";
-import __shaderPatch17 from "./shaders/glsl/props-patch-17.glsl?raw";
-import __shaderPatch18 from "./shaders/glsl/props-patch-18.glsl?raw";
-import __shaderPatch19 from "./shaders/glsl/props-patch-19.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/props-patch-2.glsl?raw";
-import __shaderPatch20 from "./shaders/glsl/props-patch-20.glsl?raw";
-import __shaderPatch21 from "./shaders/glsl/props-patch-21.glsl?raw";
-import __shaderPatch22 from "./shaders/glsl/props-patch-22.glsl?raw";
-import __shaderPatch23 from "./shaders/glsl/props-patch-23.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/props-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/props-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/props-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/props-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/props-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/props-patch-8.glsl?raw";
-import __shaderPatch9 from "./shaders/glsl/props-patch-9.glsl?raw";
+import { lazyShaderSections } from "../shaderSections.ts";
+import propsShaderSource from "./shaders/glsl/props.glsl?raw";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
 import {
@@ -46,14 +25,17 @@ import {
 } from "./layout.ts"; // (layout2 r9) stHalf // (layout2 r5) inCurbCut // (layout2 r3) VMAP: Village street furniture
 import { buildRoads, streetDir, mapPhase } from "./npc/roads.ts"; // (citylife junctions r2) mapPhase
 import { registry } from "./npc/registry.ts";
-import { MB, M4, hexLin } from "./geom.ts";
+import { MeshBuilder, createTransformMatrix, linearColorFromHex } from "./meshBuilder.ts";
 import { Pool } from "./pool.ts";
-import { nightK, nightOnly } from "../render/daynight.ts"; // (daynight)
-import { cityLights } from "../render/citylights.ts"; // (night) real street-lamp lighting
-import { adsTexture, signsTexture } from "./adstex.ts"; // (billboards r3) (night r5) sign atlas for blade-sign faces
-import { screenK } from "../render/daynight.ts"; // (night r5)
+import { nightK, nightOnly } from "../render/dayNight.ts"; // (daynight)
+import { cityLights } from "../render/cityLights.ts"; // (night) real street-lamp lighting
+import {
+  getAdvertisingAtlasTexture,
+  getSignAtlasTexture,
+} from "./advertisingTextures.ts"; // shared atlases for advertising and blade signs
+import { screenK } from "../render/dayNight.ts"; // (night r5)
 import { screenLightSet } from "./screenlights.ts"; // (night r9) billboard / lightbox faces light the street
-import { createPartMaterial, PART } from "./partmat.ts";
+import { createPartMaterial, MATERIAL_PART } from "./partMaterials.ts";
 import { COAST } from "./waterfront.ts"; // (coast r1) waterfront lamps / benches / trees
 import {
   GC_KEEP_OUT,
@@ -68,12 +50,15 @@ import {
   buildPlazaPaving,
   MANHOLES,
 } from "./streetdressing.ts";
-import { tsNoProp } from "./timessq.ts"; // timessq r5: no sidewalk sheds / dumpsters inside Times Square
+import { tsNoProp } from "./timesSquare.ts";
+
+const propsShader = lazyShaderSections(() => propsShaderSource);
+// timessq r5: no sidewalk sheds / dumpsters inside Times Square
 
 // ------------------------------------------------------------------ geometries
 function lamppost() {
-  const b = new MB();
-  b.setPart(PART.PAINT).setColor(0xffffff);
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.PAINT).setColor(0xffffff);
   b.cyl(0, 0, 0, 0.22, 0.2, 0.9, 8); // base
   b.cyl(0, 0.9, 0, 0.13, 0.08, 7.6, 8, false); // shaft
   // arm: quarter curve then straight toward the road
@@ -86,7 +71,7 @@ function lamppost() {
   for (let i = 0; i + 1 < pts.length; i++) b.tube(pts[i], pts[i + 1], 0.07, 6);
   // cobra head
   b.box(-0.22, 8.85, 2.4, 0.22, 9.15, 3.4);
-  b.setPart(PART.LAMP)
+  b.setPart(MATERIAL_PART.LAMP)
     .setColor(0xfff1d0)
     .box(-0.17, 8.82, 2.5, 0.17, 8.86, 3.3, 0b001000);
   return b.build({ part: true });
@@ -94,22 +79,22 @@ function lamppost() {
 
 // cylinder for a lamp facing +x: build as disc via box (cheap)
 function signalHeadX(b, x, y, z, ry = 0) {
-  b.with(M4(x, y, z, ry), (d) => {
-    d.setPart(PART.PAINT)
+  b.with(createTransformMatrix(x, y, z, ry), (d) => {
+    d.setPart(MATERIAL_PART.PAINT)
       .setColor(0xffffff)
       .box(-0.16, -0.55, -0.2, 0.16, 0.55, 0.2);
     [
-      [PART.SIG_R, 0.33],
-      [PART.SIG_Y, 0],
-      [PART.SIG_G, -0.33],
+      [MATERIAL_PART.RED_SIGNAL, 0.33],
+      [MATERIAL_PART.YELLOW_SIGNAL, 0],
+      [MATERIAL_PART.GREEN_SIGNAL, -0.33],
     ].forEach(([p, yy]) => {
-      d.setPart(PART.PLASTIC)
+      d.setPart(MATERIAL_PART.PLASTIC)
         .setColor(0x0c0c0c)
         .box(0.16, yy + 0.1, -0.14, 0.34, yy + 0.14, 0.14, 0b111111);
-      d.setPart(PART.PLASTIC)
+      d.setPart(MATERIAL_PART.PLASTIC)
         .setColor(0x0c0c0c)
         .box(0.16, yy - 0.12, -0.15, 0.3, yy + 0.12, -0.12, 0b111111);
-      d.setPart(PART.PLASTIC)
+      d.setPart(MATERIAL_PART.PLASTIC)
         .setColor(0x0c0c0c)
         .box(0.16, yy - 0.12, 0.12, 0.3, yy + 0.12, 0.15, 0b111111);
       d.setPart(p)
@@ -120,31 +105,31 @@ function signalHeadX(b, x, y, z, ry = 0) {
 }
 
 function trafficMast() {
-  const b = new MB();
-  b.setPart(PART.BASE).setColor(0x3b3e40);
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.BASE).setColor(0x3b3e40);
   b.cyl(0, 0, 0, 0.26, 0.24, 0.5, 8);
   b.cyl(0, 0.5, 0, 0.17, 0.13, 6.8, 8, true);
   b.tube([0, 6.3, 0], [0, 6.7, 10.5], 0.1, 6, true);
   b.tube([0, 7.1, 0], [0, 6.75, 4.5], 0.05, 5);
   // heads hanging from the arm, lenses facing +x
   for (const z of [4.2, 7.6]) {
-    b.setPart(PART.BASE)
+    b.setPart(MATERIAL_PART.BASE)
       .setColor(0x3b3e40)
       .box(-0.03, 5.9, z - 0.03, 0.03, 6.55, z + 0.03);
     signalHeadX(b, 0, 5.3, z, 0);
   }
   // pole-mounted head + ped signal
   signalHeadX(b, 0.25, 3.3, 0, 0);
-  b.with(M4(0, 2.6, 0.25, 0), (d) => {
-    d.setPart(PART.PLASTIC)
+  b.with(createTransformMatrix(0, 2.6, 0.25, 0), (d) => {
+    d.setPart(MATERIAL_PART.PLASTIC)
       .setColor(0x222222)
       .box(-0.18, -0.2, -0.05, 0.18, 0.2, 0.25);
-    d.setPart(PART.PED)
+    d.setPart(MATERIAL_PART.PEDESTRIAN)
       .setColor(0xffffff)
       .box(-0.14, -0.16, 0.25, 0.14, 0.16, 0.26, 0b010000);
   });
   // street name blade signs on top (green)
-  b.setPart(PART.BASE)
+  b.setPart(MATERIAL_PART.BASE)
     .setColor(0x0c5a2c)
     .box(-0.6, 7.35, -0.02, 0.6, 7.6, 0.02);
   b.setColor(0x0c5a2c).box(-0.02, 7.65, -0.6, 0.02, 7.9, 0.6);
@@ -154,21 +139,21 @@ function trafficMast() {
 }
 
 function trafficPost() {
-  const b = new MB();
-  b.setPart(PART.BASE).setColor(0x3b3e40);
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.BASE).setColor(0x3b3e40);
   b.cyl(0, 0, 0, 0.2, 0.18, 0.4, 8);
   b.cyl(0, 0.4, 0, 0.1, 0.08, 4.0, 8, true);
   signalHeadX(b, 0.22, 3.5, 0, 0);
-  b.with(M4(0, 2.5, 0, 0), (d) => {
-    d.setPart(PART.PLASTIC)
+  b.with(createTransformMatrix(0, 2.5, 0, 0), (d) => {
+    d.setPart(MATERIAL_PART.PLASTIC)
       .setColor(0x222222)
       .box(0.08, -0.2, -0.18, 0.3, 0.2, 0.18);
-    d.setPart(PART.PED)
+    d.setPart(MATERIAL_PART.PEDESTRIAN)
       .setColor(0xffffff)
       .box(0.3, -0.16, -0.14, 0.31, 0.16, 0.14, 0b000001);
   });
   // one-way sign
-  b.setPart(PART.BASE)
+  b.setPart(MATERIAL_PART.BASE)
     .setColor(0x111111)
     .box(-0.45, 3.0, -0.02, 0.45, 3.28, 0.02);
   b.setColor(0xf0f0f0).box(-0.38, 3.1, -0.025, 0.25, 3.18, 0.025, 0b110000);
@@ -176,8 +161,8 @@ function trafficPost() {
 }
 
 function hydrant() {
-  const b = new MB();
-  b.setPart(PART.PAINT).setColor(0xffffff);
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.PAINT).setColor(0xffffff);
   b.cyl(0, 0, 0, 0.16, 0.16, 0.08, 10);
   b.cyl(0, 0.08, 0, 0.12, 0.11, 0.5, 10);
   b.cyl(0, 0.58, 0, 0.14, 0.14, 0.06, 10);
@@ -189,8 +174,8 @@ function hydrant() {
 }
 
 function trashCan() {
-  const b = new MB();
-  b.setPart(PART.BASE).setColor(0x1e4a2c);
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.BASE).setColor(0x1e4a2c);
   // wire-basket look: vertical bars + rings
   const r = 0.3,
     h = 0.9,
@@ -218,7 +203,7 @@ function trashCan() {
   b.cyl(0, h - 0.06, 0, r + 0.02, r + 0.02, 0.07, 14, true);
   b.setColor(0x151515).cyl(0, 0.02, 0, r * 0.88, r * 0.88, 0.03, 12, true);
   // garbage bag inside
-  b.setPart(PART.PLASTIC)
+  b.setPart(MATERIAL_PART.PLASTIC)
     .setColor(0x1a1a1a)
     .cyl(0, 0.1, 0, r * 0.85, r * 0.8, h - 0.15, 10, true);
   return b.build({ part: true });
@@ -228,7 +213,7 @@ function trashCan() {
 // cardboard bundle; ~1.5 x 0.8 m, 0.75 m high (collision: one low box)
 const BAG_BOXES = []; // per-bag bounding boxes (local), mirrored as collision solids
 function trashBags() {
-  const b = new MB(),
+  const b = new MeshBuilder(),
     rr = mulberry32(4242);
   BAG_BOXES.length = 0;
   const cols = [
@@ -240,21 +225,21 @@ function trashBags() {
       r = 0.2 + rr() * 0.08;
     const y0 = i >= 6 ? 0.36 : 0,
       h = 0.42 + rr() * 0.16;
-    b.setPart(PART.PLASTIC).setColor(cols[Math.floor(rr() * cols.length)]);
+    b.setPart(MATERIAL_PART.PLASTIC).setColor(cols[Math.floor(rr() * cols.length)]);
     b.cyl(x, y0, z, r * 0.92, r, h * 0.55, 7, false); // body (bulging)
     b.cyl(x, y0 + h * 0.55, z, r, r * 0.35, h * 0.35, 7, false); // shoulders
     b.cyl(x, y0 + h * 0.9, z, r * 0.12, r * 0.18, 0.08, 5, true); // tied neck
     BAG_BOXES.push([x - r, y0, z - r, x + r, y0 + h * 0.9, z + r]);
   }
   BAG_BOXES.push([0.55, 0, -0.35, 0.95, 0.36, 0.3]);
-  b.setPart(PART.BASE).setColor(0x7a6446).box(0.55, 0, -0.35, 0.95, 0.32, 0.3); // flattened cardboard bundle
+  b.setPart(MATERIAL_PART.BASE).setColor(0x7a6446).box(0.55, 0, -0.35, 0.95, 0.32, 0.3); // flattened cardboard bundle
   b.setColor(0x6b563a).box(0.58, 0.32, -0.3, 0.92, 0.36, 0.25);
   return b.build({ part: true });
 }
 
 function bench() {
-  const b = new MB();
-  b.setPart(PART.BASE).setColor(0x243a2a);
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.BASE).setColor(0x243a2a);
   for (const x of [-0.8, 0.8]) {
     b.box(x - 0.04, 0, -0.25, x + 0.04, 0.45, -0.19);
     b.box(x - 0.04, 0, 0.19, x + 0.04, 0.45, 0.25);
@@ -277,8 +262,8 @@ function bench() {
 }
 
 function newsstand() {
-  const b = new MB();
-  b.setPart(PART.BASE).setColor(0x2b4d3a).box(-1.3, 0, -0.8, 1.3, 2.3, 0.8);
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.BASE).setColor(0x2b4d3a).box(-1.3, 0, -0.8, 1.3, 2.3, 0.8);
   b.setColor(0x1d3528).box(-1.45, 2.3, -0.95, 1.45, 2.45, 1.1);
   // magazine front (+z)
   const rnd = mulberry32(5);
@@ -294,36 +279,36 @@ function newsstand() {
         0b010000,
       );
     }
-  b.setPart(PART.GLASS)
+  b.setPart(MATERIAL_PART.GLASS)
     .setColor(0x000000)
     .box(-1.2, 1.2, 0.84, 1.2, 2.1, 0.85, 0b010000);
-  b.setPart(PART.BASE)
+  b.setPart(MATERIAL_PART.BASE)
     .setColor(0xd9c34a)
     .box(-1.2, 2.32, 1.1, 1.2, 2.44, 1.11, 0b010000);
   return b.build({ part: true });
 }
 
 function hotdogCart() {
-  const b = new MB();
-  b.setPart(PART.METAL)
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.METAL)
     .setColor(0xc8cacc)
     .box(-0.8, 0.45, -0.45, 0.8, 1.05, 0.45);
-  b.setPart(PART.BASE)
+  b.setPart(MATERIAL_PART.BASE)
     .setColor(0x2458a6)
     .box(-0.82, 0.55, 0.45, 0.82, 0.8, 0.47, 0b010000);
   b.setColor(0xf2c230).box(-0.82, 0.8, 0.45, 0.82, 0.95, 0.47, 0b010000);
-  b.setPart(PART.METAL)
+  b.setPart(MATERIAL_PART.METAL)
     .setColor(0xb0b2b4)
     .box(-0.85, 1.05, -0.5, 0.85, 1.1, 0.5);
   b.box(-0.6, 1.1, -0.35, 0.2, 1.4, 0.35);
-  b.setPart(PART.RUBBER).setColor(0x111111);
-  b.with(M4(0.55, 0.3, -0.47), (d) =>
+  b.setPart(MATERIAL_PART.RUBBER).setColor(0x111111);
+  b.with(createTransformMatrix(0.55, 0.3, -0.47), (d) =>
     d.tube([0, 0, 0], [0, 0, -0.08], 0.3, 12, true),
   );
-  b.with(M4(0.55, 0.3, 0.55), (d) =>
+  b.with(createTransformMatrix(0.55, 0.3, 0.55), (d) =>
     d.tube([0, 0, 0], [0, 0, -0.08], 0.3, 12, true),
   );
-  b.setPart(PART.METAL)
+  b.setPart(MATERIAL_PART.METAL)
     .setColor(0x999999)
     .box(-1.1, 0.85, -0.03, -0.8, 0.9, 0.03);
   b.tube([0, 1.1, 0], [0, 2.35, 0], 0.025, 5);
@@ -333,7 +318,7 @@ function hotdogCart() {
   for (let i = 0; i < n; i++) {
     const a0 = (i / n) * Math.PI * 2,
       a1 = ((i + 1) / n) * Math.PI * 2;
-    b.setPart(PART.FABRIC).setColor(i % 2 ? 0x1f5fc2 : 0xf5c518);
+    b.setPart(MATERIAL_PART.FABRIC).setColor(i % 2 ? 0x1f5fc2 : 0xf5c518);
     const top = b.vert(0, 2.55, 0, 0, 1, 0);
     const p0 = b.vert(
       Math.cos(a0) * R,
@@ -361,8 +346,8 @@ function hotdogCart() {
 }
 
 function planter() {
-  const b = new MB();
-  b.setPart(PART.BASE).setColor(0x8a8479).box(-0.6, 0, -0.45, 0.6, 0.6, 0.45);
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.BASE).setColor(0x8a8479).box(-0.6, 0, -0.45, 0.6, 0.6, 0.45);
   b.setColor(0x3b2b1f).box(-0.55, 0.6, -0.4, 0.55, 0.62, 0.4, 0b000100);
   const rnd = mulberry32(9);
   for (let i = 0; i < 9; i++) {
@@ -376,8 +361,8 @@ function planter() {
 }
 
 function mailbox() {
-  const b = new MB();
-  b.setPart(PART.BASE).setColor(0x1e3f8a);
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.BASE).setColor(0x1e3f8a);
   for (const x of [-0.2, 0.2])
     for (const z of [-0.2, 0.2])
       b.box(x - 0.025, 0, z - 0.025, x + 0.025, 0.25, z + 0.025);
@@ -392,23 +377,23 @@ function mailbox() {
 }
 
 function linkKiosk() {
-  const b = new MB();
-  b.setPart(PART.METAL)
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.METAL)
     .setColor(0x8c9296)
     .box(-0.28, 0, -0.12, 0.28, 2.9, 0.12);
-  b.setPart(PART.SCREEN)
+  b.setPart(MATERIAL_PART.SCREEN)
     .setColor(0x2f6fa8)
     .box(-0.24, 1.1, 0.12, 0.24, 2.7, 0.125, 0b010000);
-  b.setPart(PART.SCREEN)
+  b.setPart(MATERIAL_PART.SCREEN)
     .setColor(0xa84f2f)
     .box(-0.24, 1.1, -0.125, 0.24, 2.7, -0.12, 0b100000);
   return b.build({ part: true });
 }
 
 function busStopSign() {
-  const b = new MB();
-  b.setPart(PART.METAL).setColor(0x9a9a9a).cyl(0, 0, 0, 0.04, 0.04, 3.0, 6);
-  b.setPart(PART.BASE)
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.METAL).setColor(0x9a9a9a).cyl(0, 0, 0, 0.04, 0.04, 3.0, 6);
+  b.setPart(MATERIAL_PART.BASE)
     .setColor(0x2255aa)
     .box(-0.25, 2.2, -0.02, 0.25, 2.95, 0.02);
   b.setColor(0xeeeeee).box(-0.2, 2.6, -0.025, 0.2, 2.85, 0.025, 0b110000);
@@ -534,8 +519,8 @@ function pickSpecies(r) {
 }
 
 function treePit() {
-  const b = new MB();
-  b.setPart(PART.BASE)
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.BASE)
     .setColor(0x2a2018)
     .box(-0.7, 0.0, -0.7, 0.7, 0.02, 0.7, 0b000100);
   // (street r2) granite edging + cast-iron grate (radial-ish slats round a trunk opening) so pits read from above
@@ -582,9 +567,9 @@ function treePit() {
 // (street r6) planted tree pit: soil bed with low ground cover / seasonal plantings (ivy, liriope, a few mums) and a
 // taller black hairpin-picket guard on three sides (the curb side open), as NYC's adopted tree beds. Same 1.6 m pit.
 function treePitPlanted() {
-  const b = new MB(),
+  const b = new MeshBuilder(),
     r = mulberry32(777);
-  b.setPart(PART.BASE)
+  b.setPart(MATERIAL_PART.BASE)
     .setColor(0x2e241b)
     .box(-0.72, 0.0, -0.72, 0.72, 0.06, 0.72, 0b000100);
   b.setColor(0x7a766e);
@@ -641,10 +626,10 @@ function treePitPlanted() {
 // two weathered plywood sheets (PAINT, instance-tinted per bay), dark seams, water stains, a strip of grime at the
 // parapet. Plus an optional debris set (unscaled): sandbags, a plank stack, a bucket, a rolled tarp.
 function shedTop() {
-  const b = new MB(),
+  const b = new MeshBuilder(),
     r = mulberry32(9191),
     Y = 3.0;
-  b.setPart(PART.PAINT);
+  b.setPart(MATERIAL_PART.PAINT);
   for (const [x0, x1] of [
     [-1.19, -0.01],
     [0.01, 1.19],
@@ -657,7 +642,7 @@ function shedTop() {
         [0x8e8474, 0x7c705e, 0x958a78, 0x6e6454][Math.floor(r() * 4)],
       ).box(x0, Y, z0, x1, Y + 0.004, z1, 0b000100);
     }
-  b.setPart(PART.BASE);
+  b.setPart(MATERIAL_PART.BASE);
   for (let k = 0; k < 5; k++) {
     // water / tar stains
     const x = -1 + r() * 2,
@@ -690,14 +675,14 @@ function shedTop() {
 // (PAINT, instance-tinted white / safety yellow / pale blue), black lettering rows, a logo block, cable ties, plus a
 // caged work light under the deck and a diagonal kicker brace down the post.
 function shedSign() {
-  const b = new MB();
+  const b = new MeshBuilder();
   const Z = 0.115,
     Y0 = 3.08,
     Y1 = 3.78;
-  b.setPart(PART.PAINT)
+  b.setPart(MATERIAL_PART.PAINT)
     .setColor(0xf2efe6)
     .box(-0.62, Y0, Z, 0.62, Y1, Z + 0.025); // board
-  b.setPart(PART.BASE).setColor(0x1c1d1f);
+  b.setPart(MATERIAL_PART.BASE).setColor(0x1c1d1f);
   const rows = [
     [0.5, 0.09],
     [0.38, 0.06],
@@ -721,19 +706,19 @@ function shedSign() {
   for (const x of [-0.58, 0.58])
     for (const yy of [Y0 + 0.05, Y1 - 0.05])
       b.box(x - 0.015, yy - 0.015, Z - 0.01, x + 0.015, yy + 0.015, Z + 0.035); // ties
-  b.setPart(PART.METAL).setColor(0x3a3d3c);
+  b.setPart(MATERIAL_PART.METAL).setColor(0x3a3d3c);
   b.box(-0.03, 2.6, -0.43, 0.03, 2.72, -0.37); // work-light cage
-  b.setPart(PART.LAMP)
+  b.setPart(MATERIAL_PART.LAMP)
     .setColor(0xfff1cc)
     .box(-0.022, 2.55, -0.422, 0.022, 2.62, -0.378);
-  b.setPart(PART.METAL).setColor(0x2f3432);
+  b.setPart(MATERIAL_PART.METAL).setColor(0x2f3432);
   b.tube([1.2, 1.1, 0.02], [1.2 - 0.95, 2.66, 0.02], 0.035, 5, false); // kicker brace
   return b.build({ part: true });
 }
 function shedJunk() {
-  const b = new MB(),
+  const b = new MeshBuilder(),
     Y = 3.0;
-  b.setPart(PART.BASE);
+  b.setPart(MATERIAL_PART.BASE);
   for (const [x, z, a] of [
     [-0.6, -0.25, 0.1],
     [-0.25, -0.2, -0.2],
@@ -767,12 +752,12 @@ function shedJunk() {
 // instance tint does not recolour it -> BASE), vertical side ribs, top rail, hook end, and a rubble fill that sits
 // flush under the rim: drywall slabs, lumber, black contractor bags, a pallet, pipe offcuts. Nothing floats.
 function rolloffModel() {
-  const b = new MB(),
+  const b = new MeshBuilder(),
     r = mulberry32(4242);
   const BODY = 0x6e3a2a,
     RIB = 0x5a2f22,
     RUST = 0x4a2a1c;
-  b.setPart(PART.BASE)
+  b.setPart(MATERIAL_PART.BASE)
     .setColor(BODY)
     .box(-3.0, 0.15, -1.2, 3.0, 1.55, 1.2, 0b111011); // outer shell, open top
   b.setColor(0x3a2a20).box(-2.92, 0.2, -1.12, 2.92, 1.5, 1.12, 0b111011); // inner walls (dark)
@@ -783,10 +768,10 @@ function rolloffModel() {
   b.setColor(RUST).box(-3.03, 1.47, -1.24, 3.03, 1.55, 1.24, 0b110111); // top rail
   b.setColor(0x222222).box(-3.05, 0.0, -1.0, 3.05, 0.15, 1.0); // skids
   b.setColor(0x333333).box(3.0, 0.3, -0.25, 3.25, 1.1, 0.25); // hook bracket
-  b.setPart(PART.PAINT)
+  b.setPart(MATERIAL_PART.PAINT)
     .setColor(0xc9c3b0)
     .box(-1.2, 0.7, 1.231, 1.2, 1.1, 1.24, 0b010000); // company panel
-  b.setPart(PART.BASE)
+  b.setPart(MATERIAL_PART.BASE)
     .setColor(0x4d4233)
     .box(-2.9, 1.2, -1.1, 2.9, 1.42, 1.1, 0b000100); // fill surface
   const rot = (x, y, z, ry, rx, fn) =>
@@ -878,9 +863,9 @@ function rolloffModel() {
 // marquee from the lobby door to the curb on brass posts, valance on three sides, brass trim. Local frame: posts at z=0
 // (0.75 m from the curb), building face at z=-4.25 (scaled in z by the sidewalk width). Fabric = PAINT (instance tint).
 function doormanCanopy() {
-  const b = new MB();
+  const b = new MeshBuilder();
   const Y = 3.2;
-  b.setPart(PART.PAINT).setColor(0xffffff);
+  b.setPart(MATERIAL_PART.PAINT).setColor(0xffffff);
   b.box(-1.25, Y, -4.25, 1.25, Y + 0.1, 0.12); // roof
   b.box(-1.25, Y - 0.34, 0.06, 1.25, Y + 0.02, 0.12, 0b111111); // front valance
   for (const x of [-1.25, 1.19])
@@ -894,10 +879,10 @@ function doormanCanopy() {
     Y + 0.26,
     0.04,
   );
-  b.setPart(PART.BASE)
+  b.setPart(MATERIAL_PART.BASE)
     .setColor(0xd8d2bf)
     .box(-0.55, Y - 0.24, 0.121, 0.55, Y - 0.1, 0.125, 0b010000); // address stripe
-  b.setPart(PART.METAL).setColor(0xa7864a);
+  b.setPart(MATERIAL_PART.METAL).setColor(0xa7864a);
   for (const x of [-1.15, 1.15]) {
     b.cyl(x, 0, 0, 0.05, 0.035, Y, 8);
     b.cyl(x, 0, 0, 0.09, 0.08, 0.12, 8);
@@ -910,19 +895,19 @@ function doormanCanopy() {
 // top, a framed double-sided sign box (frame = instance tint) with lit cream faces and dark lettering blocks.
 // Local frame: -z = building face (z 0), +z toward the curb; the box spans z 0.25..1.15, y 3.35..5.25.
 function bladeSign() {
-  const b = new MB();
+  const b = new MeshBuilder();
   const Y0 = 3.35,
     Y1 = 5.25,
     Z0 = 0.25,
     Z1 = 1.15,
     T = 0.07;
-  b.setPart(PART.METAL).setColor(0x2b2d2e);
+  b.setPart(MATERIAL_PART.METAL).setColor(0x2b2d2e);
   b.box(-0.12, Y1 - 0.2, 0, 0.12, Y1 + 0.28, 0.06); // wall plate
   b.box(-0.025, Y1 + 0.12, 0.02, 0.025, Y1 + 0.17, Z1 + 0.05); // arm
   b.box(-0.02, Y1 + 0.0, 0.02, 0.02, Y1 + 0.04, 0.3); // brace
   for (const z of [Z0 + 0.12, Z1 - 0.12])
     b.box(-0.015, Y1, z - 0.015, 0.015, Y1 + 0.13, z + 0.015); // hangers
-  b.setPart(PART.PAINT).setColor(0xffffff);
+  b.setPart(MATERIAL_PART.PAINT).setColor(0xffffff);
   b.box(-T, Y0, Z0, T, Y1, Z1); // tinted sign box (frame)
   // (night r5) the lit faces are real signs now: bladeFaces() (ts_signs atlas, one instanced draw) replaces the r4
   // cream boxes with stacked black bars (critic r5: 'placeholder menu-icon art')
@@ -930,10 +915,10 @@ function bladeSign() {
 }
 
 function meter() {
-  const b = new MB();
-  b.setPart(PART.BASE).setColor(0x333333).cyl(0, 0, 0, 0.04, 0.04, 1.2, 6);
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.BASE).setColor(0x333333).cyl(0, 0, 0, 0.04, 0.04, 1.2, 6);
   b.setColor(0x2c4f7c).box(-0.14, 1.2, -0.1, 0.14, 1.65, 0.1);
-  b.setPart(PART.SCREEN)
+  b.setPart(MATERIAL_PART.SCREEN)
     .setColor(0x6a8a50)
     .box(-0.08, 1.45, 0.1, 0.08, 1.55, 0.105, 0b010000);
   return b.build({ part: true });
@@ -941,7 +926,7 @@ function meter() {
 
 function newsboxes() {
   // row of coin-op newspaper boxes (NYC: red, blue, yellow, green, white) on a shared rail
-  const b = new MB();
+  const b = new MeshBuilder();
   const cols = [0xb3221c, 0x1f4d9c, 0xe0b21e, 0x1e6b3a, 0xdedcd4];
   const rnd = mulberry32(21);
   let x = -1.05;
@@ -949,12 +934,12 @@ function newsboxes() {
     const w = 0.44 + rnd() * 0.08,
       h = 0.95 + rnd() * 0.25,
       c = cols[(i * 3 + 1) % cols.length];
-    b.setPart(PART.PAINT).setColor(0xffffff);
-    b.setPart(PART.BASE).setColor(0x2a2a2a);
+    b.setPart(MATERIAL_PART.PAINT).setColor(0xffffff);
+    b.setPart(MATERIAL_PART.BASE).setColor(0x2a2a2a);
     for (const xx of [x + 0.05, x + w - 0.05])
       b.box(xx - 0.02, 0, -0.18, xx + 0.02, 0.35, 0.18, 0b110011);
     b.setColor(c).box(x, 0.35, -0.22, x + w, 0.35 + h, 0.22);
-    b.setColor(hexLin(c).map((v) => v * 0.6)).box(
+    b.setColor(linearColorFromHex(c).map((v) => v * 0.6)).box(
       x - 0.01,
       0.35 + h,
       -0.24,
@@ -963,7 +948,7 @@ function newsboxes() {
       0.24,
     );
     // window + coin slot on the front (+z)
-    b.setPart(PART.GLASS)
+    b.setPart(MATERIAL_PART.GLASS)
       .setColor(0)
       .box(
         x + 0.06,
@@ -974,7 +959,7 @@ function newsboxes() {
         0.225,
         0b010000,
       );
-    b.setPart(PART.BASE)
+    b.setPart(MATERIAL_PART.BASE)
       .setColor(0xe8e4d8)
       .box(
         x + 0.1,
@@ -985,7 +970,7 @@ function newsboxes() {
         0.228,
         0b010000,
       );
-    b.setPart(PART.METAL)
+    b.setPart(MATERIAL_PART.METAL)
       .setColor(0x999999)
       .box(
         x + w * 0.3,
@@ -1002,16 +987,16 @@ function newsboxes() {
 
 function busShelter() {
   // steel frame, glass side + back panels (dark glass part), lit ad panel at the end, bench; local +z toward the road
-  const b = new MB();
+  const b = new MeshBuilder();
   const L = 4.2,
     D = 1.5,
     H = 2.45;
-  b.setPart(PART.METAL).setColor(0x6d7275);
+  b.setPart(MATERIAL_PART.METAL).setColor(0x6d7275);
   for (const x of [-L / 2, 0, L / 2])
     for (const z of [-D / 2, D / 2])
       b.box(x - 0.04, 0, z - 0.04, x + 0.04, H, z + 0.04);
   b.box(-L / 2 - 0.1, H, -D / 2 - 0.15, L / 2 + 0.1, H + 0.12, D / 2 + 0.25);
-  b.setPart(PART.PAINT)
+  b.setPart(MATERIAL_PART.PAINT)
     .setColor(0xffffff)
     .box(
       -L / 2 - 0.1,
@@ -1023,7 +1008,7 @@ function busShelter() {
       0b000100,
     );
   // glass back wall (thin, dark reflective) with a clear gap at the bottom
-  b.setPart(PART.GLASS)
+  b.setPart(MATERIAL_PART.GLASS)
     .setColor(0)
     .box(-L / 2, 0.25, -D / 2 - 0.01, L / 2, H - 0.1, -D / 2 + 0.01, 0b110000);
   b.box(
@@ -1036,10 +1021,10 @@ function busShelter() {
     0b000011,
   );
   // advertising panel on the other end (backlit)
-  b.setPart(PART.METAL)
+  b.setPart(MATERIAL_PART.METAL)
     .setColor(0x505558)
     .box(L / 2 - 0.06, 0.1, -D / 2, L / 2 + 0.06, H - 0.1, D / 2 - 0.2);
-  b.setPart(PART.SCREEN)
+  b.setPart(MATERIAL_PART.SCREEN)
     .setColor(0x4a7aa8)
     .box(
       L / 2 + 0.061,
@@ -1050,7 +1035,7 @@ function busShelter() {
       D / 2 - 0.3,
       0b000001,
     );
-  b.setPart(PART.SCREEN)
+  b.setPart(MATERIAL_PART.SCREEN)
     .setColor(0xa8603a)
     .box(
       L / 2 - 0.065,
@@ -1062,7 +1047,7 @@ function busShelter() {
       0b000010,
     );
   // bench
-  b.setPart(PART.METAL)
+  b.setPart(MATERIAL_PART.METAL)
     .setColor(0x8a8f92)
     .box(-1.4, 0.44, -D / 2 + 0.05, 1.0, 0.48, -D / 2 + 0.45);
   for (const x of [-1.3, 0.9])
@@ -1071,8 +1056,8 @@ function busShelter() {
 }
 
 function bikeRack() {
-  const b = new MB();
-  b.setPart(PART.METAL).setColor(0x8f9396);
+  const b = new MeshBuilder();
+  b.setPart(MATERIAL_PART.METAL).setColor(0x8f9396);
   for (let i = 0; i < 4; i++) {
     const x = -1.2 + i * 0.8,
       pts = [];
@@ -1089,15 +1074,15 @@ function bikeRack() {
 
 // Con-Ed style steam stack (orange/white striped tube) standing on the roadway over a manhole
 function steamStack() {
-  const b = new MB();
+  const b = new MeshBuilder();
   const r = 0.36,
     H = 2.6,
     n = 6;
   for (let i = 0; i < n; i++) {
-    b.setPart(PART.PAINT).setColor(i % 2 ? 0xd4cfc4 : 0xb45a2c); // (street r6) grimy, sun-faded (was neon orange / white)
+    b.setPart(MATERIAL_PART.PAINT).setColor(i % 2 ? 0xd4cfc4 : 0xb45a2c); // (street r6) grimy, sun-faded (was neon orange / white)
     b.cyl(0, 0.02 + (i * H) / n, 0, r, r * 0.98, H / n, 14, false);
   }
-  b.setPart(PART.RUBBER)
+  b.setPart(MATERIAL_PART.RUBBER)
     .setColor(0x151515)
     .cyl(0, H, 0, r * 0.98, r * 0.9, 0.08, 14, false);
   b.setColor(0x222222).cyl(0, 0, 0, 0.5, 0.48, 0.05, 14, true);
@@ -1133,29 +1118,29 @@ function createSteam(T, vents, time) {
     sh.uniforms.uTime = time;
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",propsShader.vertexCommon,
       )
       .replace(
-        "#include <beginnormal_vertex>",__shaderPatch2,
+        "#include <beginnormal_vertex>",propsShader.vertexBeginNormalVertex,
       )
       .replace(
-        "#include <begin_vertex>",__shaderPatch3,
+        "#include <begin_vertex>",propsShader.vertexBeginVertex,
       )
       .replace(
-        "#include <project_vertex>",__shaderPatch4,
+        "#include <project_vertex>",propsShader.vertexProjectVertex,
       )
       .replace(
-        "#include <worldpos_vertex>",__shaderPatch5,
+        "#include <worldpos_vertex>",propsShader.vertexWorldPositionVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch6,
+        "#include <common>",propsShader.fragmentCommon,
       )
       .replace(
-        "#include <alphamap_fragment>",__shaderPatch7,
+        "#include <alphamap_fragment>",propsShader.fragmentAlphaMap,
       )
       .replace(
-        "#include <emissivemap_fragment>",__shaderPatch8,
+        "#include <emissivemap_fragment>",propsShader.fragmentEmissive,
       );
   };
   mat.customProgramCacheKey = () => "city-steam-v3";
@@ -1290,14 +1275,14 @@ function autoLod(geo, n = 2) {
       },
     ];
   }
-  const b = new MB();
+  const b = new MeshBuilder();
   for (const q of boxes) {
     const w = Math.max(0.06, q.x1 - q.x0),
       d = Math.max(0.06, q.z1 - q.z0);
     const cx = (q.x0 + q.x1) / 2,
       cz = (q.z0 + q.z1) / 2;
     // a little darker than the mean (the mean includes lit tops; the box sides read brighter than the real clutter)
-    b.setPart(PART.BASE)
+    b.setPart(MATERIAL_PART.BASE)
       .setColor(q.c.map((v) => v * 0.85))
       .box(
         cx - w / 2,
@@ -1462,7 +1447,7 @@ function adAtlas() {
 }
 
 // ------------------------------------------------------------------ placement
-export const PLAZA_CROWD_SPOTS = []; // (street r7) forecourt-plaza people -> npc/crowd.js statics
+export const PLAZA_CROWD_SPOTS = []; // (street r7) forecourt-plaza people -> npc/crowd.ts statics
 export async function buildProps({
   scene,
   blocks,
@@ -1508,8 +1493,8 @@ export async function buildProps({
   glb.pitPlanted = treePitPlanted();
   const mat = createPartMaterial({
     name: "props",
-    instTint: true,
-    instState: true,
+    instanceTint: true,
+    instanceState: true,
   });
   const P = {};
   const mk = (name, geo, opts) => {
@@ -1572,9 +1557,9 @@ export async function buildProps({
     P.lampPool.mesh.renderOrder = 2;
     P.lampPool.mesh.onBeforeRender = () => {
       pm.opacity = cityLights.enabled ? 0 : nightK.value;
-    }; // (night) replaced by real lamp light (citylights.js)
+    }; // (night) replaced by real lamp light (cityLights.ts)
     scene.add(nightOnly(P.lampPool.mesh));
-    // (night) every street lamp is a real light (citylights.js): a warm down-facing spot from the cobra head (local
+    // (night) every street lamp is a real light (cityLights.ts): a warm down-facing spot from the cobra head (local
     // 0, 8.8, 2.9) lighting the sidewalk / road / cars / people, with a lit-haze cone. Registered once the items exist
     // (re-registered if the item list changes).
     let lampN = -1,
@@ -1685,7 +1670,7 @@ export async function buildProps({
   mk("billboard", glb.billboard, { max: 120, far: 1200 });
 
   const SIG = 0xd9a514;
-  const tintOf = (c) => ({ aTint: hexLin(c), aState: 0 });
+  const tintOf = (c) => ({ aTint: linearColorFromHex(c), aState: 0 });
   const WHITE = 0xffffff;
   const signals = [];
   const treeSpots = [];
@@ -1791,7 +1776,7 @@ export async function buildProps({
     anchors.push({ pos: new THREE.Vector3(x, it.y + ly, z), normal: n, kind });
   };
 
-  // fire-escape / awning footprints (collision solids from buildings.js) -> tree canopies keep clear of them
+  // fire-escape / awning footprints (collision solids from buildings.ts) -> tree canopies keep clear of them
   const FE = new Map(),
     FEC = 16;
   if (S) {
@@ -2613,7 +2598,7 @@ export async function buildProps({
           lampS.push(s);
         }
         if (c.prop && walkW >= 3.2 && rvt() < 0.9) {
-          // street trees in pits (city.js skips its Village spots: treeSpots.vmapDone)
+          // street trees in pits (city.ts skips its Village spots: treeSpots.vmapDone)
           const spc = pickSpecies(rvt),
             sp = 6.5 + rvt() * 2;
           for (
@@ -2817,10 +2802,10 @@ export async function buildProps({
         }
       }
     }
-    treeSpots.vmapDone = true; // city.js diagTreeSpots: the Village street trees are placed here (with pits)
+    treeSpots.vmapDone = true; // city.ts diagTreeSpots: the Village street trees are placed here (with pits)
   }
   // ---- (street r2) park-side sidewalks (CPW / 5th Av / 59th / 110th): lamps, trash cans, hydrants, carts at the curb
-  // (the park agent's wall + benches line the inner edge; street trees come from trees.js)
+  // (the park agent's wall + benches line the inner edge; street trees come from trees.ts)
   {
     const PK = G.PARK;
     const runs = [
@@ -2959,7 +2944,7 @@ export async function buildProps({
       } else if (r < 0.8) place(P.bikerack, x, z, ry);
     }
   }
-  // ---- (layout2 r3) Village signalised intersections (interior VMAP nodes; roads.js signals their links by the dominant
+  // ---- (layout2 r3) Village signalised intersections (interior VMAP nodes; roads.ts signals their links by the dominant
   // axis of travel): a pole-mounted signal on the near-side right corner of every leg, heads facing the approaching cars
   for (const n of roads.nodes) {
     if (!n || !n.vmap || n.tee) continue;
@@ -3125,7 +3110,7 @@ export async function buildProps({
         place(P.newsbox, x, z, ry);
       }
       // (street r7) people in the plaza (critic: 'plazas / sidewalks nearly empty'): standing groups between the tree pits
-      // and benches -> npc/crowd.js statics (own rng: the prop streams above are unchanged)
+      // and benches -> npc/crowd.ts statics (own rng: the prop streams above are unchanged)
       if (!inTS)
         for (let u = 6.5 + rpc() * 3; u < s.L - 2.5; u += 5 + rpc() * 7) {
           const [cx, cz] = pt(
@@ -3227,7 +3212,7 @@ export async function buildProps({
     }
   }
   // ---- promenade (both rivers, all around the island): lamps, benches, trees
-  // (coast r1) the seawall rail + the spots now follow the real waterfront edge built by waterfront.js (COAST): the rail
+  // (coast r1) the seawall rail + the spots now follow the real waterfront edge built by waterfront.ts (COAST): the rail
   // is part of the coast meshes (NYC esplanade rail), lamps / benches stand along the new coping line, the bump-out
   // lawns carry their own trees. Falls back to the old straight row-sampled line if the coast was not built.
   if (COAST.built) {
@@ -3447,7 +3432,7 @@ export async function buildProps({
   {
     // (contactAO, lighting2 r3) user: 'things in shadow should still make diffuse darker shadows, like under the cars'.
     // One batched soft dark footprint decal pool under every ground-standing street prop (the car decals' look, see
-    // contactao.js): 1 draw call, no shadow pass, distance-culled like the props, scene alpha (SSR weight) untouched.
+    // vehicleLighting.ts): 1 draw call, no shadow pass, distance-culled like the props, scene alpha (SSR weight) untouched.
     const cv = document.createElement("canvas");
     cv.width = cv.height = 64;
     const g2 = cv.getContext("2d"),
@@ -3590,11 +3575,11 @@ export async function buildProps({
     });
   }
   {
-    // (night) traffic signals cast their lens colour (citylights.js): one small spot per signal near the camera, from
+    // (night) traffic signals cast their lens colour (cityLights.ts): one small spot per signal near the camera, from
     // the lit lenses (mast: between the two arm heads over the road; post: the pole head) aimed along the lens axis and
     // down, so the wet road under / ahead of it picks up a red / amber / green sheen (GGX highlight streaks on the wet
-    // asphalt) and nearby cars / people a faint tint. Only the nearest SIG_N within SIG_R; no allocation per frame.
-    const SIG_R = 80,
+    // asphalt) and nearby cars / people a faint tint. Only the nearest SIG_N within RED_SIGNAL; no allocation per frame.
+    const RED_SIGNAL = 80,
       SIG_N = 16,
       SIG_COL = [0xff2412, 0xffa01e, 0x2cffa8];
     const rec = {
@@ -3624,7 +3609,7 @@ export async function buildProps({
           dx = it.x - cx,
           dz = it.z - cz,
           d2 = dx * dx + dz * dz;
-        if (d2 > SIG_R * SIG_R || it.hidden) continue;
+        if (d2 > RED_SIGNAL * RED_SIGNAL || it.hidden) continue;
         if (n < SIG_N) {
           near[n] = sg;
           nearD[n++] = d2;
@@ -3677,7 +3662,7 @@ export async function buildProps({
     busStops: () => [
       ...itemsOf(P.busstop).map((o) => ({ ...o, kind: "sign" })),
       ...itemsOf(P.shelter).map((o) => ({ ...o, kind: "shelter" })),
-    ], // (peds r4) bus-stop queues (npc/crowd.js)
+    ], // (peds r4) bus-stop queues (npc/crowd.ts)
     // combat throwables from the real street props: grabbables(center, radius) -> [{id, pos, ry, kind, mass, size}];
     // grab(id) hides the rendered instance (combat animates its own thrown copy), release(id) restores it.
     grabbables(center, radius = 12) {
@@ -3769,7 +3754,7 @@ function placeRooftops({
   adItems,
   ads,
 }) {
-  // occupancy of things already standing on roofs (bulkheads, water towers, equipment from buildings.js)
+  // occupancy of things already standing on roofs (bulkheads, water towers, equipment from buildings.ts)
   const C = 16,
     occ = new Map();
   const key = (x, z) => Math.floor(x / C) * 100003 + Math.floor(z / C);
@@ -3854,7 +3839,7 @@ function placeRooftops({
     const glass = bld.A.type === "glass";
     const put = (pool, x, z, ry) => place(pool, x, z, ry, WHITE, {}, y);
     // HVAC
-    // rooftops agent: roofs dressed by rooftops.js (bld.roofKit: varied, clustered kit) get at most one of these units,
+    // rooftops agent: roofs dressed by rooftops.ts (bld.roofKit: varied, clustered kit) get at most one of these units,
     // tinted in muted greys (the white twin-fan unit stamped on every roof read as obvious repetition from above)
     const kit = !!bld.roofKit;
     const nH = kit
@@ -3902,7 +3887,7 @@ function placeRooftops({
     }
     // terrace gardens on low/mid-rise residential roofs
     if (!glass && !kit && bld.H < 90 && w > 9 && d > 7 && rnd() < 0.14) {
-      // rooftops agent: !kit (rooftops.js builds modelled gardens)
+      // rooftops agent: !kit (rooftops.ts builds modelled gardens)
       const ry = R4();
       tryPlace(tm, 3.1, 2.1, ry, marg, (x, z) => {
         const it = put(P.garden, x, z, ry);
@@ -3997,7 +3982,7 @@ function bladeFaces(scene, items) {
   });
   geo.setAttribute("aCell", cellA);
   const mat = new THREE.MeshStandardMaterial({
-    map: signsTexture(),
+    map: getSignAtlasTexture(),
     roughness: 0.3,
     metalness: 0,
   });
@@ -4006,20 +3991,20 @@ function bladeFaces(scene, items) {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch9,
+        "#include <common>",propsShader.vertexCommonByFaceUv,
       )
       .replace(
-        "#include <uv_vertex>",__shaderPatch10,
+        "#include <uv_vertex>",propsShader.vertexUvVertex,
       )
       .replace(
-        "#include <project_vertex>",__shaderPatch11,
+        "#include <project_vertex>",propsShader.vertexProjectVertexGrassFarCull,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch12,
+        "#include <common>",propsShader.fragmentCommonByFaceUv,
       )
       .replace(
-        "#include <emissivemap_fragment>",__shaderPatch13,
+        "#include <emissivemap_fragment>",propsShader.fragmentEmissiveByFaceUv,
       );
   };
   mat.customProgramCacheKey = () => "blade-faces-n6";
@@ -4122,7 +4107,7 @@ function billboardFaces(scene, items, ads) {
   });
   geo.setAttribute("aCell", cell);
   geo.setAttribute("aGain", gainA);
-  const tex = adsTexture(); // (billboards r3) shared GPU copy (src/world/adstex.js)
+  const tex = getAdvertisingAtlasTexture(); // (billboards r3) shared GPU copy (src/world/advertisingTextures.ts)
   void ads;
   const mat = new THREE.MeshStandardMaterial({
     map: tex,
@@ -4134,24 +4119,24 @@ function billboardFaces(scene, items, ads) {
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch14,
+        "#include <common>",propsShader.vertexCommonByGain,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch15,
+        "#include <fog_vertex>",propsShader.vertexFogVertex,
       )
       .replace(
-        "#include <uv_vertex>",__shaderPatch16,
+        "#include <uv_vertex>",propsShader.vertexUvVertexByEmissiveMapUv,
       );
     sh.uniforms.uNightK = nightK; // (night r9)
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch17,
+        "#include <common>",propsShader.fragmentCommonByGain,
       )
       .replace(
-        "#include <emissivemap_fragment>",__shaderPatch18,
+        "#include <emissivemap_fragment>",propsShader.fragmentEmissiveByGain,
       )
       .replace(
-        "#include <map_fragment>",__shaderPatch19,
+        "#include <map_fragment>",propsShader.fragmentMap,
       );
   };
   mat.customProgramCacheKey = () => "city-ads-v3n";
@@ -4161,7 +4146,7 @@ function billboardFaces(scene, items, ads) {
     q = new THREE.Quaternion(),
     Y = new THREE.Vector3(0, 1, 0);
   // (night r9) every lit face is a light: rooftop prints (floodlit: reflect their colours) and back-lit shelter / newsstand
-  // lightboxes, split by image region (screenlights.js); wheat-paste posters (gain < 0.05) are unlit
+  // lightboxes, split by image region (screenlights.ts); wheat-paste posters (gain < 0.05) are unlit
   const SLP = screenLightSet(),
     cx = new THREE.Vector3(),
     cy = new THREE.Vector3(),
@@ -4215,25 +4200,25 @@ function billboardFaces(scene, items, ads) {
 function subwayPitMaterial() {
   const m = createPartMaterial({
     name: "subwaypit",
-    instTint: true,
-    instState: true,
+    instanceTint: true,
+    instanceState: true,
   });
   const base = m.onBeforeCompile;
   m.onBeforeCompile = (sh, r) => {
     base(sh, r);
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch20,
+        "#include <common>",propsShader.vertexCommonByPitCameraPosition,
       )
       .replace(
-        "#include <project_vertex>",__shaderPatch21,
+        "#include <project_vertex>",propsShader.vertexProjectVertexByPitCameraPosition,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch22,
+        "#include <common>",propsShader.fragmentCommonByPitCameraPosition,
       )
       .replace(
-        "#include <clipping_planes_fragment>",__shaderPatch23,
+        "#include <clipping_planes_fragment>",propsShader.fragmentClipping,
       );
   };
   return m;

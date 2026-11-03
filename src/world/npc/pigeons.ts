@@ -1,19 +1,21 @@
 // @ts-nocheck
-// OWNER: citylife engineer. Pigeon flocks on sidewalks, plazas and park lawns. Birds peck and shuffle around; when
+// Pigeon flocks on sidewalks, plazas and park lawns. Birds peck and shuffle around; when
 // Spider-Man comes close (walks up, lands nearby, swings low past) or world.alarm() fires, the flock bursts into the
 // air, circles, and resettles once he has gone. One instanced mesh; wing flap / head peck in the vertex shader.
-import __shaderPatch1 from "./shaders/glsl/pigeons-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/pigeons-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/pigeons-patch-3.glsl?raw";
+import { lazyShaderSections } from "../../shaderSections.ts";
+import pigeonsShaderSource from "./shaders/glsl/pigeons.glsl?raw";
 import * as THREE from "three";
 import { G, mulberry32, inPark, shoreX } from "../layout.ts";
-import { MB } from "../geom.ts";
+import { MeshBuilder } from "../meshBuilder.ts";
+
+const pigeonsShader = lazyShaderSections(() => pigeonsShaderSource);
+
 
 const R_SIM = 160,
   MAX = 700;
 
 function birdGeometry() {
-  const b = new MB();
+  const b = new MeshBuilder();
   const tag = []; // per-vertex: 0 body, 1 head, 2 left wing, 3 right wing
   const mark = (k, fn) => {
     const v0 = b.v;
@@ -99,13 +101,13 @@ export function createPigeons({ scene, blocks, parkPaths }) {
     sh.uniforms.uTime = uTime;
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",pigeonsShader.vertexCommon,
       )
       .replace(
-        "#include <begin_vertex>",__shaderPatch2,
+        "#include <begin_vertex>",pigeonsShader.vertexBeginVertex,
       )
       .replace(
-        "#include <color_vertex>",__shaderPatch3,
+        "#include <color_vertex>",pigeonsShader.vertexColorVertex,
       );
   };
   mat.customProgramCacheKey = () => "city-pigeon-v1";

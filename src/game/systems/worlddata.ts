@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Deterministic open-world content placement derived from the city layout:
+// Deterministic open-world content placement derived from the city layout:
 // districts, research towers, subway stations, backpacks, landmarks, secret-photo spots.
 // Everything is placed with world.raycast / world.groundHeight so it sits on RENDERED surfaces, and seeded so
 // save-game ids stay stable between sessions.

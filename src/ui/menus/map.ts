@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Full-screen city map: pre-rendered Insomniac-blue base map (blocks, footprints with
+// Full-screen city map: pre-rendered Insomniac-blue base map (blocks, footprints with
 // height shading + drop shadows, streets, park, river), district borders & names, scrambled overlay on districts
 // whose research tower is inactive, icons (towers, stations, backpacks, landmarks, secret-photo areas, crimes,
 // waypoint, player), filters, district progress, hover cards, waypoint setting and fast travel.

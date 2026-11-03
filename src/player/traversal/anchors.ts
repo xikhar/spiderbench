@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: traversal engineer. Insomniac-style web-swing anchor search.
+// Insomniac-style web-swing anchor search.
 // Anchors are REAL building surfaces: candidate points are generated analytically on the vertical faces (and cornices) of the
 // city's boxes around a "desired" anchor location ahead/above the player, scored, then confirmed with world.raycast so the
 // web visibly hits that surface. Passes: (1) normal cone (ahead, 30-75 deg up, both sides), (2) wide / far / tall search,

@@ -1,1 +1,0 @@
-vec3 highwayColor; highway(highwayColor); diffuseColor.rgb = highwayColor;

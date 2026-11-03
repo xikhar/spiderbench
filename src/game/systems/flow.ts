@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. Game-flow / time control without touching main.js' loop:
+// Game-flow / time control without touching main.ts' loop:
 //   modes: 'play' | 'menu' | 'photo' | 'travel'.  Outside 'play' the player sim is frozen (player.update is
 //   replaced by the active camera controller) and the world ticks with dt=0 (traffic/peds freeze, LOD still follows
 //   the camera). Input is gated: while not playing, key/mouse-down events never reach the traversal input layer,

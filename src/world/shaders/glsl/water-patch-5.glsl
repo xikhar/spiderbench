@@ -1,1 +1,0 @@
-float roughnessFactor = wR;

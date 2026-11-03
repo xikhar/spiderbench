@@ -1,2 +1,0 @@
-#include <common>
-__SHADER_INJECT_0__

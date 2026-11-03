@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: rooftops agent. Rooftop fabric seen from swinging altitude (refs/city/manhattan_02/03/06):
+// Rooftop fabric seen from swinging altitude (refs/city/manhattan_02/03/06):
 //  - roof "skins": a textured surface (tar, ballast gravel, white/grey membrane, red / silver coatings, black EPDM, pavers,
 //    timber deck, sedum, lawn) laid 6 mm over every exposed roof of every building (incl. setback terraces), with
 //    parapet-edge grime, world-space stains + ponding (never tiles), repair patches and per-roof colour families;
@@ -11,32 +11,26 @@
 //    satellite-dish clusters, TV antennas, lattice masts, solar arrays, skylights (flat + pyramid), greenhouses,
 //    roof gardens (lawn, raised beds, trees, pergolas), deck furniture, rooftop pools, guard rails;
 //  - rear-yard dressing in the block interiors (lawn / patio / gravel yards, fences, sheds, yard trees);
-//  - louvre cladding over the buildings.js glass-tower mechanical screen (was a white untextured cube);
-//  - exact collision (collision.js Solids) for every solid piece + roofCorner zip points on the big structures.
+//  - louvre cladding over the buildings.ts glass-tower mechanical screen (was a white untextured cube);
+//  - exact collision (collision.ts Solids) for every solid piece + roofCorner zip points on the big structures.
 // Contract: buildRooftops({ scene, gen, facadeMat, T }) -> Promise<{ update(camera), stats }>. Must run BEFORE the tile
 // facade meshes are built (it appends to gen.tiles' builders) and before props (props avoid our solids).
-import __shaderPatch1 from "./shaders/glsl/rooftops-patch-1.glsl?raw";
-import __shaderPatch10 from "./shaders/glsl/rooftops-patch-10.glsl?raw";
-import __shaderPatch11 from "./shaders/glsl/rooftops-patch-11.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/rooftops-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/rooftops-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/rooftops-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/rooftops-patch-5.glsl?raw";
-import __shaderPatch6 from "./shaders/glsl/rooftops-patch-6.glsl?raw";
-import __shaderPatch7 from "./shaders/glsl/rooftops-patch-7.glsl?raw";
-import __shaderPatch8 from "./shaders/glsl/rooftops-patch-8.glsl?raw";
-import __shaderPatch9 from "./shaders/glsl/rooftops-patch-9.glsl?raw";
-import { injectShader } from "../render/shader.ts";
+import { lazyShaderSections } from "../shaderSections.ts";
+import rooftopsShaderSource from "./shaders/glsl/rooftops.glsl?raw";
+import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
 import { mulberry32, district, blockAt, ZFIX } from "./layout.ts";
 import { STYLE, LAYER } from "./facade.ts";
 import { KIND } from "./collision.ts";
 import { CanopyBatch } from "./canopy.ts";
-import { RoofPlants, PLANT } from "./roofplants.ts"; // (veg r1) leaf-card shrubs / grasses / perennials
+import { RoofPlants, PLANT } from "./roofPlants.ts"; // (veg r1) leaf-card shrubs / grasses / perennials
 import { GY } from "./ground.ts";
-import { batchTiles } from "./tilebatch.ts"; // (perf)
-import { loadImageRetry } from "./textures.ts"; // retrying loader (ERR_INSUFFICIENT_RESOURCES must not abort the city)
+import { batchTiles } from "./tileBatch.ts"; // (perf)
+import { loadImageRetry } from "./textures.ts";
+
+const rooftopsShader = lazyShaderSections(() => rooftopsShaderSource);
+// retrying loader (ERR_INSUFFICIENT_RESOURCES must not abort the city)
 
 const TILE = 256;
 // atlas cells (tools/roof_textures.py layer order) and metres per texture repeat
@@ -148,26 +142,26 @@ function createRoofMaterial(tc, tn, noise) {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",rooftopsShader.vertexCommon,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch2,
+        "#include <fog_vertex>",rooftopsShader.vertexFogVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",injectShader(__shaderPatch3, CELL_ROUGH.length, CELL_ROUGH.length, CELL_ROUGH.map((v) => v.toFixed(2)).join(", "), PONDS.length, PONDS.length, PONDS.map((v) => v.toFixed(1)).join(", "), SEAM.length, SEAM.length, SEAM.map((v) => v.toFixed(1)).join(", "), TARP.length, TARP.length, TARP.map((v) => v.toFixed(1)).join(", ")),
+        "#include <common>",injectShader(rooftopsShader.fragmentCommon, CELL_ROUGH.length, CELL_ROUGH.length, CELL_ROUGH.map((v) => v.toFixed(2)).join(", "), PONDS.length, PONDS.length, PONDS.map((v) => v.toFixed(1)).join(", "), SEAM.length, SEAM.length, SEAM.map((v) => v.toFixed(1)).join(", "), TARP.length, TARP.length, TARP.map((v) => v.toFixed(1)).join(", ")),
       )
       .replace(
-        "#include <color_fragment>",injectShader(__shaderPatch4, CELL.EPDM, SEAM.length, TARP.length, TARP.length, PONDS.length, CELL.METAL, CELL.LOUVRE, CELL.SOLAR, CELL.GLASS),
+        "#include <color_fragment>",injectShader(rooftopsShader.fragmentColor, CELL.EPDM, SEAM.length, TARP.length, TARP.length, PONDS.length, CELL.METAL, CELL.LOUVRE, CELL.SOLAR, CELL.GLASS),
       )
       .replace(
-        "#include <roughnessmap_fragment>",__shaderPatch5,
+        "#include <roughnessmap_fragment>",rooftopsShader.fragmentRoughness,
       )
       .replace(
-        "#include <metalnessmap_fragment>",__shaderPatch6,
+        "#include <metalnessmap_fragment>",rooftopsShader.fragmentMetalness,
       )
       .replace(
-        "#include <normal_fragment_maps>",__shaderPatch7,
+        "#include <normal_fragment_maps>",rooftopsShader.fragmentNormalMaps,
       );
   };
   mat.customProgramCacheKey = () => "city-rooftops-v8";
@@ -780,17 +774,17 @@ function createStreakMaterial(noise) {
     sh.uniforms.tNoiseS = { value: noise };
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch8,
+        "#include <common>",rooftopsShader.vertexCommonByRoofDistance,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch9,
+        "#include <fog_vertex>",rooftopsShader.vertexFogVertexByRoofTrim,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch10,
+        "#include <common>",rooftopsShader.fragmentCommonByRoofTrim,
       )
       .replace(
-        "#include <color_fragment>",__shaderPatch11,
+        "#include <color_fragment>",rooftopsShader.fragmentColorByRoofDistance,
       );
   };
   m.customProgramCacheKey = () => "city-roof-streaks-v3";
@@ -906,7 +900,7 @@ const C_COPE = [
   0x4f5456, 0x3c3d3c, 0x6e4636, 0x7a5442, 0x66625c, 0x5e6260, 0x56685e,
   0x6e6a62, 0x48443f,
 ].map(srgb); // r7: darker (sunlit light caps read as outlines)
-// r7: weathered ledge tops (sooty stone / tarred / lead flashing) laid over the buildings.js cornice crowns + tier bands
+// r7: weathered ledge tops (sooty stone / tarred / lead flashing) laid over the buildings.ts cornice crowns + tier bands
 const C_LEDGE = [
   0x5c5954, 0x4e4c48, 0x66615a, 0x575550, 0x6a6660, 0x4a4744,
 ].map(srgb);
@@ -920,8 +914,8 @@ const faceT = (m, lot) => {
     };
   if (m.sides) Object.assign(t, m.sides);
   return t;
-}; // = buildings.js faceTypes
-const TIER_BAND = { deco: 1, postwar: 1, apt: 1, loft: 1 }; // = buildings.js
+}; // = buildings.ts faceTypes
+const TIER_BAND = { deco: 1, postwar: 1, apt: 1, loft: 1 }; // = buildings.ts
 // r4: second-zone surfaces for sectioned big roofs, per main cell
 const ZONE_ALT = {
   [CELL.GRAVEL]: [CELL.MEMBRANE, CELL.BITUMEN, CELL.EPDM, CELL.SILVER],
@@ -989,8 +983,8 @@ export async function buildRooftops({
     return t;
   };
   const crowns = new CanopyBatch(4242, { squash: 0.8 }); // yard trees (lumpy blobs, shadows)
-  // (veg r1) roof gardens: beds / planters get soil + instanced leaf-card plants (roofplants.js); their small trees and
-  // potted trees go to trees.js (leaf-card crowns, bark trunks, trunk collision) via city.js -> props.treeSpots
+  // (veg r1) roof gardens: beds / planters get soil + instanced leaf-card plants (roofPlants.ts); their small trees and
+  // potted trees go to trees.ts (leaf-card crowns, bark trunks, trunk collision) via city.ts -> props.treeSpots
   const plants = new RoofPlants(),
     roofTrees = [],
     prnd = mulberry32(9133);
@@ -1071,7 +1065,7 @@ export async function buildRooftops({
   };
   const archLast = new Map(); // r8: last roof archetype per block (neighbours differ)
 
-  // extra roofs built outside buildings.js (the hero tower): dressed like a tall office roof
+  // extra roofs built outside buildings.ts (the hero tower): dressed like a tall office roof
   const extra = extraRoofs.map(({ rect, H }) => ({
     hero: true,
     H,
@@ -1114,7 +1108,7 @@ export async function buildRooftops({
     const A = bld.A,
       masses = bld.masses;
     if (!masses?.length) continue;
-    bld.roofKit = true; // props.js: this roof is dressed here (it then skips its generic HVAC / garden stamps)
+    bld.roofKit = true; // props.ts: this roof is dressed here (it then skips its generic HVAC / garden stamps)
     const lot = bld.lot;
     const r = mulberry32(
       Math.floor(Math.abs(lot.x0 * 73.1 + lot.z0 * 19.7 + lot.x1 * 3.3)) + 11,
@@ -1215,7 +1209,7 @@ export async function buildRooftops({
 
     for (const m of masses) {
       if (m.crown) {
-        // r7: stepped copper hip roofs (buildings.js addCrown, pale treads + saturated green risers: critic "garish green
+        // r7: stepped copper hip roofs (buildings.ts addCrown, pale treads + saturated green risers: critic "garish green
         // stripe lines"): clad each tier 1.2 cm proud in weathered standing-seam copper, muted grey-green, with a finial
         const tn = m.p?.tint;
         if (
@@ -1430,7 +1424,7 @@ export async function buildRooftops({
       const y = m.y1,
         top = m.y1 + m.parapet;
       const isTop = m === topMass;
-      // r4: any glass roof carrying the buildings.js mechanical screen is a glass top (crowned towers used to miss it:
+      // r4: any glass roof carrying the buildings.ts mechanical screen is a glass top (crowned towers used to miss it:
       // their top roof lost `isTop` to the crown masses and the screen roof stayed a bare pale slab)
       const scrPre =
         type === "glass" || (type === "postwar" && bld.H > 70)
@@ -1734,11 +1728,11 @@ export async function buildRooftops({
         }
         st.patched = (st.patched ?? 0) + 1;
       }
-      // r4: coping recolour (the buildings.js coping is one light limestone rim on every roof): dark metal flashing,
+      // r4: coping recolour (the buildings.ts coping is one light limestone rim on every roof): dark metal flashing,
       // tarred, brick, terracotta, stone, the odd copper, laid 1.2 cm over its top (within the collision tolerance)
       if (m.parapet > 0 && r() < 0.97) {
         // r6: 0.7 -> 0.88 (critic: uniform cream caps); r7: 0.97 (critic: 'bright parapet line reads as a cartoon outline')
-        // (z-fight fix) the cap fully encloses the buildings.js coping (4 cm drip out / t+3 cm in / top+cH) with >= 1.5 cm
+        // (z-fight fix) the cap fully encloses the buildings.ts coping (4 cm drip out / t+3 cm in / top+cH) with >= 1.5 cm
         // clearance on every face: the old 5 mm side offsets, flush party sides and 'sunken' pieces sat coplanar with it
         const cH = A.cornice && m.y0 < 0.1 ? 0.1 : 0.08,
           yc = top + cH + 0.015,
@@ -1808,7 +1802,7 @@ export async function buildRooftops({
         st.cope = (st.cope ?? 0) + 1;
       }
       // r7: sooty ledge tops over the light stone cornice crown (street faces of corniced ground masses) and the set-back
-      // tier bands (buildings.js): from above they were bright cream outlines round every roof. 1.2 cm over the stone, in
+      // tier bands (buildings.ts): from above they were bright cream outlines round every roof. 1.2 cm over the stone, in
       // pieces with per-piece tone (below the 2 cm collision tolerance, so no extra solids)
       if (m.parapet > 0 && lot.sides) {
         const ft = faceT(m, lot);
@@ -2180,14 +2174,14 @@ export async function buildRooftops({
         rd = P0.z1 - P0.z0,
         area = Math.max(0, rw * rd);
       if (rw < 2 || rd < 2) continue;
-      // existing buildings.js pieces on this roof: bulkhead = the anchor of the service cluster; glass-tower screen = clad it
+      // existing buildings.ts pieces on this roof: bulkhead = the anchor of the service cluster; glass-tower screen = clad it
       const existing = occ.on(m.x0, m.z0, m.x1, m.z1, y);
       const bh0 = existing.find(
         (a) => a[6] === K_BH && a[3] - a[0] > 1.8 && a[5] - a[2] > 1.8,
       );
       if (bh0) anchor = [(bh0[0] + bh0[3]) / 2, (bh0[2] + bh0[5]) / 2];
       const hasWT = existing.some((a) => a[6] === K_WT);
-      // contact AO: parapet walls + everything buildings.js already stood on this roof
+      // contact AO: parapet walls + everything buildings.ts already stood on this roof
       if (m.parapet > 0.3)
         tl.ao.band(
           y,
@@ -2201,7 +2195,7 @@ export async function buildRooftops({
       for (const a of existing)
         if (a[4] - a[1] > 0.3 && a[3] - a[0] < rw + 1 && a[5] - a[2] < rd + 1)
           ao(a[0], a[2], a[3], a[5], y, a[4] - a[1]);
-      // r7: buildings.js stair bulkheads (light membrane top on limestone / brick walls read as bright white dice from
+      // r7: buildings.ts stair bulkheads (light membrane top on limestone / brick walls read as bright white dice from
       // above): tarred / coated top skin, a dark metal coping rim 1.2 cm proud, soot streaks down the walls
       for (const a of existing) {
         if (
@@ -4252,7 +4246,7 @@ export async function buildRooftops({
                 yb + 0.15 + (bhh - 0.3) * (i / nb + (ra() - 0.5) * 0.2),
               );
             cuts.push(yt - 0.15);
-            // (billboards r2) the face is a real ad from the ts_ads atlas, drawn by signage.js (gen.roofSignPanels); the
+            // (billboards r2) the face is a real ad from the ts_ads atlas, drawn by signage.ts (gen.roofSignPanels); the
             // plain colour bands stay only as the ?nosignage fallback
             const adFace =
               typeof location !== "undefined" &&
@@ -6095,7 +6089,7 @@ export async function buildRooftops({
               tree ? 1.5 : 1.9,
             );
             if (tree) {
-              // a small tree in the bed (trees.js 'small': leaf cards + bark trunk + trunk collision)
+              // a small tree in the bed (trees.ts 'small': leaf cards + bark trunk + trunk collision)
               const tx = (x0 + x1) / 2,
                 tz = (z0 + z1) / 2,
                 th = 1.4 + ra() * 1.2,
@@ -6114,7 +6108,7 @@ export async function buildRooftops({
           st.gardenArch = (st.gardenArch ?? 0) + 1;
         }
         if (!aT && tw * td > 50 && r() < 0.4 && !A.noBedGrid) {
-          // r6: rarer + irregular (a regular bed grid read as a stamp) // park agent (residential.js noBedGrid): no raised-bed grid on most UES / UWS roofs
+          // r6: rarer + irregular (a regular bed grid read as a stamp) // park agent (residential.ts noBedGrid): no raised-bed grid on most UES / UWS roofs
           const bw = 1.4 + r() * 0.8,
             bl = 2.5 + r() * 2.5,
             gx = bw + 1.0,
@@ -6249,7 +6243,7 @@ export async function buildRooftops({
               CELL.PAVERS,
               C_PLANTER,
             );
-            const cr = 0.8 + r() * 0.4; // (veg r1) the tree itself: trees.js 'small' (leaf cards, bark, trunk collision)
+            const cr = 0.8 + r() * 0.4; // (veg r1) the tree itself: trees.ts 'small' (leaf cards, bark, trunk collision)
             roofTrees.push({
               x: cx,
               z: cz,
@@ -6890,7 +6884,7 @@ export async function buildRooftops({
   yards(gen, occ, S, tileOf, crowns, st);
 
   // ---- meshes: one per tile, shown with the full-detail facade tiles (same nearest-point distance + hysteresis)
-  // (perf) roof AO / streak decals grouped into 2x2 super-tiles (tilebatch.js): one draw per super-tile while all its
+  // (perf) roof AO / streak decals grouped into 2x2 super-tiles (tileBatch.ts): one draw per super-tile while all its
   // tiles are in range. Same per-tile visibility ranges. Roof skins stay one mesh per tile (big geometry: peak memory).
   const meshes = [],
     rbG = [],
@@ -6976,12 +6970,12 @@ export async function buildRooftops({
     sp = null; // (perf r2) roof tile pre-upload
   return {
     stats,
-    roofTrees, // (veg r1) city.js -> props.treeSpots (trees.js 'small')
+    roofTrees, // (veg r1) city.ts -> props.treeSpots (trees.ts 'small')
     update(camera) {
       if (!camera) return;
       const p = camera.position;
       plants.update(p); // (veg r1)
-      rbB.endWarm(); // (perf r2) pre-upload the next roof tile before it appears (see city.js / tilebatch.js warm)
+      rbB.endWarm(); // (perf r2) pre-upload the next roof tile before it appears (see city.ts / tileBatch.ts warm)
       let warmed = false;
       if (!fr) {
         fr = new THREE.Frustum();

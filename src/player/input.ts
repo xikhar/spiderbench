@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: traversal engineer. Keyboard + mouse (pointer lock) + Gamepad API.
+// Keyboard + mouse (pointer lock) + Gamepad API.
 // Exposes raw state plus high-level "actions" sampled once per frame via poll().
 //
 // Bindings (Insomniac layout):
@@ -65,7 +65,7 @@ export function createInput(el) {
     } // drag-to-orbit without lock
   });
   const tappedBtn = { v: 0 };
-  // web slingshot: while Ctrl is held and the gate is open (player on the ground, set by player.js each frame), LMB / RMB
+  // web slingshot: while Ctrl is held and the gate is open (player on the ground, set by player.ts each frame), LMB / RMB
   // clicks are routed to sling.left / sling.right presses and never reach mouse.buttons (no swing, no attack)
   const sling = { gate: false, tap: 0, held: 0 };
   const ctrlHeld = (e) =>

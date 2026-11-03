@@ -1,25 +1,24 @@
 // @ts-nocheck
-import __shaderRaw1 from "./shaders/fragment/pipeline-ssr.frag?raw";
-import __shaderRaw2 from "./shaders/fragment/pipeline-shafts.frag?raw";
-import __shaderRaw3 from "./shaders/fragment/pipeline-cityvolume.frag?raw";
-import __shaderRaw4 from "./shaders/fragment/pipeline-ssgi.frag?raw";
-import __shaderRaw5 from "./shaders/fragment/pipeline-sunvis.frag?raw";
-import __shaderRaw6 from "./shaders/fragment/pipeline-composite.frag?raw";
-import __shaderRaw7 from "./shaders/fragment/pipeline-taa.frag?raw";
-import __shaderRaw8 from "./shaders/glsl/pipeline-glsl_coc.glsl?raw";
-import __shaderRaw9 from "./shaders/fragment/pipeline-dofprefilter.frag?raw";
-import __shaderRaw10 from "./shaders/fragment/pipeline-dofbokeh.frag?raw";
-import __shaderRaw11 from "./shaders/fragment/pipeline-doftent.frag?raw";
-import __shaderRaw12 from "./shaders/fragment/pipeline-dofcombine.frag?raw";
-import __shaderRaw13 from "./shaders/fragment/pipeline-motionblur.frag?raw";
-import __shaderRaw14 from "./shaders/fragment/pipeline-bloomdown.frag?raw";
-import __shaderRaw15 from "./shaders/fragment/pipeline-bloomup.frag?raw";
-import __shaderRaw16 from "./shaders/fragment/pipeline-autoexposure.frag?raw";
-import __shaderRaw17 from "./shaders/fragment/pipeline-final.frag?raw";
-import __shaderRaw18 from "./shaders/fragment/pipeline-debugblit.frag?raw";
-import { injectShader } from "./shader.ts";
-// OWNER: render agent.
-// createPipeline({renderer, scene, camera, lighting}) -> pipeline
+import pipelineSsrFragmentShader from "./shaders/fragment/pipeline-ssr.frag?raw";
+import pipelineShaftsFragmentShader from "./shaders/fragment/pipeline-shafts.frag?raw";
+import pipelineCityVolumeFragmentShader from "./shaders/fragment/pipeline-cityvolume.frag?raw";
+import pipelineScreenSpaceGiFragmentShader from "./shaders/fragment/pipeline-ssgi.frag?raw";
+import pipelineSunVisibilityFragmentShader from "./shaders/fragment/pipeline-sunvis.frag?raw";
+import pipelineCompositeFragmentShader from "./shaders/fragment/pipeline-composite.frag?raw";
+import pipelineTaaFragmentShader from "./shaders/fragment/pipeline-taa.frag?raw";
+import depthOfFieldCocGlsl from "./shaders/glsl/depth-of-field-coc.glsl?raw";
+import pipelineDofPrefilterFragmentShader from "./shaders/fragment/pipeline-dofprefilter.frag?raw";
+import pipelineDofBokehFragmentShader from "./shaders/fragment/pipeline-dofbokeh.frag?raw";
+import pipelineDofTentFragmentShader from "./shaders/fragment/pipeline-doftent.frag?raw";
+import pipelineDofCombineFragmentShader from "./shaders/fragment/pipeline-dofcombine.frag?raw";
+import pipelineMotionBlurFragmentShader from "./shaders/fragment/pipeline-motionblur.frag?raw";
+import pipelineBloomDownFragmentShader from "./shaders/fragment/pipeline-bloomdown.frag?raw";
+import pipelineBloomUpFragmentShader from "./shaders/fragment/pipeline-bloomup.frag?raw";
+import pipelineAutoExposureFragmentShader from "./shaders/fragment/pipeline-autoexposure.frag?raw";
+import pipelineFinalFragmentShader from "./shaders/fragment/pipeline-final.frag?raw";
+import pipelineDebugBlitFragmentShader from "./shaders/fragment/pipeline-debugblit.frag?raw";
+import { injectShader } from "./shaderInjection.ts";
+// // createPipeline({renderer, scene, camera, lighting}) -> pipeline
 //   pipeline.render(dt)                 render one frame to the screen
 //   pipeline.setSize(w, h)              CSS pixels (pixel ratio applied internally)
 //   pipeline.setFocus(dist)             depth-of-field focus distance in metres
@@ -37,7 +36,7 @@ import { injectShader } from "./shader.ts";
 //        DoF -> motion blur -> bloom -> final(CA, sharpen, ACES, grade, vignette, dither) -> screen
 import * as THREE from "three";
 import { N8AOPostPass } from "n8ao";
-import { FSPass, makeRT, GLSL_DEPTH, GLSL_COLOR, halton } from "./common.ts";
+import { FullscreenPass, createRenderTarget, DEPTH_RECONSTRUCTION_GLSL, COLOR_SPACE_CONVERSION_GLSL, haltonSequence } from "./fullscreenPass.ts";
 import { GLSL_SKY_COMMON } from "./sky.ts";
 import { GpuProfiler } from "./profiler.ts";
 import {
@@ -45,7 +44,7 @@ import {
   cityLightsShared,
   cityLightsGLSL,
   CL_SLOTS,
-} from "./citylights.ts"; // (night) local city lights: lit haze
+} from "./cityLights.ts"; // (night) local city lights: lit haze
 import { createGlassMirror } from "./glassmirror.ts"; // (render r-refl) player / cars / peds mirrored in facade glass
 
 export function createPipeline({ renderer, scene, camera, lighting }) {
@@ -89,24 +88,24 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
   );
   depthTex.format = THREE.DepthFormat;
   depthTex.minFilter = depthTex.magFilter = THREE.NearestFilter;
-  const sceneRT = makeRT(W, H, { depthBuffer: true, depthTexture: depthTex });
+  const sceneRT = createRenderTarget(W, H, { depthBuffer: true, depthTexture: depthTex });
   sceneRT.texture.minFilter = sceneRT.texture.magFilter = THREE.LinearFilter;
-  const aoRT = makeRT(W, H);
-  const skyRT = makeRT(W / 2, H / 2);
-  const litRT = makeRT(W, H);
-  const hist = [makeRT(W, H), makeRT(W, H)];
-  const postA = makeRT(W, H),
-    postB = makeRT(W, H);
-  const dofHalfA = makeRT(W / 2, H / 2),
-    dofHalfB = makeRT(W / 2, H / 2);
-  const ssrRT = makeRT(W / 2, H / 2); // rgb: (reflection - env) * confidence (signed, half float)
-  const shaftRT = makeRT(W / 2, H / 2); // rgb: sun in-scatter along the view ray (shadowed), a: linear depth
-  const cvolRT = makeRT(W / 4, H / 4); // (perf) quarter res: soft, low-frequency in-scatter (TAA + depth-aware upsample)      // (night) rgb: in-scatter of the city lights (lamps, screens, headlights) in the night haze, a: linear depth
-  const sunVisRT = makeRT(1, 1, { filter: THREE.NearestFilter }); // r: sun visibility (lens flare)
+  const aoRT = createRenderTarget(W, H);
+  const skyRT = createRenderTarget(W / 2, H / 2);
+  const litRT = createRenderTarget(W, H);
+  const hist = [createRenderTarget(W, H), createRenderTarget(W, H)];
+  const postA = createRenderTarget(W, H),
+    postB = createRenderTarget(W, H);
+  const dofHalfA = createRenderTarget(W / 2, H / 2),
+    dofHalfB = createRenderTarget(W / 2, H / 2);
+  const ssrRT = createRenderTarget(W / 2, H / 2); // rgb: (reflection - env) * confidence (signed, half float)
+  const shaftRT = createRenderTarget(W / 2, H / 2); // rgb: sun in-scatter along the view ray (shadowed), a: linear depth
+  const cvolRT = createRenderTarget(W / 4, H / 4); // (perf) quarter res: soft, low-frequency in-scatter (TAA + depth-aware upsample)      // (night) rgb: in-scatter of the city lights (lamps, screens, headlights) in the night haze, a: linear depth
+  const sunVisRT = createRenderTarget(1, 1, { filter: THREE.NearestFilter }); // r: sun visibility (lens flare)
   // auto exposure: r = adapted log2 luminance (ping-pong 1x1), g = this frame's metered value
   const aeRT = [
-    makeRT(1, 1, { filter: THREE.NearestFilter, type: THREE.FloatType }),
-    makeRT(1, 1, { filter: THREE.NearestFilter, type: THREE.FloatType }),
+    createRenderTarget(1, 1, { filter: THREE.NearestFilter, type: THREE.FloatType }),
+    createRenderTarget(1, 1, { filter: THREE.NearestFilter, type: THREE.FloatType }),
   ];
   let aeIdx = 0;
   // character mask: depth of the player's meshes only (same jittered camera as the scene). TAA compares it with
@@ -119,7 +118,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
   );
   maskDepth.format = THREE.DepthFormat;
   maskDepth.minFilter = maskDepth.magFilter = THREE.NearestFilter;
-  const maskRT = makeRT(W, H, {
+  const maskRT = createRenderTarget(W, H, {
     depthBuffer: true,
     depthTexture: maskDepth,
     type: THREE.UnsignedByteType,
@@ -139,9 +138,9 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       w = Math.max(1, w >> 1);
       h = Math.max(1, h >> 1);
       if (bloomDown[i]) bloomDown[i].setSize(w, h);
-      else bloomDown.push(makeRT(w, h));
+      else bloomDown.push(createRenderTarget(w, h));
       if (bloomUp[i]) bloomUp[i].setSize(w, h);
-      else bloomUp.push(makeRT(w, h));
+      else bloomUp.push(createRenderTarget(w, h));
     }
     while (bloomDown.length > Q.bloomLevels) {
       bloomDown.pop().dispose();
@@ -176,18 +175,18 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
   }
 
   const sky = lighting.sky;
-  const csm = lighting.csm;
+  const cascadedShadows = lighting.cascadedShadows;
 
   // ---------------------------------------------------------------- SSR (half res, screen-space ray march)
-  // Surfaces encode their reflection weight in the scene alpha (see surface.js). Rays are marched in screen space
+  // Surfaces encode their reflection weight in the scene alpha (see surface.ts). Rays are marched in screen space
   // against the depth buffer; hits fetch the previous frame's resolved HDR image (reprojected), so reflections
   // include sky, fog and the character. Output is the DELTA to the environment-map reflection the material already
   // added, so misses cost nothing and hits replace env by the real scene (glass towers reflecting their neighbours).
   const ssrOn = !!Q.ssr && !params.has("nossr");
   // (render r-refl) planar mirror of the dynamic objects (player, cars, peds) for the facade glass next to the player
-  // (glassmirror.js): the facade opts out of SSR, so this is what puts Spider-Man into windows / curtain walls
+  // (glassmirror.ts): the facade opts out of SSR, so this is what puts Spider-Man into windows / curtain walls
   const gmirror = Q.ssr ? createGlassMirror(renderer, scene) : null;
-  const ssr = new FSPass({
+  const ssr = new FullscreenPass({
     name: "ssr",
     defines: {
       STEPS: Q.ssrSteps || 24,
@@ -214,16 +213,16 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       uFloor: { value: 0.5 },
     },
     fragmentShader: injectShader(
-      __shaderRaw1,
-      GLSL_DEPTH,
+      pipelineSsrFragmentShader,
+      DEPTH_RECONSTRUCTION_GLSL,
       THREE.ShaderChunk.cube_uv_reflection_fragment,
     ),
   });
 
   // ---------------------------------------------------------------- volumetric sun shafts (half res)
-  const NC = csm.N;
+  const NC = cascadedShadows.N;
   const shaftsOn = !!Q.shafts && !params.has("noshafts");
-  const shafts = new FSPass({
+  const shafts = new FullscreenPass({
     name: "shafts",
     defines: { STEPS: Q.shaftSteps || 12, NC },
     uniforms: {
@@ -254,15 +253,15 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       uMaxT: { value: 180 },
       uStrength: { value: 1 },
     },
-    fragmentShader: injectShader(__shaderRaw2, GLSL_DEPTH, GLSL_SKY_COMMON),
+    fragmentShader: injectShader(pipelineShaftsFragmentShader, DEPTH_RECONSTRUCTION_GLSL, GLSL_SKY_COMMON),
   });
 
   // ---------------------------------------------------------------- (night) lit haze around the city lights (half res)
   // Ray-march the view ray through the night haze (quadratic step spacing: dense near the camera) and, at each sample,
-  // add the in-scatter of the lights listed in the sample's city-light grid cell (citylights.js): halos around lamp
+  // add the in-scatter of the lights listed in the sample's city-light grid cell (cityLights.ts): halos around lamp
   // heads, light cones under the street lamps and in front of headlights, coloured glow in front of the big screens.
   // Jittered per pixel + frame; TAA integrates. Unshadowed (no local-light shadow maps), soft on purpose.
-  const cvol = new FSPass({
+  const cvol = new FullscreenPass({
     name: "cityVolume",
     defines: {
       NSEG: Q.cityVolSteps || 16,
@@ -289,7 +288,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
     // cell at its midpoint are integrated exactly over the segment for the inverse-square falloff:
     //   int dt / (h^2 + (t - tc)^2) = ( atan((t1 - tc) / h) - atan((t0 - tc) / h) ) / h
     // with the spot cone, range window and phase taken at 2 points of the segment.
-    fragmentShader: injectShader(__shaderRaw3, GLSL_DEPTH, cityLightsGLSL),
+    fragmentShader: injectShader(pipelineCityVolumeFragmentShader, DEPTH_RECONSTRUCTION_GLSL, cityLightsGLSL),
   });
 
   // ---------------------------------------------------------------- SSGI (lighting2 r1: half-res screen-space one-bounce GI)
@@ -300,8 +299,8 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
   // E_sun uses the real CSM visibility + N.L and E_amb the env irradiance, so composite does col *= 1 + ratio. Shaded
   // walls opposite a sunlit facade / street get the warm coloured bounce; sunlit pixels barely change.
   const ssgiOn = Q.ssgi !== false && !params.has("nossgi");
-  const ssgiRT = makeRT(W / 2, H / 2);
-  const ssgi = new FSPass({
+  const ssgiRT = createRenderTarget(W / 2, H / 2);
+  const ssgi = new FullscreenPass({
     name: "ssgi",
     defines: {
       DIRS: Q.ssgiDirs || 6,
@@ -345,15 +344,15 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       uAbsK: { value: 1 }, // (night) additive emissive bounce
     },
     fragmentShader: injectShader(
-      __shaderRaw4,
-      GLSL_DEPTH,
+      pipelineScreenSpaceGiFragmentShader,
+      DEPTH_RECONSTRUCTION_GLSL,
       GLSL_SKY_COMMON,
       THREE.ShaderChunk.cube_uv_reflection_fragment,
     ),
   });
 
   // ---------------------------------------------------------------- sun visibility (1x1) for lens effects
-  const sunVis = new FSPass({
+  const sunVis = new FullscreenPass({
     name: "sunVis",
     uniforms: {
       uDepth: { value: depthTex },
@@ -363,11 +362,11 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       uProjInv: { value: new THREE.Matrix4() },
       uAspect: { value: 1 },
     },
-    fragmentShader: injectShader(__shaderRaw5, GLSL_DEPTH),
+    fragmentShader: injectShader(pipelineSunVisibilityFragmentShader, DEPTH_RECONSTRUCTION_GLSL),
   });
 
   // ---------------------------------------------------------------- composite (sky + aerial perspective)
-  const composite = new FSPass({
+  const composite = new FullscreenPass({
     name: "composite",
     uniforms: {
       ...sky.skyUniforms,
@@ -412,11 +411,11 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       },
       uNightMidLevel: { value: new THREE.Vector3(0.0062, 0.0068, 0.0105) }, // (night r6) blue mid-distance in-scatter // (night) warm street-level glow layer
     },
-    fragmentShader: injectShader(__shaderRaw6, GLSL_DEPTH, GLSL_SKY_COMMON),
+    fragmentShader: injectShader(pipelineCompositeFragmentShader, DEPTH_RECONSTRUCTION_GLSL, GLSL_SKY_COMMON),
   });
 
   // ---------------------------------------------------------------- TAA
-  const taa = new FSPass({
+  const taa = new FullscreenPass({
     name: "taa",
     uniforms: {
       uCurrent: { value: litRT.texture },
@@ -435,7 +434,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       uMaskOn: { value: 0 },
       uObjDelta: { value: new THREE.Matrix4() },
     },
-    fragmentShader: injectShader(__shaderRaw7, GLSL_DEPTH, GLSL_COLOR),
+    fragmentShader: injectShader(pipelineTaaFragmentShader, DEPTH_RECONSTRUCTION_GLSL, COLOR_SPACE_CONVERSION_GLSL),
   });
 
   // ---------------------------------------------------------------- DoF (half-res gather bokeh)
@@ -446,8 +445,8 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
     uMaxCoc: { value: 12 },
     uFar: { value: 1 },
   });
-  const GLSL_COC = __shaderRaw8;
-  const dofPre = new FSPass({
+  const GLSL_COC = depthOfFieldCocGlsl;
+  const dofPre = new FullscreenPass({
     name: "dofPrefilter",
     uniforms: {
       ...cocUniforms(),
@@ -458,9 +457,9 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       uPx: { value: new THREE.Vector2() },
     },
     fragmentShader: injectShader(
-      __shaderRaw9,
-      GLSL_DEPTH,
-      GLSL_COLOR,
+      pipelineDofPrefilterFragmentShader,
+      DEPTH_RECONSTRUCTION_GLSL,
+      COLOR_SPACE_CONVERSION_GLSL,
       GLSL_COC,
     ),
   });
@@ -474,7 +473,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
     }
     return pts;
   }
-  const dofBokeh = new FSPass({
+  const dofBokeh = new FullscreenPass({
     name: "dofBokeh",
     defines: { TAPS: Q.dofTaps },
     uniforms: {
@@ -483,17 +482,17 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       uMaxCoc: { value: 12 },
       uPx: { value: new THREE.Vector2() },
     },
-    fragmentShader: __shaderRaw10,
+    fragmentShader: pipelineDofBokehFragmentShader,
   });
-  const dofPost = new FSPass({
+  const dofPost = new FullscreenPass({
     name: "dofTent",
     uniforms: {
       uSrc: { value: dofHalfB.texture },
       uPx: { value: new THREE.Vector2() },
     },
-    fragmentShader: __shaderRaw11,
+    fragmentShader: pipelineDofTentFragmentShader,
   });
-  const dofCombine = new FSPass({
+  const dofCombine = new FullscreenPass({
     name: "dofCombine",
     uniforms: {
       ...cocUniforms(),
@@ -503,7 +502,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       uProjInv: { value: new THREE.Matrix4() },
       uReversed: { value: reversed ? 1 : 0 },
     },
-    fragmentShader: injectShader(__shaderRaw12, GLSL_DEPTH, GLSL_COC),
+    fragmentShader: injectShader(pipelineDofCombineFragmentShader, DEPTH_RECONSTRUCTION_GLSL, GLSL_COC),
   });
 
   // ---------------------------------------------------------------- motion blur
@@ -515,9 +514,9 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
     prevViewProj: new THREE.Matrix4(),
     have: false,
   };
-  const motion = new FSPass({
+  const motion = new FullscreenPass({
     name: "motionBlur",
-    defines: { SAMPLES: Q.mbSamples },
+    defines: { SAMPLES: Q.motionBlurSamples },
     uniforms: {
       uColor: { value: null },
       uDepth: { value: depthTex },
@@ -530,20 +529,20 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       uRes: { value: new THREE.Vector2(W, H) },
       uFrame: { value: 0 },
     },
-    fragmentShader: injectShader(__shaderRaw13, GLSL_DEPTH),
+    fragmentShader: injectShader(pipelineMotionBlurFragmentShader, DEPTH_RECONSTRUCTION_GLSL),
   });
 
   // ---------------------------------------------------------------- bloom
-  const bloomDownPass = new FSPass({
+  const bloomDownPass = new FullscreenPass({
     name: "bloomDown",
     uniforms: {
       uSrc: { value: null },
       uPx: { value: new THREE.Vector2() },
       uFirst: { value: 0 },
     },
-    fragmentShader: injectShader(__shaderRaw14, GLSL_COLOR),
+    fragmentShader: injectShader(pipelineBloomDownFragmentShader, COLOR_SPACE_CONVERSION_GLSL),
   });
-  const bloomUpPass = new FSPass({
+  const bloomUpPass = new FullscreenPass({
     name: "bloomUp",
     uniforms: {
       uSrc: { value: null },
@@ -556,7 +555,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
     },
     // (lighting2 r1) THRESHOLDED bloom: the down chain stays plain radiance (auto exposure + SSGI read it), the soft-knee
     // threshold is applied to every level as it is added here, so only sun / sky glare, glints and emissives glow
-    fragmentShader: __shaderRaw15,
+    fragmentShader: pipelineBloomUpFragmentShader,
   });
 
   // ---------------------------------------------------------------- auto exposure (eye adaptation)
@@ -564,7 +563,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
   // brightest samples' extremes, and adapts over time (faster toward brighter). The final pass applies a PARTIAL
   // compensation (grade.aeStrength) around grade.aeKey so dark alleys open up and bright vistas calm down without
   // flattening the intended look.
-  const aePass = new FSPass({
+  const aePass = new FullscreenPass({
     name: "autoExposure",
     uniforms: {
       uSrc: { value: null },
@@ -572,7 +571,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       uRate: { value: 0.1 },
       uReset: { value: 1 },
     },
-    fragmentShader: __shaderRaw16,
+    fragmentShader: pipelineAutoExposureFragmentShader,
   });
 
   // ---------------------------------------------------------------- final
@@ -607,7 +606,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
     nightSplitShadow: new THREE.Vector3(0.93, 1.0, 1.1), // (r6) 0.88/0.98/1.16 darkened the ground
     nightSplitStreet: new THREE.Vector3(0.8, 0.96, 1.3), // (night r7) street-level cameras // (night r5) split-tone of the darks at night
     nightLift: new THREE.Vector3(0.0074, 0.0068, 0.0078), // (r8 / r9) unlit asphalt floor ~20 sRGB (critic: 17) // (night) black floor at night (refs: darkest street areas ~sRGB 20-35, nothing crushed to 0)
-    cityVol: 1.0, // (night) lit haze around the city lights (citylights.js)
+    cityVol: 1.0, // (night) lit haze around the city lights (cityLights.ts)
     giNight: 0.35,
     giNightAlbedo: 0.3, // (r10) 1.0: street level went amber / 2x too bright (critic r9); the bounce is on top of real lights // (night) additive screen-space emissive bounce: irradiance gain, albedo proxy
     streak: 0.012, // (night) anamorphic streaks on bright lamps / headlights (night only)
@@ -616,7 +615,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
     toe: 0.34, // (lighting2 r3) 0.36 -> 0.34 (tried 0.3: shade crushed to 0.004 vs topdown ref 0.023)
     // (lighting2 r2) 0.45 -> 0.36: the stronger sky / bounce fill lifts shade, keep some contrast (lighting2 r1) tonemap toe: linear slope floor under the ACES curve (0 = plain ACES)
   };
-  const final = new FSPass({
+  const final = new FullscreenPass({
     name: "final",
     uniforms: {
       uColor: { value: null },
@@ -661,18 +660,18 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       uToe: { value: 0.45 },
       uRain: { value: 0 },
     },
-    fragmentShader: injectShader(__shaderRaw17, GLSL_COLOR),
+    fragmentShader: injectShader(pipelineFinalFragmentShader, COLOR_SPACE_CONVERSION_GLSL),
   });
 
   // ---------------------------------------------------------------- debug view (pipeline.debug = {tex:'ssr'|'shafts'|'ao'|'scene', scale})
-  const dbgPass = new FSPass({
+  const dbgPass = new FullscreenPass({
     name: "debugBlit",
     uniforms: {
       uSrc: { value: null },
       uScale: { value: 1 },
       uMode: { value: 0 },
     },
-    fragmentShader: __shaderRaw18,
+    fragmentShader: pipelineDebugBlitFragmentShader,
   });
 
   // ---------------------------------------------------------------- state
@@ -798,8 +797,8 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
     projUnjit.copy(cam.projectionMatrix);
     viewProj.multiplyMatrices(projUnjit, cam.matrixWorldInverse);
     const jIdx = (frame % 16) + 1;
-    const jx = Q.taa ? halton(jIdx, 2) - 0.5 : 0,
-      jy = Q.taa ? halton(jIdx, 3) - 0.5 : 0;
+    const jx = Q.taa ? haltonSequence(jIdx, 2) - 0.5 : 0,
+      jy = Q.taa ? haltonSequence(jIdx, 3) - 0.5 : 0;
     if (Q.taa) {
       cam.projectionMatrix.elements[8] += (2 * jx) / W;
       cam.projectionMatrix.elements[9] += (2 * jy) / H;
@@ -812,7 +811,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       gmirror.render(cam);
     }
 
-    // --- (night) real-time shadow maps of the city lights nearest the player (citylights.js)
+    // --- (night) real-time shadow maps of the city lights nearest the player (cityLights.ts)
     if (cityLightsShared.origin.w > 0) {
       prof.begin("cityShadows");
       cityLights.renderShadows(renderer, scene);
@@ -926,7 +925,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
     //   ssgiOn &&
     //   envTex &&
     //   envTex.mapping === THREE.CubeUVReflectionMapping &&
-    //   !!csm.lights[0].shadow.map?.depthTexture;
+    //   !!cascadedShadows.lights[0].shadow.map?.depthTexture;
     // if (doGI) {
     //   prof.begin("ssgi");
     //   const u = ssgi.uniforms;
@@ -941,12 +940,12 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
     //     ssgi.material.userData.envH = hgt;
     //   }
     //   for (let i = 0; i < Math.min(NC, 4); i++) {
-    //     const l = csm.lights[i];
+    //     const l = cascadedShadows.lights[i];
     //     u["uSM" + i].value = l.shadow.map?.depthTexture ?? null;
     //     u.uSMat.value[i].copy(l.shadow.matrix);
     //   }
     //   for (let i = NC; i < 4; i++) u["uSM" + i].value = u.uSM0.value;
-    //   const sp = csm.splits;
+    //   const sp = cascadedShadows.splits;
     //   u.uSplits.value.set(
     //     sp[1] ?? 1e9,
     //     sp[2] ?? 1e9,
@@ -981,12 +980,12 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       prof.begin("shafts");
       const u = shafts.uniforms;
       for (let i = 0; i < Math.min(NC, 4); i++) {
-        const l = csm.lights[i];
+        const l = cascadedShadows.lights[i];
         u["uSM" + i].value = l.shadow.map?.depthTexture ?? null;
         u.uSMat.value[i].copy(l.shadow.matrix);
       }
       for (let i = NC; i < 4; i++) u["uSM" + i].value = u.uSM0.value;
-      const sp = csm.splits;
+      const sp = cascadedShadows.splits;
       u.uSplits.value.set(
         sp[1] ?? 1e9,
         sp[2] ?? 1e9,
@@ -1093,7 +1092,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
     }
     resetHistory = false;
 
-    // restore unjittered projection for everything after (DoF / MB reconstruct with the jitter-free matrix)
+    // restore unjittered projection for everything after (DoF / MeshBuilder reconstruct with the jitter-free matrix)
     cam.projectionMatrix.copy(projUnjit);
     cam.projectionMatrixInverse.copy(projUnjit).invert();
 
@@ -1355,7 +1354,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
     },
     prepareMaterials() {
       if (ssrOn) scanSSROptOut();
-    }, // (perf r3) the NO_SSR defines the first render would add (render/warmup.js compiles after them)
+    }, // (perf r3) the NO_SSR defines the first render would add (render/warmup.ts compiles after them)
     get size() {
       return { W, H };
     },

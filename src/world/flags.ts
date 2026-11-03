@@ -1,11 +1,13 @@
 // @ts-nocheck
-// OWNER: city agent. Instanced building flags/banners hanging from angled poles, cloth wave in the vertex shader.
-import __shaderPatch1 from "./shaders/glsl/flags-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/flags-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/flags-patch-3.glsl?raw";
+// Instanced building flags/banners hanging from angled poles, cloth wave in the vertex shader.
+import { lazyShaderSections } from "../shaderSections.ts";
+import flagsShaderSource from "./shaders/glsl/flags.glsl?raw";
 import * as THREE from "three";
 import { Pool } from "./pool.ts";
-import { hexLin } from "./geom.ts";
+import { linearColorFromHex } from "./meshBuilder.ts";
+
+const flagsShader = lazyShaderSections(() => flagsShaderSource);
+
 
 const COLORS = [0x8e1b1b, 0x1d5a2e, 0x1b2b5c, 0xb48a2a, 0x5a1a4a];
 
@@ -55,13 +57,13 @@ export function buildFlags({ scene, flags }) {
     sh.uniforms.uTime = uTime;
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",flagsShader.vertexCommon,
       )
       .replace(
-        "#include <color_vertex>",__shaderPatch2,
+        "#include <color_vertex>",flagsShader.vertexColorVertex,
       )
       .replace(
-        "#include <begin_vertex>",__shaderPatch3,
+        "#include <begin_vertex>",flagsShader.vertexBeginVertex,
       );
   };
   mat.customProgramCacheKey = () => "city-flag-v1";
@@ -75,7 +77,7 @@ export function buildFlags({ scene, flags }) {
   for (const f of flags || []) {
     const ry = Math.atan2(-f.N[2], f.N[0]); // map +x to N
     pool.add(f.base.x, f.base.y, f.base.z, ry, 1, null, {
-      aTint: hexLin(COLORS[f.color % COLORS.length]),
+      aTint: linearColorFromHex(COLORS[f.color % COLORS.length]),
     });
   }
   let t = 0;

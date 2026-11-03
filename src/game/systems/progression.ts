@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: systems engineer. XP / levels / skill points / skill tree -> ctx.params (traversal tuning multipliers).
+// XP / levels / skill points / skill tree -> ctx.params (traversal tuning multipliers).
 //
 // ctx.params (read by traversal, feature-detected: `const P = window.__ctx?.params; speed *= P?.swingSpeed ?? 1`):
 //   swingSpeed        x  swing pump / max speed            swingReleaseBoost x  speed kept/added on release
@@ -7,7 +7,7 @@
 //   pointLaunch       x  point-launch impulse              jump              x  jump / charged-jump impulse
 //   wallRunSpeed      x  wall-run speed                    diveSpeed         x  dive terminal speed / accel
 //   airTricks      bool  tricks award XP
-// Traversal reads swingReleaseBoost natively; the rest are applied by skillfx.js as impulses/time-scales on traversal's
+// Traversal reads swingReleaseBoost natively; the rest are applied by skillEffects.ts as impulses/time-scales on traversal's
 // public state unless traversal lists the key in traversal.consumesParams.
 //   mouseSensitivity, invertY  -> ALREADY applied to input.state.look by the systems input layer (lookScaledByInput=true);
 //                                 traversal/camera must NOT apply them again.

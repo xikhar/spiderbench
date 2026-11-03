@@ -1,6 +1,5 @@
 // @ts-nocheck
-// OWNER: traversal engineer.
-// createPlayer({scene, world, camera, input, renderer}) -> Promise<player>
+// // createPlayer({scene, world, camera, input, renderer}) -> Promise<player>
 //   player = { update(dt), object, rig, web, cam, state, anim (C1), traversal, position, velocity, mode, heading,
 //              setControlOverride(fn|null) (C5), setAnimator(a|null), teleport(p, yaw), setPose(o), shotTick(dt), applyShot(name) }
 // Traversal lives in ./traversal/** (state machine, anchors, zip points, collision). This file wires input -> camera ->
@@ -11,9 +10,9 @@
 //           E / MMB web-zip to highlighted point (no target in air = web-dash) · C / Ctrl drop / dive.
 //           Q / L1 (air or mid-swing) quick web boost: one-hand web to a far point ahead + forward impulse (off in combat).
 //           Web slingshot (on the ground): hold Ctrl, LMB / RMB = web to the left / right building (repeat for more),
-//           walk back (S) to stretch, release Ctrl to launch (traversal stepSling, player/slingweb.js).
+//           walk back (S) to stretch, release Ctrl to launch (traversal stepSling, player/slingshotWebs.ts).
 //           T (perched, zip reticle on a point): web tightrope — web to that point, stand up, W / S walk the line
-//           (traversal stepRope, traversal/rope.js, player/ropeweb.js).
+//           (traversal stepRope, traversal/rope.ts, player/ropeWebs.ts).
 //
 // Animation layer hook (C1): either `player.setAnimator({update(dt, anim, player)})`, or a `rig.animate(anim, dt, player)`
 // method. When present, it is called every frame after the root transform (object.position = feet, object.quaternion =
@@ -26,13 +25,13 @@
 // (stride, lean) and the chase camera (follow lag, no snap-back) see real motion; `combatCam` = suppress the chase
 // camera's travel recenter (the combat camera frames the fight).
 import * as THREE from "three";
-import { loadCharacter, POSES, makePose, blendPose, copyPose } from "./rig.ts";
-import { createWebSystem } from "./web.ts";
-import { createSlingWebs } from "./slingweb.ts";
-import { createRopeWebs } from "./ropeweb.ts";
+import { loadCharacter, POSES, makePose, blendPose, copyPose } from "./characterRig.ts";
+import { createWebSystem } from "./webRendering.ts";
+import { createSlingWebs } from "./slingshotWebs.ts";
+import { createRopeWebs } from "./ropeWebs.ts";
 import { createChaseCamera } from "./camera.ts";
 import { createTraversal, H } from "./traversal/traversal.ts";
-import { SHOTS } from "../shots.ts";
+import { SCREENSHOT_PRESETS } from "../screenshotPresets.ts";
 
 const UP = new THREE.Vector3(0, 1, 0);
 const _v = new THREE.Vector3(),
@@ -380,7 +379,7 @@ export async function createPlayer({ scene, world, camera, input, renderer }) {
     ropeWebs.update(dt, s.ropes, rig.handWorld("R", _v2), renderer);
   }
 
-  // ---------------------------------------------------------------- shot / scripted posing API (used by src/shots.js)
+  // ---------------------------------------------------------------- shot / scripted posing API (used by src/screenshotPresets.ts)
   // setPose(opts): {pos (feet world pos), quaternion | forward+up | facing, pose | poseName, clip, clipTime, anchor, anchorNormal, state}
   const basisM = new THREE.Matrix4();
   function orientFrom(fwd, up) {
@@ -493,7 +492,7 @@ export async function createPlayer({ scene, world, camera, input, renderer }) {
       cam.reset(s.pos, yaw);
     },
     applyShot(name) {
-      const sh = SHOTS[name];
+      const sh = SCREENSHOT_PRESETS[name];
       if (!sh || !window.__ctx) return false;
       sh.apply(window.__ctx);
       return true;

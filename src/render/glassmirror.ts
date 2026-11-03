@@ -1,9 +1,9 @@
 // @ts-nocheck
-import __shaderRaw1 from "./shaders/glsl/glassmirror-glsl_glass_mirror_decl.glsl?raw";
-// OWNER: render agent. (render r-refl) Player reflection in facade glass (user: "fix player reflection not showing on
+import glassMirrorDeclarationsGlsl from "./shaders/glsl/glass-mirror-declarations.glsl?raw";
+// (render r-refl) Player reflection in facade glass (user: "fix player reflection not showing on
 // glass windows").
 // The facade glass (curtain walls, storefronts, sash windows) does its own procedural city reflection and opts out of
-// the pipeline SSR (world/facade.js), so nothing dynamic ever showed up in it. This renders the DYNAMIC things only --
+// the pipeline SSR (world/facade.ts), so nothing dynamic ever showed up in it. This renders the DYNAMIC things only --
 // the player (+ web lines) and near pedestrians (L0 pools; cars were too costly) -- mirrored about the ONE facade plane
 // next to the player that the camera sees, into a half-res HDR target (alpha = coverage). The facade shader
 // (lights_fragment_maps) projects its world position through `uGMMat` and lays the mirror image over its own
@@ -19,14 +19,14 @@ import __shaderRaw1 from "./shaders/glsl/glassmirror-glsl_glass_mirror_decl.glsl
 import * as THREE from "three";
 
 export const GM_LAYER = 26;
-// shared by every facade material (world/facade.js imports it, like surface.js's ambShared)
+// shared by every facade material (world/facade.ts imports it, like surface.ts's ambShared)
 export const glassMirrorShared = {
   tGM: { value: null },
   uGMMat: { value: new THREE.Matrix4() },
   uGMPlane: { value: new THREE.Vector4(0, 1, 0, -1e6) },
   uGMOn: { value: 0 },
 };
-export const GLSL_GLASS_MIRROR_DECL = __shaderRaw1;
+export const GLSL_GLASS_MIRROR_DECL = glassMirrorDeclarationsGlsl;
 
 export function createGlassMirror(renderer, scene) {
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());

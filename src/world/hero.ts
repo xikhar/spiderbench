@@ -1,15 +1,15 @@
 // @ts-nocheck
-// OWNER: city agent. Hero building for the `wall` viewpoint (refs/2.webp): park-facing tower whose west facade has
+// Hero building for the `wall` viewpoint (refs/2.webp): park-facing tower whose west facade has
 // protruding stone fins alternating with floor-height reflective glass. The glass uses a real planar reflection
 // (mirrored camera render, only while the camera is near) blended into the IBL specular term, so Spidey and the
 // park/avenue reflect in it; where the reflection render is empty (sky) the regular environment map is used.
-import __shaderPatch1 from "./shaders/glsl/hero-patch-1.glsl?raw";
-import __shaderPatch2 from "./shaders/glsl/hero-patch-2.glsl?raw";
-import __shaderPatch3 from "./shaders/glsl/hero-patch-3.glsl?raw";
-import __shaderPatch4 from "./shaders/glsl/hero-patch-4.glsl?raw";
-import __shaderPatch5 from "./shaders/glsl/hero-patch-5.glsl?raw";
+import { lazyShaderSections } from "../shaderSections.ts";
+import heroShaderSource from "./shaders/glsl/hero.glsl?raw";
 import * as THREE from "three";
 import { FacadeBuilder, STYLE, LAYER } from "./facade.ts";
+
+const heroShader = lazyShaderSections(() => heroShaderSource);
+
 
 export function buildHero({
   scene,
@@ -170,20 +170,20 @@ export function buildHero({
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader
       .replace(
-        "#include <common>",__shaderPatch1,
+        "#include <common>",heroShader.vertexCommon,
       )
       .replace(
-        "#include <fog_vertex>",__shaderPatch2,
+        "#include <fog_vertex>",heroShader.vertexFogVertex,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace(
-        "#include <common>",__shaderPatch3,
+        "#include <common>",heroShader.fragmentCommon,
       )
       .replace(
-        "#include <lights_physical_fragment>",__shaderPatch4,
+        "#include <lights_physical_fragment>",heroShader.fragmentPhysicalLights,
       )
       .replace(
-        "#include <lights_fragment_maps>",__shaderPatch5,
+        "#include <lights_fragment_maps>",heroShader.fragmentLightsMaps,
       );
   };
   glassMat.customProgramCacheKey = () => "city-hero-glass";

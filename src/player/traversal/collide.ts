@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: traversal engineer. Spatial queries for traversal built on the city's box list (world.buildings = [{min:[x,y,z], max:[x,y,z]}]).
+// Spatial queries for traversal built on the city's box list (world.buildings = [{min:[x,y,z], max:[x,y,z]}]).
 // - BoxIndex: uniform XZ hash of AABBs (exact capsule-vs-box push-out, face enumeration for anchors, roof-edge zip points).
 // - Everything degrades gracefully to world.raycast / world.groundHeight when world.buildings is missing.
 import * as THREE from "three";

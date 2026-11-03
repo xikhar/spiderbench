@@ -1,1 +1,0 @@
-diffuseColor.rgb = river();

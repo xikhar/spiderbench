@@ -1,9 +1,9 @@
 // @ts-nocheck
-// OWNER: combat engineer. Combat HUD (DOM, pointer-events none): health bar with trailing damage, 3-segment focus bar,
+// Combat HUD (DOM, pointer-events none): health bar with trailing damage, 3-segment focus bar,
 // combo counter, spider-sense edge arrows toward attackers, brute health bar, damage vignette, perfect-dodge banner,
 // controls hint strip at the start of a fight, transient messages.
 import * as THREE from "three";
-import { clamp } from "./util.ts";
+import { clamp } from "./combatMath.ts";
 
 const CSS = `
 #cmb-hud{position:fixed;inset:0;pointer-events:none;z-index:25;font-family:var(--sys-head,'Barlow Condensed','Arial Narrow',sans-serif);color:#fff;opacity:0;transition:opacity .45s}
@@ -111,7 +111,7 @@ export function createHud(c) {
       msgT = 1.4;
     },
     update(realDt, S) {
-      const me = c.spidey;
+      const me = c.combatCharacter;
       const hp = clamp(me.hp / me.maxHp, 0, 1);
       fill.style.transform = `scaleX(${hp})`;
       if (hp < trailV)

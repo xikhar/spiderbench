@@ -1,5 +1,5 @@
 // @ts-nocheck
-// OWNER: citylife engineer. Glue between the city-life systems (traffic, crowd, pigeons) and the world contract:
+// Glue between the city-life systems (traffic, crowd, pigeons) and the world contract:
 //   world.collideDynamic(pos, radius, height) -> {push, grounded?, groundY?, velocity?} | null      (C3)
 //   world.setPlayerState(pos, vel)            traversal calls it every frame; cars brake/honk, people react (C3)
 //   world.alarm(pos, radius)                  danger (combat/explosions): people flee, cars stop + honk

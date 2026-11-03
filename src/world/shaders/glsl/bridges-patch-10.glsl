@@ -1,2 +1,0 @@
-#include <begin_vertex>
-      vNeck = aEx.x; { vec3 wp = (modelMatrix * vec4(transformed, 1.0)).xyz; vFat = max(0.0, length(wp - cameraPosition) * 0.0011 - 0.15); transformed += objectNormal * vFat; vWPc = wp; }

@@ -5,19 +5,19 @@
 // (a far LOD tile, a pool that was empty at spawn, the water mirror's unshadowed variant of a tower, the motion-blur
 // pass) froze the game for 0.2-6 s. The warm-up creates those programs ahead of time with renderer.compile(): with
 // KHR_parallel_shader_compile the driver links them on its own threads while the game keeps running.
-// At load everything is queued before the first frame (the links overlap the loading frame, which compiled its own
+// At load everything is totalProgramsQueued before the first frame (the links overlap the loading frame, which compiled its own
 // programs one by one anyway); meshes added later are trickled (a batch only once the previous one linked), so a
-// program the game suddenly needs never waits behind a long queue. Pure preparation: nothing is drawn and no object /
+// program the game suddenly needs never waits behind a long compileQueue. Pure preparation: nothing is drawn and no object /
 // material state changes -> identical frames.
 //   const w = createWarmup(renderer, scene, camera, { mirrorLayers });  w.rescan(); w.flush()  (load)
 //   later additions: w.rescan() then w.step() once per frame (trickled: <= perStep new programs, <= budgetMs)
 import * as THREE from "three";
-import { FSPass } from "./common.ts";
+import { FullscreenPass } from "./fullscreenPass.ts";
 
 type WarmupOptions = {
   mirrorLayers?: number[] | null;
-  perStep?: number;
-  budgetMs?: number;
+  maxProgramsPerStep?: number;
+  compileBudgetMs?: number;
 };
 
 type WarmupApi = {
@@ -31,108 +31,121 @@ type WarmupApi = {
   step(force?: boolean): boolean;
 };
 
-// duck-typed compile() root: compile() only calls traverse (materials) / traverseVisible (lights, when root != scene)
-const sub = (list) => ({
-  traverse: (f) => {
-    for (const o of list) f(o);
+// renderer.compile() reads materials through traverse() and lights through
+// traverseVisible(). This small root lets it compile only the queued objects.
+const createCompileRoot = (objects) => ({
+  traverse(callback) {
+    for (const object of objects) callback(object);
   },
   traverseVisible: () => {},
 });
-const drawable = (o) =>
-  (o.isMesh || o.isPoints || o.isLine || o.isSprite) && o.material;
+const isDrawableObject = (object) =>
+  (object.isMesh || object.isPoints || object.isLine || object.isSprite) &&
+  object.material;
 
 export function createWarmup(
   renderer: any,
   scene: any,
   camera: any,
-  { mirrorLayers = null, perStep = 4, budgetMs = 2 }: WarmupOptions = {},
+  {
+    mirrorLayers = null,
+    maxProgramsPerStep = 4,
+    compileBudgetMs = 2,
+  }: WarmupOptions = {},
 ): WarmupApi {
-  const rt1 = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
-  const done = new WeakSet(); // objects already compiled in a given pass (per-pass sets)
-  const doneM = new WeakSet();
-  let queue = [],
-    inFlight = [],
-    t0 = 0,
-    queued = 0;
-  const mc = camera.clone();
-  mc.layers.disableAll();
-  if (mirrorLayers) for (const l of mirrorLayers) mc.layers.enable(l);
-  const fsCam = FSPass.camera;
+  const warmupRenderTarget = new THREE.WebGLRenderTarget(1, 1, {
+    type: THREE.HalfFloatType,
+  });
+  const compiledInMainPass = new WeakSet(); // objects already compiled in a given pass (per-pass sets)
+  const compiledInMirrorPass = new WeakSet();
+  let compileQueue = [],
+    programsBeingLinked = [],
+    warmupStartedAt = 0,
+    totalProgramsQueued = 0;
+  const mirrorCamera = camera.clone();
+  mirrorCamera.layers.disableAll();
+  if (mirrorLayers) for (const l of mirrorLayers) mirrorCamera.layers.enable(l);
+  const fullscreenCamera = FullscreenPass.camera;
   const api: WarmupApi = {
-    // collect everything not compiled yet: [kind, object] (main pass for every drawable, the mirror variant for the
+    // Collect everything not compiled yet: [pass kind, object] (main pass for every drawable, mirror variant for the
     // meshes on the mirror's layers, the post passes)
     rescan() {
-      if (!t0) t0 = performance.now();
-      scene.traverse((o) => {
-        if (!drawable(o)) return;
-        if (!done.has(o)) {
-          done.add(o);
-          queue.push(0, o);
+      if (!warmupStartedAt) warmupStartedAt = performance.now();
+      scene.traverse((object) => {
+        if (!isDrawableObject(object)) return;
+        if (!compiledInMainPass.has(object)) {
+          compiledInMainPass.add(object);
+          compileQueue.push(0, object);
         }
         // mirror meshes: on its layers now, or able to join BIG_CASTER_LAYER later (csm.tagCasters tags shadow casters,
         // also the tiles that switch their shadows on later): meshes on the mirror layers + every shadow-casting-capable
         // one but the 'detail' / smallCasters batches the tagger skips
         if (
           mirrorLayers &&
-          !doneM.has(o) &&
-          (o.layers.test(mc.layers) ||
-            (o.isMesh &&
-              (o.castShadow ||
-                /^(facade|roofs|facadeLod)\b/.test(o.name || "")) &&
-              !/^detail\b/.test(o.name || "") &&
-              !o.userData?.smallCasters))
+          !compiledInMirrorPass.has(object) &&
+          (object.layers.test(mirrorCamera.layers) ||
+            (object.isMesh &&
+              (object.castShadow ||
+                /^(facade|roofs|facadeLod)\b/.test(object.name || "")) &&
+              !/^detail\b/.test(object.name || "") &&
+              !object.userData?.smallCasters))
         ) {
-          doneM.add(o);
-          queue.push(1, o);
+          compiledInMirrorPass.add(object);
+          compileQueue.push(1, object);
         }
       });
-      for (const p of FSPass.all)
-        if (!done.has(p.mesh)) {
-          done.add(p.mesh);
-          queue.push(2, p.mesh);
+      for (const pass of FullscreenPass.registeredPasses)
+        if (!compiledInMainPass.has(pass.mesh)) {
+          compiledInMainPass.add(pass.mesh);
+          compileQueue.push(2, pass.mesh);
         }
     },
     get pending() {
-      return queue.length / 2;
+      return compileQueue.length / 2;
     },
-    // after flush(): wait (off the main thread's back: polled every 60 ms) until the queued programs have linked, so the
+    // After flush(), poll every 60 ms until the queued programs have linked, so the
     // first frame does not stall on them; onProgress(0..1) feeds the loading screen. Resolves on timeout too.
     /**
      * @param {((progress: number) => void) | null} onProgress
      * @param {number} timeoutMs
      */
     settle(onProgress = null, timeoutMs = 25000) {
-      const all = inFlight.slice(),
-        n = all.length,
-        t = performance.now();
+      const programsToWaitFor = programsBeingLinked.slice();
+      const programCount = programsToWaitFor.length;
+      const waitStartedAt = performance.now();
       return new Promise((res) => {
         const pollBudgetMs = 3,
           pollBatchSize = 32;
-        const pending = all.slice();
+        const pendingPrograms = programsToWaitFor.slice();
         let cursor = 0;
         const poll = () => {
-          const started = performance.now();
+          const pollStartedAt = performance.now();
           let checked = 0;
           while (
-            cursor < pending.length &&
+            cursor < pendingPrograms.length &&
             checked < pollBatchSize &&
-            performance.now() - started < pollBudgetMs
+            performance.now() - pollStartedAt < pollBudgetMs
           ) {
-            if (pending[cursor].isReady?.() ?? true) {
-              pending[cursor] = pending[pending.length - 1];
-              pending.pop();
+            if (pendingPrograms[cursor].isReady?.() ?? true) {
+              pendingPrograms[cursor] =
+                pendingPrograms[pendingPrograms.length - 1];
+              pendingPrograms.pop();
             } else cursor++;
             checked++;
           }
-          onProgress?.(n ? (n - pending.length) / n : 1);
-          const passComplete = cursor >= pending.length;
-          const timedOut = performance.now() - t > timeoutMs;
+          onProgress?.(
+            programCount
+              ? (programCount - pendingPrograms.length) / programCount
+              : 1,
+          );
+          const passComplete = cursor >= pendingPrograms.length;
+          const timedOut = performance.now() - waitStartedAt > timeoutMs;
           if (
-            pending.length === 0 ||
+            pendingPrograms.length === 0 ||
             (timedOut && passComplete)
           ) {
             console.log(
-              `[warmup] ${n - pending.length}/${n} programs linked before the first frame (${((performance.now() - t) / 1000).toFixed(1)} s)`,
+              `[warmup] ${programCount - pendingPrograms.length}/${programCount} programs linked before the first frame (${((performance.now() - waitStartedAt) / 1000).toFixed(1)} s)`,
             );
             res();
           } else if (passComplete) {
@@ -143,64 +156,79 @@ export function createWarmup(
         poll();
       });
     },
-    // queue everything at once (at load, before the first frame: the links overlap the loading screen's first frame)
+    // Compile everything at once during load, before the first frame.
     flush() {
-      const ps = perStep,
-        bm = budgetMs;
-      perStep = Infinity;
-      budgetMs = Infinity;
-      inFlight.length = 0;
+      const originalProgramsPerStep = maxProgramsPerStep;
+      const originalCompileBudgetMs = compileBudgetMs;
+      maxProgramsPerStep = Infinity;
+      compileBudgetMs = Infinity;
+      programsBeingLinked.length = 0;
       try {
         api.step(true);
       } finally {
-        perStep = ps;
-        budgetMs = bm;
+        maxProgramsPerStep = originalProgramsPerStep;
+        compileBudgetMs = originalCompileBudgetMs;
       }
     },
     step(force = false) {
-      if (!queue.length) return false;
-      inFlight = inFlight.filter((p) => !(p.isReady?.() ?? true));
-      if (inFlight.length && !force) return true; // let the last batch link first
-      const P = renderer.info.programs,
-        n0 = P.length;
-      const prevRT = renderer.getRenderTarget(),
-        prevOn = renderer.shadowMap.enabled;
-      renderer.setRenderTarget(rt1); // the game draws every pass into a render target (linear output in the key)
+      if (!compileQueue.length) return false;
+      programsBeingLinked = programsBeingLinked.filter(
+        (program) => !(program.isReady?.() ?? true),
+      );
+      if (programsBeingLinked.length && !force) return true; // let the last batch link first
+      const programs = renderer.info.programs;
+      const existingProgramCount = programs.length;
+      const previousRenderTarget = renderer.getRenderTarget();
+      const shadowMapWasEnabled = renderer.shadowMap.enabled;
+      renderer.setRenderTarget(warmupRenderTarget); // the game draws every pass into a render target (linear output in the key)
       try {
-        let i = 0;
-        const ts = performance.now();
+        let queueOffset = 0;
+        const stepStartedAt = performance.now();
         while (
-          i < queue.length &&
-          P.length - n0 < perStep &&
-          performance.now() - ts < budgetMs
+          queueOffset < compileQueue.length &&
+          programs.length - existingProgramCount < maxProgramsPerStep &&
+          performance.now() - stepStartedAt < compileBudgetMs
         ) {
           // <= ~2 ms of main-thread time per frame
-          const kind = queue[i],
-            o = queue[i + 1];
-          i += 2;
-          if (kind === 1) {
+          const passKind = compileQueue[queueOffset];
+          const object = compileQueue[queueOffset + 1];
+          queueOffset += 2;
+          if (passKind === 1) {
             renderer.shadowMap.enabled = false;
-            renderer.compile(sub([o]), mc, scene);
-            renderer.shadowMap.enabled = prevOn;
+            renderer.compile(createCompileRoot([object]), mirrorCamera, scene);
+            renderer.shadowMap.enabled = shadowMapWasEnabled;
           } // river mirror: unshadowed
-          else if (kind === 2) renderer.compile(sub([o]), fsCam, sub([]));
-          else renderer.compile(sub([o]), camera, scene);
+          else if (passKind === 2) {
+            renderer.compile(
+              createCompileRoot([object]),
+              fullscreenCamera,
+              createCompileRoot([]),
+            );
+          } else {
+            renderer.compile(createCompileRoot([object]), camera, scene);
+          }
         }
-        queue = queue.slice(i);
+        compileQueue = compileQueue.slice(queueOffset);
       } catch (e) {
         console.warn("[warmup]", e);
-        queue = [];
+        compileQueue = [];
       } finally {
-        renderer.shadowMap.enabled = prevOn;
-        renderer.setRenderTarget(prevRT);
+        renderer.shadowMap.enabled = shadowMapWasEnabled;
+        renderer.setRenderTarget(previousRenderTarget);
       }
-      for (let k = n0; k < P.length; k++) inFlight.push(P[k]);
-      queued += P.length - n0;
-      if (!queue.length)
+      for (
+        let programIndex = existingProgramCount;
+        programIndex < programs.length;
+        programIndex += 1
+      ) {
+        programsBeingLinked.push(programs[programIndex]);
+      }
+      totalProgramsQueued += programs.length - existingProgramCount;
+      if (!compileQueue.length)
         console.log(
-          `[warmup] ${queued} programs queued so far (${P.length} total), ${((performance.now() - t0) / 1000).toFixed(1)} s`,
+          `[warmup] ${totalProgramsQueued} programs queued so far (${programs.length} total), ${((performance.now() - warmupStartedAt) / 1000).toFixed(1)} s`,
         );
-      return queue.length > 0;
+      return compileQueue.length > 0;
     },
   };
   return api;

@@ -1,6 +1,6 @@
 // @ts-nocheck
-import __shaderRaw1 from "./shaders/glsl/atmosphere-glsl_atmos.glsl?raw";
-// OWNER: render agent. Atmosphere model shared by sky LUT, sky pass, env map and aerial-perspective fog.
+import atmosphereGlsl from "./shaders/glsl/atmosphere.glsl?raw";
+// Atmosphere model shared by sky LUT, sky pass, env map and aerial-perspective fog.
 // Units: km inside the atmosphere model. Radiance is for a sun illuminance of 1; multiply by `uSkyScale`.
 import * as THREE from "three";
 
@@ -15,7 +15,7 @@ export const ATMOS = {
   HM: 1.2,
 };
 
-export const GLSL_ATMOS = __shaderRaw1;
+export const GLSL_ATMOS = atmosphereGlsl;
 
 /** CPU transmittance of sunlight reaching height h (km) for a sun at elevation `elev` (radians). */
 export function sunTransmittance(elev, mie = 1, h = 0.05) {
