@@ -67,6 +67,26 @@ const CROWD_PRESETS = {
     blobDistance: 62,
   },
 };
+
+async function loadPedAtlasTexture() {
+  const url = assetUrl("city/tex/peds_atlas.webp");
+  try {
+    const texture = await loadKTX2TextureAsync(url);
+    console.info("[peds] peds_atlas loaded (KTX2)");
+    return texture;
+  } catch (ktxError) {
+    console.warn("[peds] peds_atlas KTX2 failed; loading the WebP source", ktxError);
+    try {
+      const texture = await new THREE.TextureLoader().loadAsync(url);
+      console.info("[peds] peds_atlas loaded (WebP fallback)");
+      return texture;
+    } catch (webpError) {
+      console.error("[peds] peds_atlas could not be loaded; photo faces are unavailable", webpError);
+      return null;
+    }
+  }
+}
+
 const PCELL = 48; // park streaming cell size
 const LOD_MAX = [110, 320, 1100];
 const SLICE2 = !isPerformanceFeatureDisabled("nocrowdopt"); // (perf r2) finer sim time-slicing + cached heights (?nocrowdopt: old path)
@@ -853,6 +873,16 @@ export async function createCrowd({
   // streaming too; otherwise Low only changes renderer effects.
   const quality = getQuality();
   const crowdPreset = CROWD_PRESETS[quality.name] || CROWD_PRESETS.high;
+  const populationScale = quality.populationScale ?? 1;
+  const keepPopulationAgent = (agent) => {
+    let root = agent;
+    while (root.mate) root = root.mate;
+    let h = Math.imul((root.seed ?? 0) ^ 0x9e3779b9, 0x85ebca6b);
+    h ^= h >>> 16;
+    h = Math.imul(h, 0xc2b2ae35);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296 < populationScale;
+  };
   let renderLodScale = quality.renderLodScale;
   let RP = crowdPreset.populationRadius * renderLodScale;
   const RNEAR = crowdPreset.nearRadius.map((d) => d * renderLodScale);
@@ -879,8 +909,7 @@ export async function createCrowd({
   const [meta, bin, pedTex, bakeTex] = await Promise.all([
     fetch(assetUrl("city/npc/people.json")).then((r) => r.json()),
     fetch(assetUrl("city/npc/people.bin")).then((r) => r.arrayBuffer()),
-    loadKTX2TextureAsync(assetUrl("city/tex/peds_atlas.webp"))
-      .catch(() => null), // (peds r1) faces / hair / fabric
+    loadPedAtlasTexture(), // photo faces / hair / fabric
     loadKTX2TextureAsync(assetUrl("city/npc/people_bake.webp"))
       .catch(() => null), // (peds r2) Cycles cloth normal + AO
   ]);
@@ -1050,6 +1079,7 @@ export async function createCrowd({
     r3(); // (peds r2 build width draw, kept for the stream; (peds r3) body type below)
     const a = {
       rng: r,
+      seed,
       vi,
       slot: (seed * 7) % 12,
       x: 0,
@@ -1658,6 +1688,7 @@ export async function createCrowd({
   }
   // (peds r6) user: 'reduce people by 10 % more' -> x0.9 everywhere (TS stays proportionally busier)
   const densAt = (x, z) =>
+    populationScale *
     0.9 *
     (0.66 +
       0.3 *
@@ -1807,7 +1838,11 @@ export async function createCrowd({
         nx = -nx;
         nz = -nz;
       }
-      for (let s = 8 + r() * 12; s < L - 8; s += (13 + r() * 16) / 0.7) {
+      for (
+        let s = 8 + r() * 12;
+        s < L - 8;
+        s += (13 + r() * 16) / (0.7 * populationScale)
+      ) {
         // (peds r1) density
         const cx = x0 + tx * s + nx * 1.1,
           cz = z0 + tz * s + nz * 1.1;
@@ -2248,6 +2283,12 @@ export async function createCrowd({
         }
       }
     }
+    if (populationScale < 1) {
+      let kept = 0;
+      for (const a of statics)
+        if (keepPopulationAgent(a)) statics[kept++] = a;
+      statics.length = kept;
+    }
     for (const a of statics) {
       initPose(a);
       a.static = true;
@@ -2336,7 +2377,7 @@ export async function createCrowd({
     const seed = () => 200000 + c.id * 400 + n++;
     const S = c.samples;
     for (let q = 0; q < S.length; q += 2) {
-      if (r() > 0.405) continue; // (peds r6) 0.45 -> 0.405 (peds r1) 0.62 -> 0.45: park paths ~30 % quieter
+      if (r() > 0.405 * populationScale) continue; // quality presets reduce streamed park walkers
       const P = pPaths[S[q]],
         jog = r() < 0.16;
       const a = newAgent(seed(), {
@@ -2376,6 +2417,7 @@ export async function createCrowd({
     if (m) {
       const nG = 1 + Math.floor(r() * 3);
       for (let g = 0; g < nG; g++) {
+        if (r() > populationScale) continue;
         meadowPoint(m, r, _rp);
         if (
           Math.abs(_rp[0] - c.cx) > PCELL / 2 + 8 ||
@@ -2409,6 +2451,7 @@ export async function createCrowd({
       }
       const nWd = Math.floor(r() * 2.7 + 0.9); // (peds r6) 10 % fewer strollers (avg 2 -> 1.8)
       for (let i = 0; i < nWd; i++) {
+        if (r() > populationScale) continue;
         const a = newAgent(seed(), {
           mode: "wander",
           park: true,

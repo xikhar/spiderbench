@@ -157,6 +157,21 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
     ao.configuration.transparencyAware = false;
     ao.configuration.gammaCorrection = false;
     ao.configuration.halfRes = Q.aoHalfRes;
+    // N8AO's MRT shim exposes `target.texture` as the whole textures array.
+    // Three r172+ expects `target.texture` to be the first attachment and reads
+    // its mipmaps during framebuffer setup, so restore the modern RenderTarget API.
+    const aoDepthTarget = ao.depthDownsampleTarget;
+    if (aoDepthTarget && Array.isArray(aoDepthTarget.texture)) {
+      Object.defineProperty(aoDepthTarget, "texture", {
+        configurable: true,
+        get() {
+          return this.textures[0];
+        },
+        set(texture) {
+          this.textures[0] = texture;
+        },
+      });
+    }
     ao.setQualityMode(Q.aoQuality);
     if (!Q.aoHalfRes) {
       // full res with few samples + spatial denoise (TAA integrates the per-frame noise). Same cost as half-res

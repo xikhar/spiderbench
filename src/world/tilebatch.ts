@@ -74,7 +74,7 @@ export function batchTiles(geoms, material, name, o = {}, centers = []) {
       // nothing to merge: the tile keeps its own geometry
       const i = idx[0],
         m = mk(geoms[i], material, name + " " + i, o);
-      tile[i] = { m, grp, vis: true, sh: true };
+      tile[i] = { m, grp, vis: true, sh: true, inFrustum: true };
       meshes.push(m);
       geoms[i] = null;
       grp.nVis = 1;
@@ -139,7 +139,7 @@ export function batchTiles(geoms, material, name, o = {}, centers = []) {
       g.boundingBox = bb;
       g.userData.sharedRange = true;
       const m = mk(g, material, name + " " + i, o);
-      tile[i] = { m, grp, vis: true, sh: true };
+      tile[i] = { m, grp, vis: true, sh: true, inFrustum: true };
       meshes.push(m);
     });
     grp.nVis = idx.length;
@@ -155,17 +155,21 @@ export function batchTiles(geoms, material, name, o = {}, centers = []) {
     }
     let all = true,
       sh0 = null,
-      same = true;
+      same = true,
+      inFrustum = 0;
     for (const i of grp.tiles) {
       const t = tile[i];
       if (!t.vis) {
         all = false;
         break;
       }
+      if (t.inFrustum) inFrustum++;
       if (sh0 === null) sh0 = t.sh;
       else if (t.sh !== sh0) same = false;
     }
-    const useSup = all && same;
+    // Keep the large merged draw when most of its tiles are in view. At frustum edges,
+    // fall back to per-tile meshes so Three.js can cull the off-screen tile bounds.
+    const useSup = all && same && inFrustum >= grp.tiles.length * 0.75;
     grp.sup.visible = useSup;
     grp.sup.castShadow = useSup && sh0 && !!o.castShadow;
     for (const i of grp.tiles) {
@@ -224,6 +228,12 @@ export function batchTiles(geoms, material, name, o = {}, centers = []) {
       const t = tile[i];
       if (!t || t.sh === v) return;
       t.sh = v;
+      resolve(t.grp);
+    },
+    setFrustumVisible(i, v) {
+      const t = tile[i];
+      if (!t || t.inFrustum === v) return;
+      t.inFrustum = v;
       resolve(t.grp);
     },
   };

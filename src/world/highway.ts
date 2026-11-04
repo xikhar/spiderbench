@@ -419,7 +419,7 @@ export function buildHighways({ scene, T, solids = null, models = null }) {
       // dense stretches / gaps (traffic waves)
       for (let s = rnd() * 30; s < R.len; ) {
         const truck = rnd() < 0.1;
-        cars.push({
+        const car = {
           R,
           u,
           dir,
@@ -431,7 +431,8 @@ export function buildHighways({ scene, T, solids = null, models = null }) {
               ? CAB
               : PAINT[Math.floor(rnd() * PAINT.length)],
           seg: 0,
-        });
+        };
+        if (rnd() < quality.populationScale) cars.push(car);
         const wave = 0.5 + 0.5 * Math.sin(s / 170 + lane * 1.7 + R.len);
         s += (truck ? 16 : 10) + (8 + 60 * wave) * (0.4 + rnd());
       }

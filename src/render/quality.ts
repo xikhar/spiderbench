@@ -7,6 +7,7 @@ type QualitySettings = {
   lodScale: number;
   renderLodScale: number;
   baseLodScale?: number;
+  populationScale: number;
   renderScale: number;
   trafficRadius: number;
   parkedCarRadius: number;
@@ -52,6 +53,7 @@ const QUALITY_PRESETS: Record<QualityPresetName, QualitySettings> = {
     lodScale: 0.2,
     renderLodScale: 1,
     renderScale: 0.55,
+    populationScale: 0.25,
     trafficRadius: 110,
     parkedCarRadius: 80,
     vehicleHighDetailDistance: 8,
@@ -85,6 +87,7 @@ const QUALITY_PRESETS: Record<QualityPresetName, QualitySettings> = {
     lodScale: 0.72,
     renderLodScale: 1,
     renderScale: 0.85,
+    populationScale: 0.5,
     trafficRadius: 460,
     parkedCarRadius: 360,
     vehicleHighDetailDistance: 35,
@@ -121,6 +124,7 @@ const QUALITY_PRESETS: Record<QualityPresetName, QualitySettings> = {
     lodScale: 1,
     renderLodScale: 1,
     renderScale: 1,
+    populationScale: 1,
     trafficRadius: 640,
     parkedCarRadius: 500,
     vehicleHighDetailDistance: 48,

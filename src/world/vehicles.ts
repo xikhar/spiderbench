@@ -446,9 +446,19 @@ export function loadVehicleModels(renderer) {
         g.computeBoundingSphere();
         geos[o.name] = /^van(_l\d)?$/.test(o.name) ? vanRear(g) : g;
       });
-      const atlas = await loadKTX2TextureAsync(
-        assetUrl("city/tex/vehicles_atlas2.webp"),
-      );
+      const atlasUrl = assetUrl("city/tex/vehicles_atlas2.webp");
+      let atlas;
+      try {
+        atlas = await loadKTX2TextureAsync(atlasUrl);
+        console.info("[city] vehicles_atlas2 loaded (KTX2)");
+      } catch (ktxError) {
+        console.warn(
+          "[city] vehicles_atlas2 KTX2 failed; loading the WebP source",
+          ktxError,
+        );
+        atlas = await new THREE.TextureLoader().loadAsync(atlasUrl);
+        console.info("[city] vehicles_atlas2 loaded (WebP fallback)");
+      }
       atlas.colorSpace = THREE.SRGBColorSpace;
       atlas.flipY = false;
       atlas.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());

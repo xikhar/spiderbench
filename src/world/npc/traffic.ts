@@ -41,7 +41,6 @@ const PLAYER_R = 0.5; // player body half-width used by drivers (arms + stance),
 // (the edge inflow can't replace the cars driving out of the 640 m radius: ~1000 cars at load -> ~320 after 5 min with the
 // camera parked), so a stationary view emptied out whatever the spawn gaps were. The refill below tops links up out of view.
 const DENSITY = { av: 31, st: 44, ws: 20, dg: 41, dg1: 80, map: 27, br: 31 }; // br: bridge decks (roads.ts BRIDGE_DENSITY) // dg1: one-way lower Broadway (2 lanes carry what 4 did)
-let densityScale = 1; // api.setDensity(k): scales DENSITY
 
 export const VTYPES = {
   // (vehicles r1) real-world sizes of the Blender models (tools/blender/city_vehicles.py SPECS)
@@ -203,6 +202,7 @@ export function createTraffic({
   // and application modules have finished initializing. Avoid reading it at
   // module evaluation time, which can run while the module graph is loading.
   const quality = getQuality();
+  let densityScale = quality.populationScale ?? 1; // preset scales moving and parked vehicle counts
   let RA = quality.trafficRadius; // moving-car simulation / draw radius (m)
   let PARK_R = quality.parkedCarRadius;
   let HI_D = quality.vehicleHighDetailDistance,
@@ -704,7 +704,9 @@ export function createTraffic({
       }
     }
     L.cars = list.concat(L.cars).sort((a, b) => a.s - b.s);
-    L.spawnGap = spacing[0] + rng() * (spacing[1] - spacing[0]);
+    L.spawnGap =
+      (spacing[0] + rng() * (spacing[1] - spacing[0])) /
+      Math.max(0.05, densityScale);
     void first;
   };
   // (citylife junctions) a curb spot inside Broadway's roadway (where it crosses a street / avenue) is no parking spot
@@ -855,6 +857,12 @@ export function createTraffic({
         if (type === "truck") s += 2.5;
         else if (type === "van" || type === "pickup") s += 0.6;
       }
+    }
+    if (densityScale < 1) {
+      let kept = 0;
+      for (const vehicle of out)
+        if (rng() < densityScale) out[kept++] = vehicle;
+      out.length = kept;
     }
     return out;
   };
@@ -1572,7 +1580,9 @@ export function createTraffic({
           ); // (citylife bridges) never faster than it can stop behind the car ahead
         L.cars.unshift(c);
         cars.push(c);
-        L.spawnGap = (L.kind === "st" ? 12 : 8) + c.rng() * 35;
+        L.spawnGap =
+          ((L.kind === "st" ? 12 : 8) + c.rng() * 35) /
+          Math.max(0.05, densityScale);
         {
           // (street r9, street agent) inflow in platoons too: short headways inside a bunch, long gaps between bunches
           if (!(L.plat > 0))
@@ -1582,9 +1592,9 @@ export function createTraffic({
           L.spawnGap =
             --L.plat > 0
               ? 2.5 + c.rng() * 5
-              : L.kind === "st"
-                ? 30 + c.rng() * 70
-                : 50 + c.rng() * 140; /* (street r11) 70-260 -> 50-190 */ // (street r10) avenues ~half density
+              : (L.kind === "st"
+                  ? 30 + c.rng() * 70
+                  : 50 + c.rng() * 140) / Math.max(0.05, densityScale); /* (street r11) 70-260 -> 50-190 */ // (street r10) avenues ~half density
         }
       }
     }

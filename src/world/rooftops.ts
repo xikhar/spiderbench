@@ -944,7 +944,8 @@ export async function buildRooftops({
 }) {
   void facadeMat;
   const quality = getQuality();
-  let lodScale = quality.lodScale;
+  const buildingLodFactor = quality.name === "low" ? 0.72 : 1;
+  let lodScale = quality.lodScale * buildingLodFactor;
   const aniso = Math.min(8, renderer?.capabilities?.getMaxAnisotropy?.() ?? 4);
   const [imC, imN] = await Promise.all([
     loadImage(assetUrl("city/tex/roof_col.png")),
@@ -6976,7 +6977,7 @@ export async function buildRooftops({
     roofTrees, // (veg r1) city.ts -> props.treeSpots (trees.ts 'small')
     update(camera) {
       if (!camera) return;
-      lodScale = quality.lodScale;
+      lodScale = quality.lodScale * buildingLodFactor;
       const p = camera.position;
       plants.update(p); // (veg r1)
       rbB.endWarm(); // (perf r2) pre-upload the next roof tile before it appears (see city.ts / tileBatch.ts warm)
@@ -6993,6 +6994,11 @@ export async function buildRooftops({
           Math.max(0, Math.abs(p.x - tm.cx) - 128),
           Math.max(0, Math.abs(p.z - tm.cz) - 128),
         );
+        sp.center.set(tm.cx, 60, tm.cz);
+        sp.radius = 200;
+        const inFrustum = fr.intersectsSphere(sp);
+        if (tm.ao) aoB.setFrustumVisible(tm.i, inFrustum);
+        if (tm.sk) skB.setFrustumVisible(tm.i, inFrustum);
         const near = tm.near
           ? d < 690 * lodScale
           : d < 650 * lodScale;
@@ -7000,9 +7006,7 @@ export async function buildRooftops({
         rbB.setVisible(tm.i, near);
         rbB.setShadow(tm.i, d < 230 * lodScale); // (perf) batched tiles
         if (!warmed && !near && !tm.warm && d < 850 * lodScale) {
-          sp.center.set(tm.cx, 60, tm.cz);
-          sp.radius = 200;
-          if (fr.intersectsSphere(sp)) {
+          if (inFrustum) {
             if (rbB.warm(tm.i)) warmed = true;
             else tm.warm = true;
           }

@@ -86,7 +86,8 @@ import { getQuality } from "../render/quality.ts";
 
 export async function buildCity({ scene, renderer }) {
   const quality = getQuality();
-  let lodScale = quality.lodScale;
+  const buildingLodFactor = quality.name === "low" ? 0.72 : 1;
+  let lodScale = quality.lodScale * buildingLodFactor;
   const t0 = performance.now();
   const boot = globalThis.__boot; // loading screen (index.html): each stage label paints before its (blocking) work starts
   await boot?.stage("tex");
@@ -579,7 +580,7 @@ export async function buildCity({ scene, renderer }) {
     textures: T,
     materials: { facade: facadeMat },
     update(dt, camera) {
-      lodScale = quality.lodScale;
+      lodScale = quality.lodScale * buildingLodFactor;
       time += dt;
       const P0_ = world.prof,
         g0_ = P0_ ? performance.now() : 0; // (perf r3) + ground (river mirror) / boats / highways / hero mirror
@@ -676,6 +677,10 @@ export async function buildCity({ scene, renderer }) {
             Math.max(0, Math.abs(camera.position.x - tm.cx) - 128),
             Math.max(0, Math.abs(camera.position.z - tm.cz) - 128),
           );
+          _sp.center.set(tm.cx, 60, tm.cz);
+          _sp.radius = 200;
+          const inFrustum = _fr.intersectsSphere(_sp);
+          if (tm.lod) lodB.setFrustumVisible(tm.i, inFrustum);
           if (tm.mesh) {
             detB.setVisible(tm.i, d < 450 * lodScale);
             detB.setShadow(tm.i, d < 160 * lodScale);
@@ -700,9 +705,7 @@ export async function buildCity({ scene, renderer }) {
                 d >= 450 * lodScale &&
                 d < 600 * lodScale))
           ) {
-            _sp.center.set(tm.cx, 60, tm.cz);
-            _sp.radius = 200;
-            if (_fr.intersectsSphere(_sp)) {
+            if (inFrustum) {
               if (tm.fac && !tm.warmF && !tm.near) {
                 if (facB.warm(tm.i)) warmed = true;
                 else tm.warmF = true;
