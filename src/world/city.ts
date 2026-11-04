@@ -82,8 +82,10 @@ import { buildNeon } from "./neon.ts"; // (night) exterior neon + LED strips on 
 import { attachLife } from "./npc/life.ts";
 import { applyDistanceFade } from "./pool.ts";
 import { batchTiles } from "./tilebatch.ts"; // (perf)
+import { getQuality } from "../render/quality.ts";
 
 export async function buildCity({ scene, renderer }) {
+  const lodScale = getQuality().lodScale;
   const t0 = performance.now();
   const boot = globalThis.__boot; // loading screen (index.html): each stage label paints before its (blocking) work starts
   await boot?.stage("tex");
@@ -112,7 +114,7 @@ export async function buildCity({ scene, renderer }) {
   ]);
   const facadeMat = createFacadeMaterial(T);
   const detailMat = createDetailMaterial(T);
-  applyDistanceFade(detailMat, 320, 450); // citylife: small facade details dissolve 320-450 m; tiles hidden beyond (no pop)
+  applyDistanceFade(detailMat, 320 * lodScale, 450 * lodScale); // citylife: small facade details dissolve by quality preset
 
   const TT = [],
     tick = async (n, next) => {
@@ -239,7 +241,7 @@ export async function buildCity({ scene, renderer }) {
       lod: !!lodG[i],
       cx: t.cx,
       cz: t.cz,
-      far: 900,
+      far: 900 * lodScale,
       near: true,
     });
     // (street r3) release the builders' JS number arrays as each tile is converted to typed arrays: the renderer hit the
@@ -671,12 +673,14 @@ export async function buildCity({ scene, renderer }) {
             Math.max(0, Math.abs(camera.position.z - tm.cz) - 128),
           );
           if (tm.mesh) {
-            detB.setVisible(tm.i, d < 450);
-            detB.setShadow(tm.i, d < 160);
+            detB.setVisible(tm.i, d < 450 * lodScale);
+            detB.setShadow(tm.i, d < 160 * lodScale);
           } // (perf) batched tiles
           // citygeo: full facade tile near, bare-mass LOD far (hysteresis 40 m)
           if (tm.lod) {
-            const near = tm.near ? d < 690 : d < 650;
+            const near = tm.near
+              ? d < 690 * lodScale
+              : d < 650 * lodScale;
             tm.near = near;
             if (tm.fac) facB.setVisible(tm.i, near);
             lodB.setVisible(tm.i, !near);
@@ -685,9 +689,12 @@ export async function buildCity({ scene, renderer }) {
           // first), so the swap at 650-690 m / 450 m does not upload ~15-20 MeshBuilder in one frame (100-150 ms hitches)
           if (
             !warmed &&
-            d < 850 &&
+            d < 850 * lodScale &&
             ((tm.fac && !tm.warmF && !tm.near) ||
-              (tm.mesh && !tm.warmD && d >= 450 && d < 600))
+              (tm.mesh &&
+                !tm.warmD &&
+                d >= 450 * lodScale &&
+                d < 600 * lodScale))
           ) {
             _sp.center.set(tm.cx, 60, tm.cz);
             _sp.radius = 200;

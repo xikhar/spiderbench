@@ -58,7 +58,7 @@ export function createSettingsPage(sys) {
           ["high", "High"],
         ],
         "Quality Preset",
-        `Shadows, AO, clouds, DoF samples. Applying reloads the game (current: ${curQ}).`,
+        `Shadows, AO, clouds, depth of field, building, object, vehicle and pedestrian LOD; reduced crowd range. Applying reloads the game (current: ${curQ}).`,
       )}
       ${range("renderScale", 0.35, 1.25, 0.05, "Render Resolution", "Older GPUs are capped at 80% at 100% scale. Lower this more to reduce GPU memory use; try 60%.", FMT.renderScale)}
       ${seg(

@@ -6,6 +6,7 @@ import poolShaderSource from "./shaders/glsl/pool.glsl?raw";
 import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import { cascadedShadowState } from "../render/cascadedShadows.ts";
+import { getQuality } from "../render/quality.ts";
 import { isPerformanceFeatureDisabled } from "./performanceFlags.ts";
 
 const poolShader = lazyShaderSections(() => poolShaderSource);
@@ -80,17 +81,18 @@ export class Pool {
       smallCasters = false,
     } = {},
   ) {
+    const lodScale = isStatic ? 1 : getQuality().lodScale;
     this.geo = geo;
     this.mat = mat;
     this.max = max;
-    this.near = near;
-    this.far = far;
-    this.fadeIn = near > 0 ? fadeIn || Math.max(10, near * 0.08) : 0;
-    this.fadeOut = fadeOut ?? Math.max(10, far * 0.08);
+    this.near = near * lodScale;
+    this.far = far * lodScale;
+    this.fadeIn = this.near > 0 ? fadeIn * lodScale || Math.max(10, this.near * 0.08) : 0;
+    this.fadeOut = fadeOut == null ? Math.max(10, this.far * 0.08) : fadeOut * lodScale;
     this.isStatic = isStatic;
     // shadow casting only for instances within shadowFar of the camera (default 160 m, never beyond `far`): the
     // instances are written nearest-shadow-casters-first and the shadow passes draw only that prefix (onBeforeShadow)
-    this.shadowFar = Math.min(far, shadowFar ?? 160);
+    this.shadowFar = Math.min(this.far, (shadowFar ?? 160) * lodScale);
     this.nShadow = 0;
     extra = { ...extra, aLod: 4 };
     applyLodFade(mat);

@@ -26,11 +26,8 @@ import { cascadedShadowState, SHADOW_PROXY_LAYER } from "../../render/cascadedSh
 import { isPerformanceFeatureDisabled } from "../performanceFlags.ts"; // (perf r2) A/B switch
 import { cityLights } from "../../render/citylights.ts"; // (night) real headlight / tail-light lighting
 import { nightK } from "../../render/daynight.ts"; // (night)
+import { getQuality } from "../../render/quality.ts";
 
-const RA = 640; // streaming radius (m)
-const PARK_R = 500; // parked cars exist on links within this radius ((citylife r2) 420 -> 500: no pop-in seen from rooftops, inside the haze)
-const HI_D = 48,
-  LOW_D = 230; // (vehicles r1) LOD0 (~5.5k tris) < 48 m, LOD1 (~1.1k) < 230 m, LOD2 (~160, grouped) beyond
 const MAX_CARS = 2600;
 const A = 2.0,
   B = 3.2,
@@ -202,6 +199,14 @@ export function createTraffic({
   mats,
   models = null,
 }) {
+  // Resolve the preset when the traffic system is created, after the renderer
+  // and application modules have finished initializing. Avoid reading it at
+  // module evaluation time, which can run while the module graph is loading.
+  const LOD_SCALE = getQuality().lodScale;
+  const RA = 640 * LOD_SCALE; // streaming radius (m), shortened by Low / Medium presets
+  const PARK_R = 500 * LOD_SCALE; // parked-car stream radius
+  const HI_D = 48 * LOD_SCALE,
+    LOW_D = 230 * LOD_SCALE; // LOD0 -> LOD1 -> grouped LOD2, scaled by quality preset
   const { links, nodes } = roads;
   const tiers = {};
   const all = [];

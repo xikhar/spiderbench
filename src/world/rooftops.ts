@@ -28,6 +28,7 @@ import { RoofPlants, PLANT } from "./roofplants.ts"; // (veg r1) leaf-card shrub
 import { GY } from "./ground.ts";
 import { batchTiles } from "./tilebatch.ts"; // (perf)
 import { loadImageRetry } from "./textures.ts";
+import { getQuality } from "../render/quality.ts";
 
 const rooftopsShader = lazyShaderSections(() => rooftopsShaderSource);
 // retrying loader (ERR_INSUFFICIENT_RESOURCES must not abort the city)
@@ -942,6 +943,7 @@ export async function buildRooftops({
   extraRoofs = [],
 }) {
   void facadeMat;
+  const lodScale = getQuality().lodScale;
   const aniso = Math.min(8, renderer?.capabilities?.getMaxAnisotropy?.() ?? 4);
   const [imC, imN] = await Promise.all([
     loadImage(assetUrl("city/tex/roof_col.png")),
@@ -6989,11 +6991,13 @@ export async function buildRooftops({
           Math.max(0, Math.abs(p.x - tm.cx) - 128),
           Math.max(0, Math.abs(p.z - tm.cz) - 128),
         );
-        const near = tm.near ? d < 690 : d < 650;
+        const near = tm.near
+          ? d < 690 * lodScale
+          : d < 650 * lodScale;
         tm.near = near;
         rbB.setVisible(tm.i, near);
-        rbB.setShadow(tm.i, d < 230); // (perf) batched tiles
-        if (!warmed && !near && !tm.warm && d < 850) {
+        rbB.setShadow(tm.i, d < 230 * lodScale); // (perf) batched tiles
+        if (!warmed && !near && !tm.warm && d < 850 * lodScale) {
           sp.center.set(tm.cx, 60, tm.cz);
           sp.radius = 200;
           if (fr.intersectsSphere(sp)) {
@@ -7001,8 +7005,8 @@ export async function buildRooftops({
             else tm.warm = true;
           }
         }
-        if (tm.ao) aoB.setVisible(tm.i, d < 520);
-        if (tm.sk) skB.setVisible(tm.i, d < 690);
+        if (tm.ao) aoB.setVisible(tm.i, d < 520 * lodScale);
+        if (tm.sk) skB.setVisible(tm.i, d < 690 * lodScale);
       }
     },
   };

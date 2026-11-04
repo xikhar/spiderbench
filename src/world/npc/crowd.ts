@@ -17,6 +17,7 @@ import crowdFragmentShader from "./shaders/fragment/crowd-shadow.frag?raw";
 //    wave, cheer, point, clap; they step back when he lands close, dodge when he walks into them; world.alarm()
 //    makes them cower/flee.
 import * as THREE from "three";
+import { getQuality } from "../../render/quality.ts";
 import { assetUrl } from "../../assets.ts";
 import { loadKTX2TextureAsync } from "../../render/ktx2.ts";
 import {
@@ -40,16 +41,33 @@ import { cityLights } from "../../render/citylights.ts";
 const crowdShader = lazyShaderSections(() => crowdShaderSource);
 // (night) people cast city-light shadows
 
-const RP = 270; // sidewalk population radius around the camera
-const RNEAR = [
-  120, 160,
-]; /* (street r10) 95/135 -> 120/160 (director: 'many more pedestrians') */ // (street r8) 70/110 -> 95/135: denser sidewalks seen from swing height. near tier (extra walkers + crosswalk corner crowds): populate / release block distance
-const NEAR_KILL = 175; /* (street r10) */ /* (street r8) 125 -> 150 */ // near-tier agents despawn beyond this camera distance
+const CROWD_PRESETS = {
+  low: {
+    populationRadius: 165,
+    nearRadius: [65, 90],
+    nearKill: 110,
+    parkRadius: [125, 155],
+    lodDistance: [4, 12, 90],
+    blobDistance: 28,
+  },
+  med: {
+    populationRadius: 220,
+    nearRadius: [100, 130],
+    nearKill: 145,
+    parkRadius: [180, 215],
+    lodDistance: [10, 30, 200],
+    blobDistance: 46,
+  },
+  high: {
+    populationRadius: 270,
+    nearRadius: [120, 160],
+    nearKill: 175,
+    parkRadius: [210, 250],
+    lodDistance: [14, 42, 300],
+    blobDistance: 62,
+  },
+};
 const PCELL = 48; // park streaming cell size
-const RPARK = [210, 250]; // park cell populate / release distance; park agents despawn beyond RPARK[1]
-// Keep full-detail pedestrians close to the player; the source LODs are about
-// 5.9k / 1.8k / 0.55k vertices (roughly 5.9k / 1.15k / 215 triangles).
-const LOD_D = [14, 42, 300]; // LOD0 / LOD1 / LOD2 maximum distance in metres
 const LOD_MAX = [110, 320, 1100];
 const SLICE2 = !isPerformanceFeatureDisabled("nocrowdopt"); // (perf r2) finer sim time-slicing + cached heights (?nocrowdopt: old path)
 const SPEED_WALK = [0.95, 1.4]; // (peds r2) with the measured clip strides: playback 0.85-1.25 (critic: lockstep / sliding)
@@ -739,7 +757,7 @@ function createDogs(scene, bin, D) {
 // as the body (clip A, bones footL / footR) and fade as a foot lifts, so the dark patch follows the planted foot.
 const BLOB_D = 62,
   BLOB_MAX = 700;
-function createBlobs(scene, animTex, meta) {
+function createBlobs(scene, animTex, meta, blobDistance = BLOB_D) {
   const q = [],
     idx = [];
   for (let part = 0; part < 3; part++) {
@@ -800,7 +818,7 @@ function createBlobs(scene, animTex, meta) {
       I[k + 3] = a.ry;
       I[k + 4] = a.scale;
       I[k + 5] = a.wid || 1;
-      I[k + 6] = 1 - Math.max(0, (d - BLOB_D + 14) / 14);
+      I[k + 6] = 1 - Math.max(0, (d - blobDistance + 14) / 14);
       I[k + 7] = 0;
       I[k + 8] = a.A[0];
       I[k + 9] = a.A[1];
@@ -828,6 +846,15 @@ export async function createCrowd({
   roads,
   phase,
 }) {
+  // The quality preset is selected with ?q=. Apply it to pedestrian LOD and
+  // streaming too; otherwise Low only changes renderer effects.
+  const crowdPreset = CROWD_PRESETS[getQuality().name] || CROWD_PRESETS.high;
+  const RP = crowdPreset.populationRadius;
+  const RNEAR = crowdPreset.nearRadius;
+  const NEAR_KILL = crowdPreset.nearKill;
+  const RPARK = crowdPreset.parkRadius;
+  const LOD_D = crowdPreset.lodDistance;
+  const BLOB_D = crowdPreset.blobDistance;
   const [meta, bin, pedTex, bakeTex] = await Promise.all([
     fetch(assetUrl("city/npc/people.json")).then((r) => r.json()),
     fetch(assetUrl("city/npc/people.bin")).then((r) => r.arrayBuffer()),
@@ -913,7 +940,7 @@ export async function createCrowd({
     typeof location !== "undefined" ? location.search : "",
   )
     ? null
-    : createBlobs(scene, animTex, meta); // (peds r2) contact shadows
+    : createBlobs(scene, animTex, meta, BLOB_D); // (peds r2) contact shadows
   const femaleV = [],
     maleV = [];
   variants.forEach((v, i) => (v.female ? femaleV : maleV).push(i));

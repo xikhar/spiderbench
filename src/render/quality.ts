@@ -4,6 +4,7 @@ type QualityPresetName = "low" | "med" | "high";
 
 type QualitySettings = {
   name: QualityPresetName;
+  lodScale: number;
   cascades: number;
   shadowMapSize: number;
   shadowFar: number;
@@ -40,6 +41,7 @@ type RendererCapabilitiesLike = {
 const QUALITY_PRESETS: Record<QualityPresetName, QualitySettings> = {
   low: {
     name: "low",
+    lodScale: 0.55,
     cascades: 2,
     shadowMapSize: 1024,
     shadowFar: 500,
@@ -65,6 +67,7 @@ const QUALITY_PRESETS: Record<QualityPresetName, QualitySettings> = {
   },
   med: {
     name: "med",
+    lodScale: 0.8,
     cascades: 3,
     shadowMapSize: 2048,
     shadowFar: 900,
@@ -93,6 +96,7 @@ const QUALITY_PRESETS: Record<QualityPresetName, QualitySettings> = {
   },
   high: {
     name: "high",
+    lodScale: 1,
     // (foundation agent: a 5th, half-res cascade reaches 3 km so aerial views keep building / street-canyon shadows)
     cascades: 5,
     shadowMapSize: 2048,
