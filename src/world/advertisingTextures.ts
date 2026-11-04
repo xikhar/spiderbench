@@ -1,5 +1,9 @@
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
+import {
+  getLoadedKTX2Texture,
+} from "../render/ktx2.ts";
+import { loadImageRetry } from "./textures.ts";
 
 export type AtlasColorGrid = {
   width: number;
@@ -15,26 +19,24 @@ type TextureLike = {
 
 type SharedAtlasTexture = {
   texture: TextureLike;
-  image: Promise<CanvasImageSource | null>;
+  getImage: () => Promise<CanvasImageSource | null>;
 };
 
 function loadSharedAtlasTexture(assetPath: string): SharedAtlasTexture {
-  let resolveImage: (image: CanvasImageSource | null) => void = () => {};
-  const image = new Promise<CanvasImageSource | null>((resolve) => {
-    resolveImage = resolve;
-  });
-
-  const texture = new THREE.TextureLoader().load(
-    assetUrl(assetPath),
-    (loadedTexture: TextureLike) =>
-      resolveImage(loadedTexture.image ?? null),
-    undefined,
-    () => resolveImage(null),
-  );
+  const texture = getLoadedKTX2Texture(assetUrl(assetPath));
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
 
-  return { texture, image };
+  let image: Promise<CanvasImageSource | null> | null = null;
+  return {
+    texture,
+    getImage: () => {
+      image ??= loadImageRetry(assetUrl(assetPath))
+        .then((loadedImage) => loadedImage as CanvasImageSource)
+        .catch(() => null);
+      return image!;
+    },
+  };
 }
 
 function createLinearColorGrid(
@@ -95,7 +97,7 @@ export function getAdvertisingAtlasTexture(): TextureLike {
 /** Decode a small linear RGB grid for per-panel screen-light colors. */
 export function getAdvertisingColorGrid(): Promise<AtlasColorGrid | null> {
   const atlas = getAdvertisingAtlas();
-  advertisingColorGrid ??= atlas.image.then((image) => {
+  advertisingColorGrid ??= atlas.getImage().then((image) => {
     try {
       return createLinearColorGrid(image, 256, 256);
     } catch (error) {
@@ -122,7 +124,7 @@ export function getSignAtlasTexture(): TextureLike {
 /** Decode a small linear RGB grid for storefront sign lighting. */
 export function getSignColorGrid(): Promise<AtlasColorGrid | null> {
   const atlas = getSignAtlas();
-  signColorGrid ??= atlas.image.then((image) => {
+  signColorGrid ??= atlas.getImage().then((image) => {
     try {
       return createLinearColorGrid(image, 128, 256);
     } catch {

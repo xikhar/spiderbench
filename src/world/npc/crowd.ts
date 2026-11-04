@@ -18,6 +18,7 @@ import crowdFragmentShader from "./shaders/fragment/crowd-shadow.frag?raw";
 //    makes them cower/flee.
 import * as THREE from "three";
 import { assetUrl } from "../../assets.ts";
+import { loadKTX2TextureAsync } from "../../render/ktx2.ts";
 import {
   G,
   mulberry32,
@@ -46,7 +47,9 @@ const RNEAR = [
 const NEAR_KILL = 175; /* (street r10) */ /* (street r8) 125 -> 150 */ // near-tier agents despawn beyond this camera distance
 const PCELL = 48; // park streaming cell size
 const RPARK = [210, 250]; // park cell populate / release distance; park agents despawn beyond RPARK[1]
-const LOD_D = [24, 70, 300]; // LOD0 / LOD1 / LOD2 max distance
+// Keep full-detail pedestrians close to the player; the source LODs are about
+// 5.9k / 1.8k / 0.55k vertices (roughly 5.9k / 1.15k / 215 triangles).
+const LOD_D = [14, 42, 300]; // LOD0 / LOD1 / LOD2 maximum distance in metres
 const LOD_MAX = [110, 320, 1100];
 const SLICE2 = !isPerformanceFeatureDisabled("nocrowdopt"); // (perf r2) finer sim time-slicing + cached heights (?nocrowdopt: old path)
 const SPEED_WALK = [0.95, 1.4]; // (peds r2) with the measured clip strides: playback 0.85-1.25 (critic: lockstep / sliding)
@@ -828,11 +831,9 @@ export async function createCrowd({
   const [meta, bin, pedTex, bakeTex] = await Promise.all([
     fetch(assetUrl("city/npc/people.json")).then((r) => r.json()),
     fetch(assetUrl("city/npc/people.bin")).then((r) => r.arrayBuffer()),
-    new THREE.TextureLoader()
-      .loadAsync(assetUrl("city/tex/peds_atlas.webp"))
+    loadKTX2TextureAsync(assetUrl("city/tex/peds_atlas.webp"))
       .catch(() => null), // (peds r1) faces / hair / fabric
-    new THREE.TextureLoader()
-      .loadAsync(assetUrl("city/npc/people_bake.webp"))
+    loadKTX2TextureAsync(assetUrl("city/npc/people_bake.webp"))
       .catch(() => null), // (peds r2) Cycles cloth normal + AO
   ]);
   if (
@@ -895,14 +896,14 @@ export async function createCrowd({
         li < 2,
         `people-${v.name}-L${li}`,
       );
-      // (perf r2) 23 variants x 2 LODs = 46 shadow draws per cascade -> 23: LOD0 (< 24 m) casts into cascades 0-1 only,
-      // LOD1 (24-70 m) into 1-2 only (cascade 0 covers < ~14 m, cascade 2 > ~50 m: only very long low-sun shadows differ)
+      // (perf r2) 23 variants x 2 LODs = 46 shadow draws per cascade -> 23: LOD0 (< 14 m) casts into cascades 0-1 only,
+      // LOD1 (14-42 m) into 1-2 only (cascade 0 covers < ~14 m, cascade 2 > ~50 m: only very long low-sun shadows differ)
       if (!isPerformanceFeatureDisabled("nocrowdopt")) {
         if (li === 0) p.mesh.userData.maxCascade = 1;
         else if (li === 1) p.mesh.userData.minCascade = 1;
       }
       scene.add(p.mesh);
-      if (li === 0) cityLights.addCaster(p.mesh, dist); // (night) LOD0 (< 24 m) people cast city-light (lamp / headlight) shadows
+      if (li === 0) cityLights.addCaster(p.mesh, dist); // (night) LOD0 (< 14 m) people cast city-light (lamp / headlight) shadows
       return p;
     }),
   );

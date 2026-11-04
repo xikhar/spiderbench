@@ -18,6 +18,7 @@ import signageShaderSource from "./shaders/glsl/signage.glsl?raw";
 import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
+import { getLoadedKTX2Texture } from "../render/ktx2.ts";
 import * as LAY from "./layout.ts";
 const { district, mulberry32, streetsAt, SITES } = LAY;
 import { DP } from "./buildings.ts";
@@ -324,7 +325,7 @@ function detBox(D, fr, u0, u1, y0, y1, n0, n1) {
 
 // ------------------------------------------------------------------------------------------------ materials
 function loadTex(url) {
-  const t = new THREE.TextureLoader().load(url);
+  const t = getLoadedKTX2Texture(url);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 8;
   return t;

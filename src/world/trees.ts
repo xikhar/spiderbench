@@ -7,6 +7,7 @@ import treesFragmentShader from "./shaders/fragment/tree-shadow.frag?raw";
 // Autumn trees: branching trunks + dense alpha-tested leaf-cluster cards with spherical normals,
 // per-instance two-tone autumn tint, canopy self-occlusion. Two LODs per kind, instanced through distance pools.
 import * as THREE from "three";
+import { loadKTX2TextureAsync } from "../render/ktx2.ts";
 import { assetUrl } from "../assets.ts";
 import { G, mulberry32, PARK_WATER, parkWaterAt } from "./layout.ts";
 import { PARK_MEADOWS, PARK_ROCKS, PARK_SITES, meadowDist } from "./parkData.ts";
@@ -227,29 +228,51 @@ function addCore(P, N, UV, R, I, lobes, scale, seed, maxLobes = 9, detail = 1) {
 let LEAF_TEX = null;
 function leafTextures() {
   if (LEAF_TEX) return LEAF_TEX;
-  const ld = new THREE.TextureLoader();
-  const mk = (f) => {
-    const t = ld.load(assetUrl("city/props/" + f));
-    t.anisotropy = 4;
-    t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.colorSpace = THREE.NoColorSpace;
-    return t;
+  const col = new THREE.Texture();
+  const nrm = new THREE.Texture();
+  LEAF_TEX = { col, nrm, nrmUniform: { value: nrm }, materials: new Set() };
+  const load = (file, key) => {
+    loadKTX2TextureAsync(assetUrl("city/props/" + file))
+      .then((t) => {
+        t.anisotropy = 4;
+        t.wrapS = t.wrapT = THREE.RepeatWrapping;
+        t.colorSpace = THREE.NoColorSpace;
+        LEAF_TEX[key] = t;
+        if (key === "col") {
+          for (const material of LEAF_TEX.materials) {
+            material.map = t;
+            material.needsUpdate = true;
+          }
+        } else {
+          LEAF_TEX.nrmUniform.value = t;
+        }
+      })
+      .catch((e) => console.warn("[trees] leaf texture failed", file, e));
   };
-  LEAF_TEX = { col: mk("leaves_col.png"), nrm: mk("leaves_nrm.png") };
+  load("leaves_col.png", "col");
+  load("leaves_nrm.png", "nrm");
   return LEAF_TEX;
+}
+
+function registerLeafMaterial(mat, LT) {
+  LT.materials.add(mat);
+  return mat;
 }
 
 function leafMaterial(T) {
   const LT = leafTextures();
-  const mat = new THREE.MeshStandardMaterial({
-    map: LT.col,
-    alphaTest: 0.42,
-    side: THREE.DoubleSide,
-    roughness: 0.78,
-  });
+  const mat = registerLeafMaterial(
+    new THREE.MeshStandardMaterial({
+      map: LT.col,
+      alphaTest: 0.42,
+      side: THREE.DoubleSide,
+      roughness: 0.78,
+    }),
+    LT,
+  );
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uTime = mat.userData.uTime;
-    sh.uniforms.uLeafN = { value: LT.nrm };
+    sh.uniforms.uLeafN = LT.nrmUniform;
     sh.uniforms.uLeafFrame = { value: cascadedShadowState.params };
     sh.vertexShader = sh.vertexShader
       .replace(
@@ -642,9 +665,12 @@ function crownGeometry(
 
 function crownMaterial() {
   const LT = leafTextures();
-  const mat = new THREE.MeshStandardMaterial({ map: LT.col, roughness: 0.85 });
+  const mat = registerLeafMaterial(
+    new THREE.MeshStandardMaterial({ map: LT.col, roughness: 0.85 }),
+    LT,
+  );
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uLeafN = { value: LT.nrm };
+    sh.uniforms.uLeafN = LT.nrmUniform;
     sh.uniforms.uLeafFrame = { value: cascadedShadowState.params };
     sh.vertexShader = sh.vertexShader
       .replace(

@@ -52,6 +52,8 @@ import {
   tsTrimTrees,
 } from "./timesSquare.ts";
 import { loadCityTextures } from "./textures.ts";
+import { assetUrl } from "../assets.ts";
+import { preloadKTX2TexturesAsync } from "../render/ktx2.ts";
 import { createFacadeMaterial, STYLE, LAYER } from "./facade.ts";
 import { buildHero } from "./hero.ts";
 import {
@@ -85,7 +87,29 @@ export async function buildCity({ scene, renderer }) {
   const t0 = performance.now();
   const boot = globalThis.__boot; // loading screen (index.html): each stage label paints before its (blocking) work starts
   await boot?.stage("tex");
-  const T = await loadCityTextures(renderer);
+  // These older builders are synchronous and take Texture objects directly.
+  // Load their KTX2 inputs up front so they can use the compressed assets too.
+  const [T] = await Promise.all([
+    loadCityTextures(renderer),
+    preloadKTX2TexturesAsync(
+      [
+      "ts_foliage.webp",
+      "ts_pavers.webp",
+      "ts_ticker.webp",
+      "ts_spill.png",
+      "ts_decals.webp",
+      "ts_road.webp",
+      "ts_road2.webp",
+      "ts_road3.webp",
+      "ts_shops.webp",
+      "ts_pavers_n.webp",
+      "ts_pavers_r.webp",
+      "city_signart.webp",
+      "ts_ads.webp",
+      "ts_signs.webp",
+      ].map((name) => assetUrl(`city/tex/${name}`)),
+    ),
+  ]);
   const facadeMat = createFacadeMaterial(T);
   const detailMat = createDetailMaterial(T);
   applyDistanceFade(detailMat, 320, 450); // citylife: small facade details dissolve 320-450 m; tiles hidden beyond (no pop)

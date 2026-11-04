@@ -30,6 +30,7 @@ import {
   WORLD_UP,
 } from "./combatMath.ts";
 import { assetUrl } from "../../assets.ts";
+import { loadKTX2TextureAsync } from "../../render/ktx2.ts";
 
 const _v = new THREE.Vector3(),
   _v2 = new THREE.Vector3(),
@@ -73,17 +74,14 @@ export function initCombat(ctx) {
   c.combatCharacter = createCombatCharacter(c);
   const me = c.combatCharacter;
   // brute texture (public/enemies, built by tools/blender/enemy_tex.py); tint fallback if missing
-  new THREE.TextureLoader().load(
-    assetUrl("enemies/brute_basecolor.webp"),
-    (t) => {
+  loadKTX2TextureAsync(assetUrl("enemies/brute_basecolor.webp"))
+    .then((t) => {
       t.colorSpace = THREE.SRGBColorSpace;
       t.flipY = false;
       t.anisotropy = 4;
       c.bruteTex = t;
-    },
-    undefined,
-    () => {},
-  );
+    })
+    .catch(() => {});
 
   c.sfx = (k, a) => {
     try {

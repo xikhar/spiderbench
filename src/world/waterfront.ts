@@ -28,6 +28,7 @@ import waterfrontShaderSource from "./shaders/glsl/waterfront.glsl?raw";
 import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
+import { loadKTX2TextureAsync } from "../render/ktx2.ts";
 import {
   G,
   LAND_POLY,
@@ -52,7 +53,6 @@ import { cityLights } from "../render/citylights.ts"; // (night) the esplanade l
 import { approachRects } from "./bridges.ts";
 import { highwayRuns, HW } from "./highway.ts";
 import { FAR_LANDS, FAR_Y, farShoreHeight } from "./farshore.ts";
-import { loadImageRetry } from "./textures.ts";
 
 const waterfrontShader = lazyShaderSections(() => waterfrontShaderSource);
 
@@ -464,17 +464,14 @@ export function buildWaterfront({
   wall = null,
 }) {
   const t0 = performance.now();
-  // atlas: 1 px placeholder until the image arrives (texture loads retry, see textures.ts)
+  // atlas: 1 px placeholder until the compressed texture arrives.
   const ph = new THREE.DataTexture(new Uint8Array([128, 126, 122, 255]), 1, 1);
   ph.needsUpdate = true;
   const mat = createCoastMaterial(T, ph);
-  loadImageRetry(assetUrl("city/tex/coast_atlas.webp"))
-    .then((im) => {
-      const tx = new THREE.Texture(im);
+  loadKTX2TextureAsync(assetUrl("city/tex/coast_atlas.webp"))
+    .then((tx) => {
       tx.colorSpace = THREE.SRGBColorSpace;
       tx.anisotropy = 8;
-      tx.generateMipmaps = true;
-      tx.minFilter = THREE.LinearMipmapLinearFilter;
       tx.needsUpdate = true;
       mat.userData.uni.tAtlas.value = tx;
     })

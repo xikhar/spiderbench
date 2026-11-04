@@ -3,6 +3,7 @@
 // Colour maps are sRGB, every data map (normal/roughness, height/AO/weathering, noise) is linear; max anisotropy.
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
+import { loadKTX2TextureAsync } from "../render/ktx2.ts";
 
 const BASE = assetUrl("city/tex/");
 
@@ -29,11 +30,13 @@ function loadImage(name) {
 }
 
 function tex(im, { srgb = false, repeat = true, aniso = 8 } = {}) {
-  const t = new THREE.Texture(im);
+  const t = im.isCompressedTexture ? im : new THREE.Texture(im);
   t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.anisotropy = aniso;
-  t.generateMipmaps = true;
+  // KTX2 files already contain their mip chain. Source images used to build
+  // the wall array textures still need Three.js to generate mipmaps.
+  t.generateMipmaps = !im.isCompressedTexture;
   t.minFilter = THREE.LinearMipmapLinearFilter;
   t.magFilter = THREE.LinearFilter;
   t.needsUpdate = true;
@@ -82,35 +85,44 @@ function arrayFromImages(images, size, { srgb, aniso }) {
 
 export async function loadCityTextures(renderer) {
   const aniso = Math.min(16, renderer.capabilities.getMaxAnisotropy());
-  const names = [
-    "asphalt_col",
-    "asphalt_nrm",
-    "asphalt_macro",
-    "sidewalk_col",
-    "sidewalk_nrm",
-    "walls_col.jpg",
-    "walls_nrm.webp",
-    "walls_hao.jpg",
-    "curb_col.webp",
-    "asphalt_decals.webp", // (textures r2) nrm: lossless webp (was a 20 MeshBuilder png); granite curb; (textures r3) road repair decals
-    "interiors",
-    "signs",
-    "markings",
-    "leaves",
-    "grass_col",
-    "grass_nrm",
-    "water_nrm",
-    "noise",
-    "detail_nrm",
-  ];
-  const ims = Object.fromEntries(
-    await Promise.all(
-      names.map(async (n) => [
-        n.replace(/\..*/, ""),
-        await loadImage(n.includes(".") ? n : n + ".png"),
+  const imageSources = {
+    walls_col: "walls_col.jpg",
+    walls_nrm: "walls_nrm.webp",
+    walls_hao: "walls_hao.jpg",
+  };
+  const textureSources = {
+    asphalt_col: "asphalt_col.png",
+    asphalt_nrm: "asphalt_nrm.png",
+    asphalt_macro: "asphalt_macro.png",
+    sidewalk_col: "sidewalk_col.png",
+    sidewalk_nrm: "sidewalk_nrm.png",
+    curb_col: "curb_col.webp",
+    asphalt_decals: "asphalt_decals.webp",
+    interiors: "interiors.png",
+    signs: "signs.png",
+    markings: "markings.png",
+    leaves: "leaves.png",
+    grass_col: "grass_col.png",
+    grass_nrm: "grass_nrm.png",
+    water_nrm: "water_nrm.png",
+    noise: "noise.png",
+    detail_nrm: "detail_nrm.png",
+  };
+  const [imageEntries, textureEntries] = await Promise.all([
+    Promise.all(
+      Object.entries(imageSources).map(async ([key, file]) => [
+        key,
+        await loadImage(file),
       ]),
     ),
-  );
+    Promise.all(
+      Object.entries(textureSources).map(async ([key, file]) => [
+        key,
+        await loadKTX2TextureAsync(BASE + file),
+      ]),
+    ),
+  ]);
+  const ims = Object.fromEntries([...imageEntries, ...textureEntries]);
   const markRects = await (await fetch(BASE + "markings.json")).json();
   const T = {
     asphaltCol: tex(ims.asphalt_col, { srgb: true, aniso }),

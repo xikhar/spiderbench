@@ -10,6 +10,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { clone as skeletonClone } from "three/addons/utils/SkeletonUtils.js";
 import { assetUrl } from "../../assets.ts";
+import { loadKTX2TextureAsync } from "../../render/ktx2.ts";
 
 const VARIANT_TEX = {
   b: assetUrl("tex/thug_basecolor_b.webp"),
@@ -132,10 +133,17 @@ export function createActors(ctx) {
   function variantMap(v) {
     if (!VARIANT_TEX[v]) return null;
     if (!tex[v]) {
-      tex[v] = new THREE.TextureLoader().load(VARIANT_TEX[v]);
-      tex[v].colorSpace = THREE.SRGBColorSpace;
-      tex[v].flipY = false;
-      tex[v].anisotropy = 4;
+      tex[v] = loadKTX2TextureAsync(VARIANT_TEX[v])
+        .then((texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.flipY = false;
+          texture.anisotropy = 4;
+          return texture;
+        })
+        .catch((error) => {
+          console.warn(`[crimes] variant texture ${v} unavailable`, error);
+          return null;
+        });
     }
     return tex[v];
   }
@@ -147,17 +155,23 @@ export function createActors(ctx) {
     root.traverse((o) => {
       if (!o.isMesh) return;
       o.material = o.material.clone();
-      const m = variantMap(variant);
-      if (m) {
-        o.material.map = m;
-        o.material.needsUpdate = true;
-      }
     });
     const g = new THREE.Group();
     g.add(root);
     g.position.copy(pos);
     g.rotation.y = yaw;
     ctx.scene.add(g);
+    const variantTexture = variantMap(variant);
+    if (variantTexture) {
+      variantTexture.then((texture) => {
+        if (!texture || !g.parent) return;
+        root.traverse((o) => {
+          if (!o.isMesh) return;
+          o.material.map = texture;
+          o.material.needsUpdate = true;
+        });
+      });
+    }
     const mixer = new THREE.AnimationMixer(root);
     const a = {
       id: `${role}_${seq}`,

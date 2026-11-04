@@ -6,6 +6,7 @@ import { lazyShaderSections } from "../shaderSections.ts";
 import vehiclesShaderSource from "./shaders/glsl/vehicles.glsl?raw";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
+import { loadKTX2TextureAsync } from "../render/ktx2.ts";
 
 import { MeshBuilder } from "./meshBuilder.ts";
 import { createPartMaterial, MATERIAL_PART } from "./partMaterials.ts";
@@ -445,7 +446,7 @@ export function loadVehicleModels(renderer) {
         g.computeBoundingSphere();
         geos[o.name] = /^van(_l\d)?$/.test(o.name) ? vanRear(g) : g;
       });
-      const atlas = await new THREE.TextureLoader().loadAsync(
+      const atlas = await loadKTX2TextureAsync(
         assetUrl("city/tex/vehicles_atlas2.webp"),
       );
       atlas.colorSpace = THREE.SRGBColorSpace;

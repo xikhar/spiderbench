@@ -17,6 +17,7 @@ import { lazyShaderSections } from "../shaderSections.ts";
 import suitfabricShaderSource from "./shaders/glsl/suitfabric.glsl?raw";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
+import { loadKTX2TextureAsync } from "../render/ktx2.ts";
 import { addShaderPatch } from "../render/materials.ts";
 import { nightK } from "../render/daynight.ts";
 import { cityAmbient } from "../render/citylights.ts";
@@ -56,21 +57,18 @@ export function setSuitFabric(on) {
 }
 
 function loadDetail(url, key) {
-  new THREE.TextureLoader().load(
-    url,
-    (t) => {
+  loadKTX2TextureAsync(url)
+    .then((t) => {
       t.colorSpace = THREE.NoColorSpace;
       t.wrapS = t.wrapT = THREE.RepeatWrapping;
       t.anisotropy = 8;
-      t.generateMipmaps = true;
+      t.generateMipmaps = false;
       t.minFilter = THREE.LinearMipmapLinearFilter;
       uniforms[key].value = t;
       loaded++;
       sync();
-    },
-    undefined,
-    (e) => console.warn("[suitfabric] detail texture failed", url, e),
-  );
+    })
+    .catch((e) => console.warn("[suitfabric] detail texture failed", url, e));
 }
 
 export function applySuitFabric(root) {

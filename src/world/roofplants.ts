@@ -8,6 +8,7 @@ import { lazyShaderSections } from "../shaderSections.ts";
 import roofplantsShaderSource from "./shaders/glsl/roofplants.glsl?raw";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
+import { loadKTX2TextureAsync } from "../render/ktx2.ts";
 import { Pool } from "./pool.ts";
 
 const roofplantsShader = lazyShaderSections(() => roofplantsShaderSource);
@@ -191,12 +192,15 @@ export class RoofPlants {
   }
   build(scene) {
     if (!this.count) return;
-    const tex = new THREE.TextureLoader().load(
-      assetUrl("city/tex/roofplants.webp"),
-    );
-    tex.colorSpace = THREE.SRGBColorSpace;
-    tex.anisotropy = 4;
-    const mat = plantMaterial(tex);
+    const mat = plantMaterial(new THREE.Texture());
+    loadKTX2TextureAsync(assetUrl("city/tex/roofplants.webp"))
+      .then((tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = 4;
+        mat.map = tex;
+        mat.needsUpdate = true;
+      })
+      .catch((e) => console.warn("[roofplants] texture failed", e));
     this.pools = [moundGeometry(), grassGeometry()].map((g, i) => {
       const p = new Pool(g, mat, {
         max: 9000,

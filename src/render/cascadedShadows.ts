@@ -332,7 +332,7 @@ export class CascadedShadowMaps {
           const big = csm._big;
           // (perf r2) casters limited to a cascade range (userData.minCascade / maxCascade): hidden in the other cascades.
           // Hi-detail cars (~50k tris each) cast in cascades 0-1 only, a low-poly stand-in on SHADOW_PROXY_LAYER beyond;
-          // crowd LOD0 (< 24 m) casts in 0-1, LOD1 (24-70 m) in 1-2 (see npc/crowd.ts)
+          // crowd LOD0 (< 14 m) casts in 0-1, LOD1 (14-42 m) in 1-2 (see npc/crowd.ts)
           const ci = csm.lights.indexOf(l);
           if (csm._capped && ci >= 0)
             for (const o of csm._capped) {

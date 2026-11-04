@@ -19,6 +19,7 @@ import { createWarmup } from "./render/warmup.ts"; // (perf r3)
 import { getRenderPixelRatio } from "./render/quality.ts";
 import { REFL_LAYER } from "./world/waterLayers.ts";
 import { BIG_CASTER_LAYER } from "./render/cascadedShadows.ts";
+import { configureKTX2Loader } from "./render/ktx2.ts";
 
 const params = new URLSearchParams(location.search);
 const shotName = params.get("shot");
@@ -56,6 +57,7 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.NoToneMapping; // tone mapping done in pipeline
+configureKTX2Loader(renderer);
 // (zfix) three r186 negates only polygonOffsetFactor for the reversed depth buffer, so every decal's negative
 // polygonOffsetUnits ("pull toward the camera") pushed it AWAY: face-on (no depth slope, the factor term ~0) coplanar
 // decals lost / flickered against the surface below. Re-issue the offset with both terms negated.

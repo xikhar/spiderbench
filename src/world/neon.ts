@@ -21,6 +21,7 @@ import neonShaderSource from "./shaders/glsl/neon.glsl?raw";
 import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
+import { loadKTX2TextureAsync } from "../render/ktx2.ts";
 import * as LAY from "./layout.ts";
 import { SHOP_FRONTS } from "./facade.ts";
 import { cityLights } from "../render/citylights.ts";
@@ -291,16 +292,19 @@ function tubeMaterial() {
 
 // ------------------------------------------------------------------------------------------------ word mesh
 function wordMaterial() {
-  const tex = new THREE.TextureLoader().load(
-    assetUrl("city/tex/neon_words.webp"),
-  );
-  tex.colorSpace = THREE.NoColorSpace;
-  tex.anisotropy = 4;
+  const uNeonTex = { value: new THREE.Texture() };
+  loadKTX2TextureAsync(assetUrl("city/tex/neon_words.webp"))
+    .then((tex) => {
+      tex.colorSpace = THREE.NoColorSpace;
+      tex.anisotropy = 4;
+      uNeonTex.value = tex;
+    })
+    .catch((e) => console.warn("[neon] word texture failed", e));
   const uni = {
     uNeonK: nightK,
     uNeonT: dnTime,
     uNeonS: screenK,
-    uNeonTex: { value: tex },
+    uNeonTex,
     uNeonW: { value: new THREE.Vector4() },
   };
   // additive colour, destination alpha kept: the HDR target's alpha carries the SSR weight (render/surface.ts); plain

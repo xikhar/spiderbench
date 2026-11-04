@@ -13,6 +13,7 @@ import timesSquareShaderSource from "./shaders/glsl/times-square.glsl?raw";
 import { injectShader } from "../render/shaderInjection.ts";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
+import { getLoadedKTX2Texture } from "../render/ktx2.ts";
 import { G, mulberry32, ZFIX } from "./layout.ts"; // (zfix) ZFIX: ?nozfix A/B
 import { STYLE, LAYER } from "./facade.ts";
 import { MeshBuilder } from "./meshBuilder.ts";
@@ -482,7 +483,7 @@ class QB {
 }
 
 function loadTex(url, { srgb = true, repeat = false, aniso = 8 } = {}) {
-  const t = new THREE.TextureLoader().load(url);
+  const t = getLoadedKTX2Texture(url);
   if (srgb) t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = aniso;
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
