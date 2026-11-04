@@ -82,6 +82,12 @@ export class Pool {
     } = {},
   ) {
     const lodScale = isStatic ? 1 : getQuality().lodScale;
+    this._baseNear = near;
+    this._baseFar = far;
+    this._baseFadeIn = fadeIn;
+    this._baseFadeOut = fadeOut;
+    this._baseShadowFar = shadowFar ?? 160;
+    this._lodScale = lodScale;
     this.geo = geo;
     this.mat = mat;
     this.max = max;
@@ -133,6 +139,25 @@ export class Pool {
     }
     this.last = new THREE.Vector3(1e9, 0, 0);
     this.sel = new Int32Array(max);
+  }
+  syncLodScale() {
+    const lodScale = this.isStatic ? 1 : getQuality().lodScale;
+    if (lodScale === this._lodScale) return;
+    this._lodScale = lodScale;
+    this.near = this._baseNear * lodScale;
+    this.far = this._baseFar * lodScale;
+    this.fadeIn =
+      this.near > 0
+        ? this._baseFadeIn * lodScale || Math.max(10, this.near * 0.08)
+        : 0;
+    this.fadeOut =
+      this._baseFadeOut == null
+        ? Math.max(10, this.far * 0.08)
+        : this._baseFadeOut * lodScale;
+    this.shadowFar = Math.min(this.far, this._baseShadowFar * lodScale);
+    this.last.set(1e9, 0, 0);
+    this.written = -1;
+    this.nShadow = 0;
   }
   add(x, y, z, ry = 0, s = 1, color = null, extra = null, scale3 = null) {
     const it = { x, y, z, ry, s, color, extra, scale3 };
@@ -210,6 +235,7 @@ export class Pool {
   }
   // true when update() would repack now (lets callers budget repacks across frames)
   due(cam) {
+    this.syncLodScale();
     return this.isStatic
       ? this.written !== this.items.length || this.dirty
       : cam.distanceToSquared(this.last) >= this.thresh() ** 2 ||
@@ -227,9 +253,11 @@ export class Pool {
   }
   // repack distance scales with the LOD's range: near pools every 6 m, a 1.5 km far ring every ~30 m
   thresh() {
+    this.syncLodScale();
     return Math.max(6, Math.min(40, this.far * 0.02));
   }
   update(cam, force = false, moveThresh = this.thresh()) {
+    this.syncLodScale();
     if (this.isStatic) {
       if (this.written === this.items.length && !force && !this.dirty) return;
       const n = Math.min(this.max, this.items.length);

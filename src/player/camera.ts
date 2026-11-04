@@ -150,11 +150,16 @@ export function createChaseCamera(camera, world) {
       if (Math.abs(c.pendX) < 0.01) c.pendX = 0;
       if (Math.abs(c.pendY) < 0.01) c.pendY = 0;
     } else c.pendX = c.pendY = 0;
-    if (
-      Math.abs(l.dx) + Math.abs(l.dy) > 0.5 ||
-      Math.abs(c.pendX) + Math.abs(c.pendY) > 0.5
-    )
+    const looking =
+      Math.abs(l.dx) + Math.abs(l.dy) + Math.abs(c.pendX) + Math.abs(c.pendY) >
+      0.5;
+    if (looking) {
       c.lastLook = 0; // still gliding = still looking (no auto-recenter)
+      // Collision avoidance can choose a temporary orbit around nearby geometry. Clear that forced orbit as soon as
+      // the player moves the camera so the avoidance solver cannot steer against their input.
+      c.occGoal = null;
+      c.occHold = 0;
+    }
     c.yaw -= dx * c.sens;
     const p = c.pitch + dy * c.sens,
       pc = clamp(p, -0.9, 1.25);
@@ -463,7 +468,7 @@ export function createChaseCamera(camera, world) {
     c.occT = (c.occT || 0) - dt;
     if ((p.sub === "vault" || p.sub?.startsWith?.("ledge")) && c.occT > 0.03)
       c.occT = 0.03;
-    if (allowed < minD && c.occT <= 0) {
+    if (allowed < minD && c.occT <= 0 && c.lastLook > 0.9) {
       c.occT = 0.12;
       const clear = (yaw, pitch) => {
         const cp = Math.cos(pitch),

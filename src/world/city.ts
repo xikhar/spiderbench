@@ -85,7 +85,8 @@ import { batchTiles } from "./tilebatch.ts"; // (perf)
 import { getQuality } from "../render/quality.ts";
 
 export async function buildCity({ scene, renderer }) {
-  const lodScale = getQuality().lodScale;
+  const quality = getQuality();
+  let lodScale = quality.lodScale;
   const t0 = performance.now();
   const boot = globalThis.__boot; // loading screen (index.html): each stage label paints before its (blocking) work starts
   await boot?.stage("tex");
@@ -292,7 +293,7 @@ export async function buildCity({ scene, renderer }) {
     zips: gen.zips,
     renderer,
   });
-  buildPark({
+  const parkWorld = buildPark({
     scene: root,
     facadeMat,
     solids: gen.solids,
@@ -578,12 +579,13 @@ export async function buildCity({ scene, renderer }) {
     textures: T,
     materials: { facade: facadeMat },
     update(dt, camera) {
+      lodScale = quality.lodScale;
       time += dt;
       const P0_ = world.prof,
         g0_ = P0_ ? performance.now() : 0; // (perf r3) + ground (river mirror) / boats / highways / hero mirror
       ground.update(dt, camera);
       const g1_ = P0_ ? performance.now() : 0;
-      boats.update(dt);
+      boats.update(dt, camera);
       highways.update(dt, camera);
       if (P0_) {
         const g2_ = performance.now(),
@@ -614,6 +616,8 @@ export async function buildCity({ scene, renderer }) {
           camera.lookAt(v.target);
         }
         const cp = camera.position;
+        bridges.update(camera);
+        parkWorld.update(camera);
         const h0_ = P0_ ? performance.now() : 0;
         hero.renderReflection(camera);
         if (P0_) {

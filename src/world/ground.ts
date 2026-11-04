@@ -60,6 +60,7 @@ import { PARK_CANOPY_EXTERNAL } from "./trees.ts";
 import { PARK_MEADOWS, meadowDist } from "./parkData.ts";
 import { adjustParkPaths } from "./park.ts"; // park agent: East Drive / paths clear the museum lot
 import { CanopyBatch } from "./canopy.ts";
+import { getQuality } from "../render/quality.ts";
 
 const groundShader = lazyShaderSections(() => groundShaderSource);
 
@@ -92,10 +93,14 @@ export function terrainHeight(x, z) {
 
 // ------------------------------------------------------------------ asphalt
 export function createAsphaltMaterial(T) {
+  const quality = getQuality();
+  const roadDetailLevel = quality.name === "low" ? 0 : quality.name === "med" ? 1 : 2;
+  const roadDetailDistance = quality.name === "low" ? 0 : quality.name === "med" ? 190 : 700;
   const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     roughness: 0.9,
     metalness: 0,
+    defines: { ROAD_DETAIL_LEVEL: roadDetailLevel },
   });
   const uni = {
     tCol: { value: T.asphaltCol },
@@ -103,6 +108,7 @@ export function createAsphaltMaterial(T) {
     tMacro: { value: T.asphaltMacro },
     tNoise: { value: T.noise },
     tDec: { value: T.asphaltDecals },
+    uRoadDetailDist: { value: roadDetailDistance },
   }; // (textures r3) tDec
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uni);
@@ -125,7 +131,7 @@ export function createAsphaltMaterial(T) {
         "#include <normal_fragment_maps>",groundShader.fragmentNormalMaps,
       );
   };
-  mat.customProgramCacheKey = () => "city-asphalt-v9"; // (textures r3) v9: repair decals // (street r6) (street r11) (foundation r13) (street r12)
+  mat.customProgramCacheKey = () => `city-asphalt-v10-${quality.name}`;
   return mat;
 }
 
@@ -1076,9 +1082,13 @@ function pondWind(w) {
 
 export function createGrassMaterial(T, opts = {}) {
   // (coast r2) opts.lawn: the same lawn shader for plain lawns outside Central Park (meadow everywhere, no ball fields / ponds / woodland floor)
+  const quality = getQuality();
+  const grassDetailLevel = quality.name === "low" ? 0 : 1;
+  const grassDetailDistance = quality.name === "med" ? 360 : 900;
   const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     roughness: 0.95,
+    defines: { GRASS_DETAIL_LEVEL: grassDetailLevel },
   });
   // meadows (mowed lawns, shared layout with trees.ts / the crowd) and ponds as uniforms: the lawn shader paints
   // mowed meadows, darker shaded woodland floor under the groves, sandy ball-field infields on the big lawns and a
@@ -1091,6 +1101,7 @@ export function createGrassMaterial(T, opts = {}) {
   const uni = {
     tCol: { value: T.grassCol },
     tNoise: { value: T.noise },
+    uGrassDetailDist: { value: grassDetailDistance },
     uMd: { value: md },
     uMa: { value: ma },
     uPw: { value: pw },
@@ -1119,7 +1130,7 @@ export function createGrassMaterial(T, opts = {}) {
       );
   };
   mat.customProgramCacheKey = () =>
-    "city-grass-v10p10" + (opts.lawn ? "-lawn" : "");
+    `city-grass-v11-${quality.name}` + (opts.lawn ? "-lawn" : "");
   return mat;
 }
 

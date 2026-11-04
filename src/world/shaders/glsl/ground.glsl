@@ -14,6 +14,7 @@ uniform sampler2D tCol;
 uniform sampler2D tNrm;
 uniform sampler2D tMacro;
 uniform sampler2D tNoise;
+uniform float uRoadDetailDist;
 in vec3 vWP;
 in vec3 vRoad;
 uniform sampler2D tDec;
@@ -22,12 +23,21 @@ float aR;
 float gDecR = 0.0; // (textures r3)
 vec3 asphalt() {
 vec2 p = vWP.xz;
+float adist = length(vWP - cameraPosition);
 vec3 c = texture(tCol, p / 6.0).rgb * 0.88; // (textures r4) critic: 'street asphalt light grey and clean' -> darker binder
+#if ROAD_DETAIL_LEVEL >= 1
+if(adist < uRoadDetailDist) {
 vec3 c2 = texture(tCol, vec2(p.y, - p.x) / 7.3 + 0.37).rgb * 0.88;
 c = mix(c, c2, 0.35);
+}
+#endif
 vec3 nd = texture(tNrm, p / 6.0).rgb;
 vec3 m = texture(tMacro, p / 64.0).rgb;
+#if ROAD_DETAIL_LEVEL >= 1
 vec3 m2 = texture(tMacro, vec2(- p.y, p.x) / 151.0 + 0.5).rgb;
+#else
+vec3 m2 = vec3(0.5);
+#endif
 vec3 nz = texture(tNoise, p / 97.0).rgb;
 float bright = (0.8 + 0.4 * m.r) * (0.88 + 0.24 * m2.r) * (0.94 + 0.12 * nz.r); // gentle macro variation (was blotchy)
 c *= bright;
@@ -65,10 +75,16 @@ c *= 1.0 - 0.2 * stain - 0.05 * oil * nz.b; // faint, broad (no dark lane-centre
 c *= 1.0 - 0.36 * gutter * (0.6 + 0.4 * nz.b); // (street r6) darker wet kerb gutter
 c = mix(c, c * vec3(0.95, 0.93, 0.9), gutter);
 // patches: soft, broad darker areas only (low-frequency noise, no hard edges or seams)
+#if ROAD_DETAIL_LEVEL >= 1
+if(adist < uRoadDetailDist) {
 float patchN = smoothstep(0.62, 0.78, texture(tNoise, p / 41.0 + 0.23).b) * 0.6;
 c *= 1.0 - 0.14 * patchN;
+}
+#endif
 // (street r6) critic: 'road too clean'. Mid-scale blotches: parked-car oil drips + dried spill stains (irregular,
 // 0.5-2 m, from two noise octaves), strongest in the parking / curb lanes (gutter side), faint mid-road.
+#if ROAD_DETAIL_LEVEL >= 1
+if(adist < uRoadDetailDist) {
 {
 float s1 = texture(tNoise, p / 3.7 + 0.61).g, s2 = texture(tNoise, p / 1.3 + 0.17).r;
 float blot = smoothstep(0.66, 0.8, s1 * 0.75 + s2 * 0.35);
@@ -137,11 +153,15 @@ vec2 op = p / 2.3 + 0.17;
 float pool = smoothstep(0.62, 0.82, texture(tNoise, op).r * 0.7 + texture(tNoise, op * 2.9).g * 0.4) * (rk == 2 ? 0.3 : oil);
 c *= 1.0 - 0.25 * pool;
 }
+}
+#endif
 // (textures r3) critic: 'asphalt uniform noise, no patches, cracks, tyre marks'. Photographic repair decals
 // ($imagegen sheet, asphalt_decals.webp: 8 cells of colour ratio vs plain asphalt): fresh / old sealed utility cuts,
 // trench strips, pothole fills, oil stains, skid marks, manholes in a new-asphalt collar, patch clusters. One
 // candidate per 8 m cell (~55 % used), random size / quarter-turn / mirror, jittered inside the cell. One texture
 // tap with explicit gradients (no mip seams at the cell borders).
+#if ROAD_DETAIL_LEVEL >= 2
+if(adist < uRoadDetailDist) {
 {
 vec2 dcg = p / 8.0, dci = floor(dcg), dcf = dcg - dci;
 vec2 dqx = dFdx(p), dqy = dFdy(p); // uniform control flow
@@ -173,10 +193,11 @@ gDecR = clamp(1.0 - dot(dr, vec3(0.333)), 0.0, 0.6);
 }
 }
 }
+}
+#endif
 c *= vec3(0.97, 0.99, 1.03); // slightly blue-grey, faded
 // aerial LOD tone: seen from afar, grime, oil, parked cars and kerb shadows aggregate -> the road reads darker than
 // the sidewalks (the street grid stays legible from the rooftops instead of washing into pale strips)
-float adist = length(vWP - cameraPosition);
 c *= mix(1.0, 0.74, smoothstep(80.0, 600.0, adist)); // (round 7: 0.66 -> 0.52; round 10: 0.74 -- critic: streets read as dark trenches, not grey asphalt)
 // (street agent r1) street-level tone: up close the refs' asphalt is a dark blue-grey, about half the sidewalk's
 // value; fades out by 260 m so the rooftop / aerial read (above) is unchanged
@@ -337,6 +358,7 @@ vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;
 #include <common>
 uniform sampler2D tCol;
 uniform sampler2D tNoise;
+uniform float uGrassDetailDist;
 in vec3 vWP;
 uniform vec4 uMd[__SHADER_INJECT_0__];
 uniform float uMa[__SHADER_INJECT_1__];
@@ -365,6 +387,13 @@ return length(q) / (1.0 + w1 * sin(ang * 3.0 + e.x) + w2 * sin(ang * 5.0 + e.y *
 // @section fragmentMapGrassSurface
 {
 vec2 p = vWP.xz;
+#if GRASS_DETAIL_LEVEL == 0
+vec3 c = texture(tCol, p / 12.0).rgb;
+vec3 nz = texture(tNoise, p / 80.0).rgb;
+c *= (0.92 + 0.16 * nz.r) * vec3(0.88, 0.9, 0.82);
+diffuseColor.rgb = c;
+#else
+if(length(vWP - cameraPosition) < uGrassDetailDist) {
 vec3 c = texture(tCol, p / 6.0).rgb;
 vec3 c2 = texture(tCol, p.yx / 23.0).rgb;
 vec3 nz = texture(tNoise, p / 140.0).rgb, nz2 = texture(tNoise, p / 37.0).rgb;
@@ -472,9 +501,18 @@ c = mix(c, cin, trk * __SHADER_INJECT_8__);
 c = mix(c, vec3(0.1, 0.1, 0.09), (1.0 - smoothstep(0.2, 0.7, abs(rd - 3.6))) * __SHADER_INJECT_9__);
 }
 diffuseColor.rgb = c;
+} else {
+vec3 c = texture(tCol, p / 12.0).rgb;
+vec3 nz = texture(tNoise, p / 80.0).rgb;
+c *= (0.92 + 0.16 * nz.r) * vec3(0.88, 0.9, 0.82);
+diffuseColor.rgb = c;
+}
+#endif
 }
 // @section fragmentNormalMapsGrassSurface
 #include <normal_fragment_maps>
+#if GRASS_DETAIL_LEVEL >= 1
+if(length(vWP - cameraPosition) < uGrassDetailDist) {
 {
 vec2 p = vWP.xz;
 float e = 3.0;
@@ -484,6 +522,8 @@ float dx = (GH(p + vec2(e, 0.0)) - GH(p - vec2(e, 0.0))) / (2.0 * e), dz = (GH(p
 vec3 nW = normalize(vec3(- dx * 6.0, 1.0, - dz * 6.0));
 normal = normalize(mix(normal, (viewMatrix * vec4(nW, 0.0)).xyz, 0.85));
 }
+}
+#endif
 // @section vertexCommonByMountainWorldPosition
 #include <common>
 out vec3 vWPm;

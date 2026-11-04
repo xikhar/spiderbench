@@ -18,6 +18,7 @@ import { MeshBuilder } from "./meshBuilder.ts";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { nightK } from "../render/daynight.ts"; // (night) lamp globes glow at night
 import { cityLights } from "../render/citylights.ts"; // (night) park lamps are real lights
+import { getQuality } from "../render/quality.ts";
 
 export { PARK_ROCKS, PARK_SITES } from "./parkData.ts";
 
@@ -189,13 +190,16 @@ function addWoodlandPaths(paths) {
 }
 
 export function buildPark({
-  scene,
+  scene: parentScene,
   facadeMat,
   solids = null,
   zips = null,
   meadowDist = null,
   parkPaths = [],
 }) {
+  const scene = new THREE.Group();
+  scene.name = "centralPark-scene";
+  parentScene.add(scene);
   const F = new FacadeBuilder();
   const S = solids;
   const glaze = []; // (park r2) skylight glass planes [x0, z0, x1, z1, y]
@@ -1681,7 +1685,7 @@ export function buildPark({
   }
   buildBallfields(scene, S, box);
   buildReservoirRiprap(box); // (park r7) rock riprap along the reservoir's waterline
-  buildPathFurniture(scene, S, parkPaths); // (park r7) lamps + benches along the walks, darker drives
+  const pathFurniture = buildPathFurniture(scene, S, parkPaths); // (park r7) lamps + benches along the walks, darker drives
   buildReservoirEdge(scene, S);
   buildWaterShallows(scene); // (park r5) dark wet band / bank reflection on every pond
   buildParkWall(scene, F, S);
@@ -1698,7 +1702,7 @@ export function buildPark({
     scene.add(mesh);
     out.mesh = mesh;
   }
-  return out;
+  return { ...out, ...pathFurniture };
 }
 
 // (park r2) skylight glazing: reflective panes in a steel mullion grid (1.6 m x 3.2 m), a few frosted / dirty panes,
@@ -3291,5 +3295,22 @@ function buildPathFurniture(scene, S, parkPaths) {
     mesh.name = "park-drives";
     scene.add(mesh);
   }
-  return { lamps: nl, benches: nb };
+  const bounds = PARK_BOUNDS;
+  const quality = getQuality();
+  const parkLodDistance =
+    quality.name === "low" ? 2800 : quality.name === "med" ? 4700 : 6800;
+  return {
+    lamps: nl,
+    benches: nb,
+    group: scene,
+    update(camera) {
+      if (!camera) return;
+      const x = camera.position.x;
+      const z = camera.position.z;
+      const dx = Math.max(bounds.x0 - x, 0, x - bounds.x1);
+      const dz = Math.max(bounds.z0 - z, 0, z - bounds.z1);
+      const distance = parkLodDistance * quality.renderLodScale;
+      scene.visible = dx * dx + dz * dz <= distance * distance;
+    },
+  };
 }

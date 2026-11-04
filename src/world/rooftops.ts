@@ -943,7 +943,8 @@ export async function buildRooftops({
   extraRoofs = [],
 }) {
   void facadeMat;
-  const lodScale = getQuality().lodScale;
+  const quality = getQuality();
+  let lodScale = quality.lodScale;
   const aniso = Math.min(8, renderer?.capabilities?.getMaxAnisotropy?.() ?? 4);
   const [imC, imN] = await Promise.all([
     loadImage(assetUrl("city/tex/roof_col.png")),
@@ -6975,6 +6976,7 @@ export async function buildRooftops({
     roofTrees, // (veg r1) city.ts -> props.treeSpots (trees.ts 'small')
     update(camera) {
       if (!camera) return;
+      lodScale = quality.lodScale;
       const p = camera.position;
       plants.update(p); // (veg r1)
       rbB.endWarm(); // (perf r2) pre-upload the next roof tile before it appears (see city.ts / tileBatch.ts warm)

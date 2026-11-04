@@ -43,12 +43,12 @@ const crowdShader = lazyShaderSections(() => crowdShaderSource);
 
 const CROWD_PRESETS = {
   low: {
-    populationRadius: 165,
-    nearRadius: [65, 90],
-    nearKill: 110,
-    parkRadius: [125, 155],
-    lodDistance: [4, 12, 90],
-    blobDistance: 28,
+    populationRadius: 125,
+    nearRadius: [45, 68],
+    nearKill: 82,
+    parkRadius: [90, 118],
+    lodDistance: [3, 9, 58],
+    blobDistance: 19,
   },
   med: {
     populationRadius: 220,
@@ -805,6 +805,9 @@ function createBlobs(scene, animTex, meta, blobDistance = BLOB_D) {
   return {
     mat,
     mesh,
+    setDistance(distance) {
+      blobDistance = distance;
+    },
     begin() {
       n = 0;
     },
@@ -848,13 +851,31 @@ export async function createCrowd({
 }) {
   // The quality preset is selected with ?q=. Apply it to pedestrian LOD and
   // streaming too; otherwise Low only changes renderer effects.
-  const crowdPreset = CROWD_PRESETS[getQuality().name] || CROWD_PRESETS.high;
-  const RP = crowdPreset.populationRadius;
-  const RNEAR = crowdPreset.nearRadius;
-  const NEAR_KILL = crowdPreset.nearKill;
-  const RPARK = crowdPreset.parkRadius;
-  const LOD_D = crowdPreset.lodDistance;
-  const BLOB_D = crowdPreset.blobDistance;
+  const quality = getQuality();
+  const crowdPreset = CROWD_PRESETS[quality.name] || CROWD_PRESETS.high;
+  let renderLodScale = quality.renderLodScale;
+  let RP = crowdPreset.populationRadius * renderLodScale;
+  const RNEAR = crowdPreset.nearRadius.map((d) => d * renderLodScale);
+  let NEAR_KILL = crowdPreset.nearKill * renderLodScale;
+  const RPARK = crowdPreset.parkRadius.map((d) => d * renderLodScale);
+  const LOD_D = crowdPreset.lodDistance.map((d) => d * renderLodScale);
+  let BLOB_D = crowdPreset.blobDistance * renderLodScale;
+  let blobs = null;
+  const syncCrowdLod = () => {
+    const scale = quality.renderLodScale;
+    if (scale === renderLodScale) return;
+    renderLodScale = scale;
+    RP = crowdPreset.populationRadius * scale;
+    RNEAR[0] = crowdPreset.nearRadius[0] * scale;
+    RNEAR[1] = crowdPreset.nearRadius[1] * scale;
+    NEAR_KILL = crowdPreset.nearKill * scale;
+    RPARK[0] = crowdPreset.parkRadius[0] * scale;
+    RPARK[1] = crowdPreset.parkRadius[1] * scale;
+    for (let i = 0; i < LOD_D.length; i++)
+      LOD_D[i] = crowdPreset.lodDistance[i] * scale;
+    BLOB_D = crowdPreset.blobDistance * scale;
+    blobs?.setDistance(BLOB_D);
+  };
   const [meta, bin, pedTex, bakeTex] = await Promise.all([
     fetch(assetUrl("city/npc/people.json")).then((r) => r.json()),
     fetch(assetUrl("city/npc/people.bin")).then((r) => r.arrayBuffer()),
@@ -936,7 +957,7 @@ export async function createCrowd({
   );
   const allPools = pools.flat();
   const dogs = meta.dog ? createDogs(scene, bin, meta.dog) : null; // (citylife r1) dog walkers
-  const blobs = /[?&]noblob/.test(
+  blobs = /[?&]noblob/.test(
     typeof location !== "undefined" ? location.search : "",
   )
     ? null
@@ -3221,6 +3242,7 @@ export async function createCrowd({
     },
     zones,
     update(dt, camera) {
+      syncCrowdLod();
       time += dt;
       frame++;
       uni.uTime.value = time;
@@ -3377,7 +3399,13 @@ export async function createCrowd({
     },
     stats() {
       let drawn = 0;
-      for (const p of allPools) drawn += p.n;
+      const peopleByLod = [0, 0, 0];
+      for (const variantPools of pools)
+        for (let i = 0; i < variantPools.length; i++) {
+          const p = variantPools[i];
+          drawn += p.n;
+          peopleByLod[i] += p.n;
+        }
       let park = 0,
         near = 0;
       for (const a of agents) {
@@ -3385,6 +3413,9 @@ export async function createCrowd({
         else if (a.tier === "near") near++;
       }
       return {
+        quality: getQuality().name,
+        lodDistances: [...LOD_D],
+        peopleByLod,
         people: agents.length + statics.length,
         peopleDrawn: drawn,
         parkPeople: park,

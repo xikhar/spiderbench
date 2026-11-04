@@ -58,9 +58,9 @@ export function createSettingsPage(sys) {
           ["high", "High"],
         ],
         "Quality Preset",
-        `Shadows, AO, clouds, depth of field, building, object, vehicle and pedestrian LOD; reduced crowd range. Applying reloads the game (current: ${curQ}).`,
+        `Shadows, AO, clouds, depth of field, LOD, crowd range and render resolution. Applying reloads the game (current: ${curQ}).`,
       )}
-      ${range("renderScale", 0.35, 1.25, 0.05, "Render Resolution", "Older GPUs are capped at 80% at 100% scale. Lower this more to reduce GPU memory use; try 60%.", FMT.renderScale)}
+      ${range("renderScale", 0.35, 1.25, 0.05, "Render Resolution", "Multiplies the preset resolution (Low 55%, Medium 85%, High 100%). Lower this to reduce GPU load; world detail and traffic ranges also shorten live.", FMT.renderScale)}
       ${seg(
         "fpsLimit",
         [
@@ -177,7 +177,7 @@ export function createSettingsPage(sys) {
       <div class="sys-binds"><div class="h">Action</div><div class="h k">Keyboard / Mouse</div><div class="h k">Gamepad</div>
       ${[
         ["Move", "W A S D", "Left Stick"],
-        ["Camera", "Mouse", "Right Stick"],
+        ["Camera", "Click once, then move mouse / trackpad; touch: drag", "Right Stick"],
         ["Web-Swing (hold)", "Right Mouse", "R2"],
         ["Parkour (ground) / Wall-Run (walls)", "Shift", "R2"],
         ["Parkour (ground)", "Right Mouse", "R2 (ground)"],

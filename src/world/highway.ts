@@ -10,6 +10,7 @@
 import { lazyShaderSections } from "../shaderSections.ts";
 import highwayShaderSource from "./shaders/glsl/highway.glsl?raw";
 import { injectShader } from "../render/shaderInjection.ts";
+import { getQuality } from "../render/quality.ts";
 import * as THREE from "three";
 import {
   G,
@@ -261,6 +262,8 @@ export const PAINT = [
 export const CAB = [0.85, 0.6, 0.08];
 
 export function buildHighways({ scene, T, solids = null, models = null }) {
+  const quality = getQuality();
+  const lodScale = quality.lodScale;
   const runs = highwayRuns();
   const group = new THREE.Group();
   group.name = "highways";
@@ -450,8 +453,11 @@ export function buildHighways({ scene, T, solids = null, models = null }) {
     group,
     counts,
     name: "highwayVeh",
-    maxLow: 600,
-    maxFar: 2500,
+    maxHi: Math.max(8, Math.round(40 * (quality.baseLodScale ?? lodScale))),
+    maxLow: Math.max(80, Math.round(600 * (quality.baseLodScale ?? lodScale))),
+    maxFar: Math.max(300, Math.round(2500 * (quality.baseLodScale ?? lodScale))),
+    highDetailDistance: quality.vehicleHighDetailDistance,
+    lowDetailDistance: quality.vehicleLowDetailDistance,
   });
   const place = (c) => {
     const pts = c.R.pts;
@@ -511,7 +517,11 @@ export function buildHighways({ scene, T, solids = null, models = null }) {
       if (!vehicleSet || !camera) return;
       const d = Math.min(acc, 0.25);
       acc = 0;
-      vehicleSet.beginFrame(camera, 1400);
+      vehicleSet.setLodDistances?.(
+        quality.vehicleHighDetailDistance,
+        quality.vehicleLowDetailDistance,
+      );
+      vehicleSet.beginFrame(camera, quality.highwayTrafficRadius);
       for (const c of cars) {
         c.s += c.v * d * c.dir;
         if (c.s > c.R.len) c.s -= c.R.len;

@@ -242,6 +242,8 @@ type VehicleSetOptions = {
   maxHi?: number;
   maxLow?: number;
   maxFar?: number;
+  highDetailDistance?: number;
+  lowDetailDistance?: number;
 };
 
 export function createVehicleSet({
@@ -252,6 +254,8 @@ export function createVehicleSet({
   maxHi = 40,
   maxLow = 400,
   maxFar = 3000,
+  highDetailDistance = HIGH_DETAIL_DISTANCE,
+  lowDetailDistance = LOW_DETAIL_DISTANCE,
 }: VehicleSetOptions) {
   const geometries = models?.geos ?? {};
   const activeVehicleTypes = VEHICLE_TYPES.filter(
@@ -353,6 +357,11 @@ export function createVehicleSet({
   return {
     meshes: allInstancedMeshes.map(({ mesh }) => mesh),
 
+    setLodDistances(high: number, low: number) {
+      highDetailDistance = Math.max(0, high);
+      lowDetailDistance = Math.max(highDetailDistance, low);
+    },
+
     beginFrame(camera: CameraLike, farDistance = Infinity) {
       camera.updateMatrixWorld();
       viewProjectionMatrix.multiplyMatrices(
@@ -407,13 +416,13 @@ export function createVehicleSet({
       const detailMeshes = detailMeshesByType[type];
       if (!detailMeshes) return;
       if (
-        distanceSquared < HIGH_DETAIL_DISTANCE ** 2 &&
+        distanceSquared < highDetailDistance ** 2 &&
         detailMeshes.high.addInstance(instanceTransform, tint, seed)
       ) {
         return;
       }
       if (
-        distanceSquared < LOW_DETAIL_DISTANCE ** 2 &&
+        distanceSquared < lowDetailDistance ** 2 &&
         detailMeshes.low.addInstance(instanceTransform, tint, seed)
       ) {
         return;

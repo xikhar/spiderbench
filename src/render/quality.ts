@@ -5,6 +5,14 @@ type QualityPresetName = "low" | "med" | "high";
 type QualitySettings = {
   name: QualityPresetName;
   lodScale: number;
+  renderLodScale: number;
+  baseLodScale?: number;
+  renderScale: number;
+  trafficRadius: number;
+  parkedCarRadius: number;
+  vehicleHighDetailDistance: number;
+  vehicleLowDetailDistance: number;
+  highwayTrafficRadius: number;
   cascades: number;
   shadowMapSize: number;
   shadowFar: number;
@@ -41,7 +49,14 @@ type RendererCapabilitiesLike = {
 const QUALITY_PRESETS: Record<QualityPresetName, QualitySettings> = {
   low: {
     name: "low",
-    lodScale: 0.55,
+    lodScale: 0.2,
+    renderLodScale: 1,
+    renderScale: 0.55,
+    trafficRadius: 110,
+    parkedCarRadius: 80,
+    vehicleHighDetailDistance: 8,
+    vehicleLowDetailDistance: 32,
+    highwayTrafficRadius: 350,
     cascades: 2,
     shadowMapSize: 1024,
     shadowFar: 500,
@@ -67,7 +82,14 @@ const QUALITY_PRESETS: Record<QualityPresetName, QualitySettings> = {
   },
   med: {
     name: "med",
-    lodScale: 0.8,
+    lodScale: 0.72,
+    renderLodScale: 1,
+    renderScale: 0.85,
+    trafficRadius: 460,
+    parkedCarRadius: 360,
+    vehicleHighDetailDistance: 35,
+    vehicleLowDetailDistance: 166,
+    highwayTrafficRadius: 1000,
     cascades: 3,
     shadowMapSize: 2048,
     shadowFar: 900,
@@ -97,6 +119,13 @@ const QUALITY_PRESETS: Record<QualityPresetName, QualitySettings> = {
   high: {
     name: "high",
     lodScale: 1,
+    renderLodScale: 1,
+    renderScale: 1,
+    trafficRadius: 640,
+    parkedCarRadius: 500,
+    vehicleHighDetailDistance: 48,
+    vehicleLowDetailDistance: 230,
+    highwayTrafficRadius: 1400,
     // (foundation agent: a 5th, half-res cascade reaches 3 km so aerial views keep building / street-canyon shadows)
     cascades: 5,
     shadowMapSize: 2048,
@@ -127,6 +156,50 @@ const QUALITY_PRESETS: Record<QualityPresetName, QualitySettings> = {
 };
 
 let cachedQualitySettings: QualitySettings | null = null;
+let cachedBaseQualitySettings: QualitySettings | null = null;
+const RENDER_LOD_DISTANCE_KEYS = [
+  "trafficRadius",
+  "parkedCarRadius",
+  "vehicleHighDetailDistance",
+  "vehicleLowDetailDistance",
+  "highwayTrafficRadius",
+] as const;
+
+function readSavedRenderScale(): number {
+  try {
+    const save = JSON.parse(
+      localStorage.getItem("spiderbench.save.v1") || "null",
+    );
+    const scale = Number(save?.settings?.renderScale);
+    if (Number.isFinite(scale)) return Math.min(1.25, Math.max(0.35, scale));
+  } catch {}
+  return 1;
+}
+
+let renderLodScale = readSavedRenderScale();
+
+function applyRenderLodScale() {
+  if (!cachedQualitySettings || !cachedBaseQualitySettings) return;
+  const quality = cachedQualitySettings;
+  const base = cachedBaseQualitySettings;
+  const effectiveLodScale = Number(base.renderScale) * renderLodScale;
+  quality.renderLodScale = effectiveLodScale;
+  quality.baseLodScale = base.lodScale;
+  quality.lodScale = base.lodScale * effectiveLodScale;
+  for (const key of RENDER_LOD_DISTANCE_KEYS)
+    quality[key] = Number(base[key]) * effectiveLodScale;
+}
+
+// Called by the graphics settings as the render-resolution slider moves. World LODs
+// use this multiplier too, so reducing pixels also shortens detail and simulation ranges.
+export function setRenderLodScale(scale: number) {
+  if (!Number.isFinite(scale)) return;
+  const next = Math.min(1.25, Math.max(0.35, scale));
+  if (next === renderLodScale) return;
+  renderLodScale = next;
+  applyRenderLodScale();
+}
+
 export function getQuality(
   renderer: RendererCapabilitiesLike | null = null,
 ): QualitySettings {
@@ -183,18 +256,25 @@ export function getQuality(
   } catch (e) {
     /* non-browser */
   }
+  cachedBaseQualitySettings = { ...cachedQualitySettings };
+  applyRenderLodScale();
   return cachedQualitySettings;
 }
 
 // Retina displays can multiply the render targets' pixel count by 2.25 at 1.5x DPR.
-// Keep 16-texture-unit GPUs at 80% resolution by default; renderScale remains a user multiplier.
+// Presets scale internal resolution; 16-texture-unit GPUs cap it at 80%, then renderScale applies as a user multiplier.
 export function getRenderPixelRatio(
   renderer: RendererCapabilitiesLike | null,
   renderScale = 1,
 ): number {
+  const presetScale = getQuality(renderer).renderScale;
   const currentDevicePixelRatio =
     typeof devicePixelRatio === "number" ? devicePixelRatio : 1;
   const maxTextures = renderer?.capabilities?.maxTextures;
   const maxRenderPixelRatio = maxTextures != null && maxTextures <= 16 ? 0.8 : 1.5;
-  return Math.min(currentDevicePixelRatio, maxRenderPixelRatio) * renderScale;
+  return (
+    Math.min(currentDevicePixelRatio, maxRenderPixelRatio) *
+    presetScale *
+    renderScale
+  );
 }

@@ -34,6 +34,7 @@ import {
   getSignAtlasTexture,
 } from "./advertisingTextures.ts"; // shared atlases for advertising and blade signs
 import { screenK } from "../render/daynight.ts"; // (night r5)
+import { getQuality } from "../render/quality.ts";
 import { screenLightSet } from "./screenlights.ts"; // (night r9) billboard / lightbox faces light the street
 import { createPartMaterial, MATERIAL_PART } from "./partMaterials.ts";
 import { COAST } from "./waterfront.ts"; // (coast r1) waterfront lamps / benches / trees
@@ -3141,8 +3142,11 @@ export async function buildProps({
         }
     }
   }
-  buildRoadPatches({ scene }); // street agent: asphalt repair patches / trench cuts under the markings
-  buildStreetGrime({ scene, buildings }); // street agent r2: manholes, plates, oil / drip bands, tar snakes, gutters, base AO
+  const lowQuality = getQuality().name === "low";
+  const roadPatches = buildRoadPatches({ scene }); // street agent: asphalt repair patches / trench cuts under the markings
+  if (lowQuality && roadPatches) roadPatches.visible = false;
+  const streetGrime = buildStreetGrime({ scene, buildings }); // street agent r2: manholes, plates, oil / drip bands, tar snakes, gutters, base AO
+  if (lowQuality && streetGrime) streetGrime.visible = false;
   {
     // (street r7) critic: 'add manholes with steam' -> low steam wisps rising straight off ~9% of the core manholes
     const rs = mulberry32(3131);

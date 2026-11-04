@@ -23,6 +23,7 @@ import { roadGraph } from "./route.ts";
 import { loadVehicleModels } from "../../world/vehicles.ts";
 import { createPartMaterial } from "../../world/partMaterials.ts";
 import { createActors } from "./crimeactors.ts";
+import { getQuality } from "../../render/quality.ts";
 
 const TYPES = {
   mugging: {
@@ -441,7 +442,11 @@ export function createCrimes(sys) {
     vehLoading = (async () => {
       const models = await loadVehicleModels(ctx.renderer);
       if (!models?.geos?.sedan) return null;
-      const geo = models.geos.sedan.clone();
+      const chaseModel =
+        getQuality().name === "high"
+          ? models.geos.sedan
+          : (models.geos.sedan_l1 ?? models.geos.sedan);
+      const geo = chaseModel.clone();
       const mat = createPartMaterial({
         name: "syschase",
         instanceTint: true,

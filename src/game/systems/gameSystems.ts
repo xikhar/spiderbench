@@ -25,7 +25,10 @@ import { createSkillEffects } from "./skillEffects.ts";
 import { createSystemsHud } from "../../ui/menus/systemsHud.ts";
 import { createPauseMenu } from "../../ui/menus/pause.ts";
 import { createPhotoUI } from "../../ui/menus/photo.ts";
-import { getRenderPixelRatio } from "../../render/quality.ts";
+import {
+  getRenderPixelRatio,
+  setRenderLodScale,
+} from "../../render/quality.ts";
 
 export function initSystems(ctx) {
   if (ctx.sys) return ctx.sys;
@@ -137,6 +140,7 @@ export function initSystems(ctx) {
   let appliedScale = null;
   sys.applySettings = () => {
     const s = save.state.settings;
+    setRenderLodScale(s.renderScale ?? 1);
     audio.setVolumes(s);
     const fpsLimit =
       s.fpsLimit === "auto"

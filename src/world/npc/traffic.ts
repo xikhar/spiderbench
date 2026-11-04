@@ -202,11 +202,11 @@ export function createTraffic({
   // Resolve the preset when the traffic system is created, after the renderer
   // and application modules have finished initializing. Avoid reading it at
   // module evaluation time, which can run while the module graph is loading.
-  const LOD_SCALE = getQuality().lodScale;
-  const RA = 640 * LOD_SCALE; // streaming radius (m), shortened by Low / Medium presets
-  const PARK_R = 500 * LOD_SCALE; // parked-car stream radius
-  const HI_D = 48 * LOD_SCALE,
-    LOW_D = 230 * LOD_SCALE; // LOD0 -> LOD1 -> grouped LOD2, scaled by quality preset
+  const quality = getQuality();
+  let RA = quality.trafficRadius; // moving-car simulation / draw radius (m)
+  let PARK_R = quality.parkedCarRadius;
+  let HI_D = quality.vehicleHighDetailDistance,
+    LOW_D = quality.vehicleLowDetailDistance; // LOD0 -> LOD1 -> grouped LOD2
   const { links, nodes } = roads;
   const tiers = {};
   const all = [];
@@ -2031,6 +2031,10 @@ export function createTraffic({
       }
     },
     update(dt, camera, t, clear = null) {
+      RA = quality.trafficRadius;
+      PARK_R = quality.parkedCarRadius;
+      HI_D = quality.vehicleHighDetailDistance;
+      LOW_D = quality.vehicleLowDetailDistance;
       time = t;
       const cp = camera.position;
       camPos.copy(cp);
@@ -2069,7 +2073,20 @@ export function createTraffic({
       for (const L of links) if (L.active) active++;
       let drawn = 0;
       for (const k of all) if (!k.mesh.userData.smallCasters) drawn += k.n; // (perf r2) not the shadow proxies
+      let highLod = 0,
+        lowLod = 0,
+        farLod = 0;
+      const farMeshes = new Set();
+      for (const t of Object.values(tiers)) {
+        highLod += t.hi.n;
+        lowLod += t.low.n;
+        farMeshes.add(t.far);
+      }
+      for (const mesh of farMeshes) farLod += mesh.n;
       return {
+        quality: quality.name,
+        lodDistances: { high: HI_D, low: LOW_D, stream: RA, parked: PARK_R },
+        vehicleLod: { high: highLod, low: lowLod, far: farLod },
         cars: cars.length,
         activeLinks: active,
         drawn,

@@ -29,6 +29,7 @@ import * as THREE from "three";
 import { G, BRIDGES, shoreX, onRoad, streetsAt, addCurbCut } from "./layout.ts";
 import { FAR_LANDS, FAR_Y } from "./farshore.ts";
 import { REFL_LAYER } from "./waterLayers.ts";
+import { getQuality } from "../render/quality.ts";
 
 const bridgesShader = lazyShaderSections(() => bridgesShaderSource);
 
@@ -681,20 +682,60 @@ export function buildBridges({
   const group = new THREE.Group();
   group.name = "bridges";
   scene.add(group);
-  const K = {
-    stone: new Acc(),
-    deck: new Acc(),
-    cable: new Acc(),
-    steel: new Acc(),
-    lat: new Acc(),
-    pool: new Acc(),
-    lamps: [],
-    solids,
-    zips,
-    boxes,
-  }; // (night) lamps: real lights (cityLights.ts)
   const spans = bridgeSpans();
-  for (const B of spans) {
+  const materials = {
+    stone: stoneMaterial(T),
+    deck: deckMaterial(T),
+    cable: cableMaterial(),
+    steel: steelMaterial(),
+    lat: latticeMaterial(),
+  };
+  // The old combined meshes had a city-wide bounding box, so every bridge stayed in
+  // the render list even when the camera was nowhere near a river crossing. Keep the
+  // material batching per bridge and cull whole bridge groups by their local bounds.
+  const cv = document.createElement("canvas");
+  cv.width = cv.height = 64;
+  const g2 = cv.getContext("2d");
+  const gr = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, "rgba(255,255,255,1)");
+  gr.addColorStop(0.25, "rgba(255,255,255,0.62)");
+  gr.addColorStop(0.6, "rgba(255,255,255,0.16)");
+  gr.addColorStop(1, "rgba(255,255,255,0)");
+  g2.fillStyle = gr;
+  g2.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const poolMaterial = new THREE.MeshBasicMaterial({
+    map: tex,
+    color: new THREE.Color(1.0, 0.62, 0.3).multiplyScalar(0.22),
+    transparent: true,
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.SrcAlphaFactor,
+    blendDst: THREE.OneFactor,
+    blendSrcAlpha: THREE.ZeroFactor,
+    blendDstAlpha: THREE.OneFactor,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+    fog: false,
+  });
+  const quality = getQuality();
+  const maxDistance = quality.name === "low" ? 2900 : quality.name === "med" ? 4800 : 7000;
+  const bounds = [];
+  for (const [index, B] of spans.entries()) {
+    const K = {
+      stone: new Acc(),
+      deck: new Acc(),
+      cable: new Acc(),
+      steel: new Acc(),
+      lat: new Acc(),
+      pool: new Acc(),
+      lamps: [],
+      solids,
+      zips,
+      boxes,
+    }; // (night) lamps: real lights (cityLights.ts)
     const col = new THREE.Color(B.color ?? 0x6f7a80);
     K.steel.col = K.lat.col = [col.r, col.g, col.b];
     // (bridges r2) railings: painted steel, darker than the structure (Brooklyn: dark green, not the tan truss paint)
@@ -703,61 +744,32 @@ export function buildBridges({
     K.railCol = [rc.r, rc.g, rc.b];
     K.steel.ex = [0, 0, 0];
     buildBridge(B, K);
-  }
-  // ---- meshes
-  const add = (a, mat, name, shadow = true, opt = {}) => {
-    const g = a.build(opt);
-    if (!g) return;
-    const m = new THREE.Mesh(g, mat);
-    m.name = name;
-    m.castShadow = shadow;
-    m.receiveShadow = true;
-    m.layers.enable(REFL_LAYER);
-    group.add(m);
-  };
-  add(K.stone, stoneMaterial(T), "bridgeStone");
-  add(K.deck, deckMaterial(T), "bridgeDeck", true, { ex: true });
-  add(K.cable, cableMaterial(), "bridgeCables", false, { ex: true });
-  add(K.steel, steelMaterial(), "bridgeSteel", true, { color: true, ex: true });
-  add(K.lat, latticeMaterial(), "bridgeTruss", false, { color: true });
-  {
-    // (bridges r2) lamp light pools on the decks at night: one additive decal mesh (like props.ts lampPool), no draw by day
-    const cv = document.createElement("canvas");
-    cv.width = cv.height = 64;
-    const g2 = cv.getContext("2d"),
-      gr = g2.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gr.addColorStop(0, "rgba(255,255,255,1)");
-    gr.addColorStop(0.25, "rgba(255,255,255,0.62)");
-    gr.addColorStop(0.6, "rgba(255,255,255,0.16)");
-    gr.addColorStop(1, "rgba(255,255,255,0)");
-    g2.fillStyle = gr;
-    g2.fillRect(0, 0, 64, 64);
-    const tex = new THREE.CanvasTexture(cv);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    const pm = new THREE.MeshBasicMaterial({
-      map: tex,
-      color: new THREE.Color(1.0, 0.62, 0.3).multiplyScalar(0.22),
-      transparent: true,
-      blending: THREE.CustomBlending,
-      blendSrc: THREE.SrcAlphaFactor,
-      blendDst: THREE.OneFactor,
-      blendSrcAlpha: THREE.ZeroFactor,
-      blendDstAlpha: THREE.OneFactor,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -2,
-      polygonOffsetUnits: -2,
-      fog: false,
-    });
+    const bridgeGroup = new THREE.Group();
+    bridgeGroup.name = `bridge-${B.name ?? index}`;
+    const add = (a, mat, name, shadow = true, opt = {}) => {
+      const geometry = a.build(opt);
+      if (!geometry) return;
+      const mesh = new THREE.Mesh(geometry, mat);
+      mesh.name = name;
+      mesh.castShadow = shadow;
+      mesh.receiveShadow = true;
+      mesh.layers.enable(REFL_LAYER);
+      bridgeGroup.add(mesh);
+    };
+    add(K.stone, materials.stone, "bridgeStone");
+    add(K.deck, materials.deck, "bridgeDeck", true, { ex: true });
+    add(K.cable, materials.cable, "bridgeCables", false, { ex: true });
+    add(K.steel, materials.steel, "bridgeSteel", true, { color: true, ex: true });
+    add(K.lat, materials.lat, "bridgeTruss", false, { color: true });
     const g = K.pool.build();
     if (g) {
-      const m = new THREE.Mesh(g, pm);
+      const m = new THREE.Mesh(g, poolMaterial);
       m.name = "bridgeLampPools";
       m.renderOrder = 2;
       m.onBeforeRender = () => {
-        pm.opacity = cityLights.enabled ? 0 : nightK.value;
+        poolMaterial.opacity = cityLights.enabled ? 0 : nightK.value;
       };
-      group.add(nightOnly(m));
+      bridgeGroup.add(nightOnly(m));
     } // (night) replaced by the real lamp light below
     // (night) every deck lamp is a real light: roadway cobra heads = warm down-facing spots (like the street lamps,
     // props.ts), anchorage twin globes = soft warm points
@@ -786,8 +798,30 @@ export function buildBridges({
               volume: 0.4,
             },
       ); // (night r3) same warm-white head as the street lamps
+    group.add(bridgeGroup);
+    bounds.push({
+      group: bridgeGroup,
+      x0: Math.min(B.mJoin ?? B.xA0, B.rampX1),
+      x1: Math.max(B.mJoin ?? B.xA0, B.rampX1),
+      z0: B.z - B.sec.hw - 24,
+      z1: B.z + B.sec.hw + 24,
+    });
   }
-  return { group, spans };
+  return {
+    group,
+    spans,
+    update(camera) {
+      if (!camera) return;
+      const x = camera.position.x;
+      const z = camera.position.z;
+      const maxDistanceSq = maxDistance * maxDistance;
+      for (const b of bounds) {
+        const dx = Math.max(b.x0 - x, 0, x - b.x1);
+        const dz = Math.max(b.z0 - z, 0, z - b.z1);
+        b.group.visible = dx * dx + dz * dz <= maxDistanceSq;
+      }
+    },
+  };
 }
 
 function buildBridge(B, K) {

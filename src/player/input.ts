@@ -24,9 +24,11 @@ export function createInput(el) {
   const keys = new Set();
   const tapped = new Set(); // tapped: keys pressed since last poll (latched so short taps are never lost)
   const mouse = { dx: 0, dy: 0, buttons: 0 };
+  let touchLook = null;
   const synthetic = new Set();
   const isTyping = (e) =>
     /^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName || "");
+  if (el.style) el.style.touchAction = "none";
   addEventListener("keydown", (e) => {
     if (isTyping(e)) return;
     if (!e.repeat) tapped.add(e.code);
@@ -41,12 +43,34 @@ export function createInput(el) {
   addEventListener("blur", () => {
     keys.clear();
     mouse.buttons = 0;
+    touchLook = null;
   });
-  el.addEventListener("click", () => {
-    try {
-      el.requestPointerLock?.();
-    } catch {}
+  // Capture the mouse on a press (a browser user gesture), then keep looking on movement after the button is released.
+  // Touch emulation and phones do not provide pointer lock, so their drag becomes camera orbit instead.
+  el.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && e.button === 0) {
+      try {
+        el.requestPointerLock?.()?.catch?.(() => {});
+      } catch {}
+    } else if (e.pointerType === "touch" || e.pointerType === "pen") {
+      touchLook = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      try {
+        el.setPointerCapture?.(e.pointerId);
+      } catch {}
+    }
   });
+  el.addEventListener("pointermove", (e) => {
+    if (!touchLook || touchLook.id !== e.pointerId) return;
+    mouse.dx += e.clientX - touchLook.x;
+    mouse.dy += e.clientY - touchLook.y;
+    touchLook.x = e.clientX;
+    touchLook.y = e.clientY;
+  });
+  const endTouchLook = (e) => {
+    if (touchLook?.id === e.pointerId) touchLook = null;
+  };
+  el.addEventListener("pointerup", endTouchLook);
+  el.addEventListener("pointercancel", endTouchLook);
   addEventListener("mousemove", (e) => {
     // release-only resync: a mouseup lost outside the window (no pointer lock) must never leave the web stuck on.
     // (DOM MouseEvent.buttons: 1 left, 2 right, 4 middle — our bits are 1 << e.button: 1 left, 2 middle, 4 right)
@@ -59,10 +83,10 @@ export function createInput(el) {
     if (document.pointerLockElement) {
       mouse.dx += e.movementX;
       mouse.dy += e.movementY;
-    } else if (mouse.buttons & 1) {
+    } else if ((mouse.buttons & 1) || e.target === el) {
       mouse.dx += e.movementX;
       mouse.dy += e.movementY;
-    } // drag-to-orbit without lock
+    } // orbit on canvas movement if pointer lock is unavailable; left-drag also works outside the canvas
   });
   const tappedBtn = { v: 0 };
   // web slingshot: while Ctrl is held and the gate is open (player on the ground, set by player.ts each frame), LMB / RMB

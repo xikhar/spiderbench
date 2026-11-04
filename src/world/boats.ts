@@ -11,6 +11,7 @@ import { G, onLand, shoreX, mulberry32 } from "./layout.ts";
 import { farShoreHeight } from "./farshore.ts";
 import { REFL_LAYER } from "./waterLayers.ts";
 import { nightK } from "../render/daynight.ts";
+import { getQuality } from "../render/quality.ts";
 
 const boatsShader = lazyShaderSections(() => boatsShaderSource);
 
@@ -456,9 +457,6 @@ export function buildBoats({ scene, docks = [], solids = null }) {
     .rotateX(Math.PI / 2)
     .translate(0, 0, -0.5); // extends backwards (-z), bow (tex top) at z = 0
   // (round 11) wakes were oversized and glowing white (unlit basic material): dimmer foam value + lower opacity
-  boats.forEach((b, i) => {
-    b.wi = i;
-  });
   const wakeMat = new THREE.MeshBasicMaterial({
     map: wakeTexture(),
     transparent: true,
@@ -490,12 +488,13 @@ export function buildBoats({ scene, docks = [], solids = null }) {
     s = new THREE.Vector3(1, 1, 1),
     p = new THREE.Vector3(),
     up = new THREE.Vector3(0, 1, 0);
-  const place = (b, t) => {
+  const place = (b, t, meshIndex, wakeIndex = -1) => {
     const k = K[b.type];
     const bob = b.docked ? 0 : Math.sin(t * 0.9 + b.idx * 1.7) * 0.12;
     q.setFromAxisAngle(up, b.h);
     p.set(b.x, G.WATER_Y + bob, b.z);
-    b.mesh.setMatrixAt(b.idx, m4.compose(p, q, s.set(1, 1, 1)));
+    b.mesh.setMatrixAt(meshIndex, m4.compose(p, q, s.set(1, 1, 1)));
+    if (wakeIndex < 0) return;
     // wake: starts at the bow, length ~ 5 boat lengths (shorter for the slow tows), width grows with the V
     // (round 12) critic: 'boats are tiny specks with no wakes' -> back up to ~4 / 3 boat lengths (round 11 halved them)
     const wl = b.docked ? 1e-4 : k.len * (k.speed > 6 ? 4.2 : 3.0),
@@ -505,21 +504,26 @@ export function buildBoats({ scene, docks = [], solids = null }) {
       G.WATER_Y + 0.06,
       b.z + Math.cos(b.h) * k.len * 0.5,
     );
-    wakes.setMatrixAt(b.wi, m4.compose(p, q, s.set(ww, 1, wl)));
+    wakes.setMatrixAt(wakeIndex, m4.compose(p, q, s.set(ww, 1, wl)));
   };
+  const quality = getQuality();
+  const boatDistance = quality.name === "low" ? 1100 : quality.name === "med" ? 3200 : 6200;
+  const wakeDistance = quality.name === "low" ? 360 : quality.name === "med" ? 1100 : 2400;
+  let boatDistanceSq = boatDistance * boatDistance;
+  let wakeDistanceSq = wakeDistance * wakeDistance;
   let t = 0;
-  const step = (dt) => {
+  const step = (dt, camera = null) => {
     t += dt;
+    const renderScale = quality.renderLodScale;
+    boatDistanceSq = (boatDistance * renderScale) ** 2;
+    wakeDistanceSq = (wakeDistance * renderScale) ** 2;
+    const meshCounts = Object.fromEntries(Object.keys(meshes).map((type) => [type, 0]));
+    let wakeCount = 0;
+    const cx = camera?.position.x ?? 0;
+    const cz = camera?.position.z ?? 0;
     for (const b of boats) {
       const k = K[b.type];
-      if (b.docked) {
-        if (!b.placed) {
-          place(b, t);
-          b.placed = true;
-        }
-        continue;
-      }
-      if (b.lane) {
+      if (!b.docked && b.lane) {
         b.z += b.dir * k.speed * dt;
         const L = b.lane,
           zA = L.pts[0].z + 60,
@@ -539,7 +543,7 @@ export function buildBoats({ scene, docks = [], solids = null }) {
         const x2 =
           a2.c + b.laneOff * Math.min(a2.half - k.beam * 2, a2.half * 0.8);
         b.h = Math.atan2(x2 - b.x, b.dir * 40);
-      } else {
+      } else if (!b.docked) {
         b.h += b.turn * dt * 60;
         const nx = b.x + Math.sin(b.h) * k.speed * dt,
           nz = b.z + Math.cos(b.h) * k.speed * dt;
@@ -548,15 +552,26 @@ export function buildBoats({ scene, docks = [], solids = null }) {
           b.z = nz;
         } else b.h += 0.02;
       }
-      place(b, t);
+      const dx = camera ? b.x - cx : 0;
+      const dz = camera ? b.z - cz : 0;
+      const distanceSq = dx * dx + dz * dz;
+      if (!camera || distanceSq <= boatDistanceSq) {
+        const meshIndex = meshCounts[b.type]++;
+        const wakeIndex = !b.docked && distanceSq <= wakeDistanceSq ? wakeCount++ : -1;
+        place(b, t, meshIndex, wakeIndex);
+      }
     }
-    for (const m of Object.values(meshes)) m.instanceMatrix.needsUpdate = true;
+    for (const [type, m] of Object.entries(meshes)) {
+      m.count = meshCounts[type] || 0;
+      m.instanceMatrix.needsUpdate = true;
+    }
+    wakes.count = wakeCount;
     wakes.instanceMatrix.needsUpdate = true;
   };
   step(0);
   return {
     boats,
     count: boats.length,
-    update: (dt) => step(Math.min(dt, 0.1)),
+    update: (dt, camera) => step(Math.min(dt, 0.1), camera),
   };
 }
