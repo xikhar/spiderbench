@@ -442,6 +442,9 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       uPrevViewProj: { value: new THREE.Matrix4() },
       uRes: { value: new THREE.Vector2(W, H) },
       uBlend: { value: 0.1 },
+      uCharBlend: { value: 0.14 },
+      uSkyBlend: { value: 0.08 },
+      uSkyBlendCap: { value: 0 },
       uReset: { value: 1 },
       uJitter: { value: new THREE.Vector2() },
       uProjInvU: { value: new THREE.Matrix4() },
@@ -874,7 +877,7 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
 
     // --- sky (half res)
     prof.begin("sky");
-    sky.renderSkyPass(skyRT, cam, depthTex, W, H, frame, reversed);
+    sky.renderSkyPass(skyRT, cam, depthTex, W, H, reversed);
 
     // --- sun visibility for lens effects
     const sunNdc = tmpV
@@ -1097,6 +1100,13 @@ export function createPipeline({ renderer, scene, camera, lighting }) {
       u.uRes.value.set(W, H);
       u.uReset.value = resetHistory ? 1 : 0;
       u.uBlend.value = 0.08;
+      // Character animation changes at the limbs even when its root transform is stable; low-res history
+      // otherwise leaves a pale temporal fringe around hands and other moving silhouette details.
+      u.uCharBlend.value = Q.name === "low" ? 0.55 : 0.14;
+      // Clouds are static in world space. Low mode's quarter-resolution sky benefits from longer
+      // reprojection history to hide the coarse raymarch changing as the camera moves.
+      u.uSkyBlend.value = Q.name === "low" ? 0.04 : 0.08;
+      u.uSkyBlendCap.value = Q.name === "low" ? 1 : 0;
       u.uJitter.value.set(-jx / W, -jy / H);
       u.uProjInvU.value.copy(projUnjit).invert();
       u.uMaskOn.value = maskOn ? 1 : 0;

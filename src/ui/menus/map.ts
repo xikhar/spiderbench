@@ -1336,15 +1336,17 @@ export function createMapPage(sys) {
       return;
     }
     // (user r-mapteleport) empty spot: card with Teleport Here (drop in from the sky) + Set Waypoint
-    const x = THREE.MathUtils.clamp(wx, -1490, 640),
-      z = THREE.MathUtils.clamp(wz, -1590, 1590);
+    // Keep map drop-ins within the actual Manhattan map bounds. travel also
+    // snaps shoreline/water clicks onto the nearest playable land point.
+    const x = THREE.MathUtils.clamp(wx, LAND.x0, LAND.x1),
+      z = THREE.MathUtils.clamp(wz, LAND.z0, LAND.z1);
     showCard(
       {
         x,
         z,
         cap: "Map Location",
         title: "Drop In Here",
-        text: "Teleport and fall in from the sky above this spot, or mark it with a waypoint.",
+        text: "Drop in from the sky. Water locations snap to the nearest playable land.",
         teleport: true,
       },
       mx,

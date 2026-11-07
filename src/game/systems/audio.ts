@@ -14,7 +14,9 @@ import * as THREE from "three";
 import { nightK } from "../../render/daynight.ts";
 import { assetUrl } from "../../assets.ts";
 
-const BASE = assetUrl("audio/");
+const BASE = assetUrl("audios/");
+// The generated manifest keeps its original "audio/" URLs; map those filenames into the current public directory.
+const audioAssetUrl = (url) => `${BASE}${String(url).replace(/^audio\//, "")}`;
 const STEMS = ["day", "night", "pulseA", "pulseB"];
 // (user r-orch) orchestral superhero score (tools/audio/orchestral_v2.py --game): three synchronised 20 s loops on one
 // grid (D minor, 96 BPM, 8 bars, same progression), switched at bar lines so every change lands in harmony:
@@ -175,20 +177,20 @@ export function createAudio() {
   }
   async function load() {
     try {
-      man = await (await fetch(assetUrl("audio/manifest.json"))).json();
+      man = await (await fetch(`${BASE}manifest.json`)).json();
       // small sprites first (UI / traversal are heard right away), then the loops, then the music stems
       await Promise.all(
         Object.entries(man.sprites).map(async ([k, s]) => {
-          bufs[k] = await fetchBuf(assetUrl(s.url));
+          bufs[k] = await fetchBuf(audioAssetUrl(s.url));
         }),
       );
       await Promise.all(
         Object.entries(man.loops).map(async ([k, s]) => {
-          lbufs[k] = await fetchBuf(assetUrl(s.url));
+          lbufs[k] = await fetchBuf(audioAssetUrl(s.url));
         }),
       );
       for (const k of STEMS)
-        if (man.music[k]) mbufs[k] = await fetchBuf(assetUrl(man.music[k].url));
+        if (man.music[k]) mbufs[k] = await fetchBuf(audioAssetUrl(man.music[k].url));
       startMusic();
       try {
         for (const [k, f] of Object.entries(ORCH))

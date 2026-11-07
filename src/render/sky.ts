@@ -208,7 +208,6 @@ export function createSky(renderer, quality) {
       uCamWorld: { value: new THREE.Matrix4() },
       uCamPos: { value: new THREE.Vector3() },
       uFullRes: { value: new THREE.Vector2(1, 1) },
-      uFrame: { value: 0 },
       uStars: { value: 0 },
     },
     fragmentShader: injectShader(
@@ -316,14 +315,13 @@ export function createSky(renderer, quality) {
     renderEnvFace,
     finishEnv,
     /** Evaluate horizon/zenith colors on the CPU is not supported; use GLSL_SKY_COMMON in shaders. */
-    renderSkyPass(target, camera, depthTex, fullW, fullH, frame, reversed) {
+    renderSkyPass(target, camera, depthTex, fullW, fullH, reversed) {
       const u = skyPass.uniforms;
       u.uDepth.value = depthTex;
       u.uProjInv.value.copy(camera.projectionMatrixInverse);
       u.uCamWorld.value.copy(camera.matrixWorld);
       u.uCamPos.value.setFromMatrixPosition(camera.matrixWorld);
       u.uFullRes.value.set(fullW, fullH);
-      u.uFrame.value = frame % 64;
       u.uReversed.value = reversed ? 1 : 0;
       u.uSkyline.value = params.skylineVisible;
       skyPass.render(renderer, target);

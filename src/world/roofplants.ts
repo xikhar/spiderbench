@@ -1,6 +1,6 @@
 // @ts-nocheck
 // Roof-garden planting: instanced shrubs, perennials and ornamental grasses made of
-// alpha-cut cards textured with the image-generated foliage atlas (public/city/tex/roofplants.webp, 2x2 tiles:
+// alpha-cut cards textured with the image-generated foliage atlas (public/city/environmentTextures/roofplants.webp, 2x2 tiles:
 // 0 boxwood / privet shrub, 1 fountain grass, 2 sedum + rudbeckia perennials, 3 hosta / fern / hydrangea leaves).
 // Two pools (mound cards, grass cards) = 2 draws; distance-culled with a dithered fade out to ~200 m, shadows only in
 // the near cascade (<= 55 m). Replaces rooftops.ts' lumpy CanopyBatch blobs in beds / planters.
@@ -193,7 +193,7 @@ export class RoofPlants {
   build(scene) {
     if (!this.count) return;
     const mat = plantMaterial(new THREE.Texture());
-    loadKTX2TextureAsync(assetUrl("city/tex/roofplants.webp"))
+    loadKTX2TextureAsync(assetUrl("city/environmentTextures/roofplants.ktx2"))
       .then((tex) => {
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.anisotropy = 4;

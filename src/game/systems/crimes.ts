@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Random street crimes: mugging, bank robbery, car chase — with visible actors.
 // Lifecycle (event bus, see events.ts):
-//   crime:spawn crime            actors are placed (thug.glb + Spider-Man clips): a cowering victim + muggers, or robbers
+//   crime:spawn crime            actors are placed (enemies/thug.gltf + Spider-Man clips): a cowering victim + muggers, or robbers
 //                                outside a bank; car chase = getaway car (red target marker) + two pursuing police cars.
 //   crime:engage crime           player reached the scene. crime.enemies = [{id, object:Group, actor}] (standing thugs),
 //                                crime.victim = actor|null. COMBAT HOOK: call crime.claim() inside the handler, drive the

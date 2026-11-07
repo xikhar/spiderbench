@@ -14,7 +14,7 @@ x <= 4;
 x ++) {
 vec2 uv = uSunUv + vec2(float(x) / uAspect, float(y)) * 0.0022;
 float inside = step(0.0, uv.x) * step(uv.x, 1.0) * step(0.0, uv.y) * step(uv.y, 1.0);
-float s = isSky(texture(uDepth, uv).r) ? texture(uSky, uv).a : 0.0;
+float s = isSky(textureLod(uDepth, uv, 0.0).r) ? textureLod(uSky, uv, 0.0).a : 0.0;
 v += s * inside;
 n += 1.0;
 }

@@ -1985,6 +1985,27 @@ export function createTraffic({
     acc4 = 0;
   const api = {
     cars: () => cars,
+    nearby(x, z, radius, out = []) {
+      out.length = 0;
+      const addIfNear = (c) => {
+        if (
+          Math.abs(c.x - x) < radius + Math.max(c.len, c.wid) * 0.5 &&
+          Math.abs(c.z - z) < radius + Math.max(c.len, c.wid) * 0.5
+        )
+          out.push(c);
+      };
+      for (const c of cars) addIfNear(c);
+      for (const L of links) {
+        if (
+          !L.parked?.length ||
+          Math.abs(L.cx - x) > L.len * 0.5 + radius + 4 ||
+          Math.abs(L.cz - z) > L.len * 0.5 + radius + 4
+        )
+          continue;
+        for (const c of L.parked) addIfNear(c);
+      }
+      return out;
+    },
     links,
     roads,
     events,

@@ -23,7 +23,7 @@ export const BOX = 0,
 export const OVERHANG = 1,
   NOZIP = 2,
   DEAD = 4; // DEAD: removed (never inserted into the grid)
-// (veg r1) BLOCKONLY: blocks the walking capsule (query / pushOutCapsule / inside) but is invisible to cast (raycast:
+// (veg r1) BLOCKONLY: blocks player capsules (query / pushOutCapsule / inside) but is invisible to cast (raycast:
 // wall-run / wide-wall probes, camera, web anchors) and topAt (no standing / perching on it). Tree trunks.
 export const BLOCKONLY = 8;
 

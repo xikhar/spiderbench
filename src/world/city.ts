@@ -97,21 +97,21 @@ export async function buildCity({ scene, renderer }) {
     loadCityTextures(renderer),
     preloadKTX2TexturesAsync(
       [
-      "ts_foliage.webp",
-      "ts_pavers.webp",
-      "ts_ticker.webp",
-      "ts_spill.png",
-      "ts_decals.webp",
-      "ts_road.webp",
-      "ts_road2.webp",
-      "ts_road3.webp",
-      "ts_shops.webp",
-      "ts_pavers_n.webp",
-      "ts_pavers_r.webp",
-      "city_signart.webp",
-      "ts_ads.webp",
-      "ts_signs.webp",
-      ].map((name) => assetUrl(`city/tex/${name}`)),
+      "ts_foliage.ktx2",
+      "ts_pavers.ktx2",
+      "ts_ticker.ktx2",
+      "ts_spill.ktx2",
+      "ts_decals.ktx2",
+      "ts_road.ktx2",
+      "ts_road2.ktx2",
+      "ts_road3.ktx2",
+      "ts_shops.ktx2",
+      "ts_pavers_n.ktx2",
+      "ts_pavers_r.ktx2",
+      "city_signart.ktx2",
+      "ts_ads.ktx2",
+      "ts_signs.ktx2",
+      ].map((name) => assetUrl(`city/environmentTextures/${name}`)),
     ),
   ]);
   const facadeMat = createFacadeMaterial(T);
@@ -539,6 +539,7 @@ export async function buildCity({ scene, renderer }) {
   const tFit2 = performance.now();
   trees.addSolids?.(gen.solids); // (veg r1) trunk collision (after the refit: it culls solids inside prop footprints)
   const grid = new CollisionGrid(gen.solids, 24, { releaseSource: true });
+  peds.crowd?.setCollision?.(grid);
   // The finalized grid owns typed collision copies; runtime map features only need footprints.
   gen.solids = null;
   const zips = gen.zips.finalize(grid);

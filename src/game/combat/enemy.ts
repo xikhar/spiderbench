@@ -1,5 +1,5 @@
 // @ts-nocheck
-// One combat enemy wrapping a crime actor (src/game/systems/crimeActors.ts): thug.glb with its
+// One combat enemy wrapping a crime actor (src/game/systems/crimeActors.ts): enemies/thug.gltf with its
 // own brawler clips (thugIdle, thugPunch1/2, thugKick, directional stumbles, thugKnockdown / thugGetUp, gun aim / fire,
 // bruteSlam, thugWebbedStruggle) plus Spider-Man's walk / jog / run for locomotion. Stumbles, knockdown and get-up carry
 // root motion (actor.rootDelta): the body travels with the feet, never slides or snaps back.

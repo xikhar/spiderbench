@@ -10,7 +10,7 @@ void main() {
   float ws = 0.0;
   for(int y = 0; y < 24; y++) for(int x = 0; x < 40; x++) {
       vec2 uv = (vec2(float(x), float(y)) + 0.5) / vec2(40.0, 24.0);
-      vec3 c = texture(uSrc, uv).rgb;
+      vec3 c = textureLod(uSrc, uv, 0.0).rgb;
       float l = clamp(log2(max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 1e-5)), -12.0, 3.99);
       vec2 d = (uv - 0.5) * vec2(1.6, 1.8);
       float w = exp(-dot(d, d) * 2.2) + 0.15;                 // centre weighted (subject), some frame-wide influence

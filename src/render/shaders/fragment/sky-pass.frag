@@ -6,7 +6,6 @@ uniform sampler2D uDepth;
 uniform mat4 uCamWorld;
 uniform vec3 uCamPos;
 uniform vec2 uFullRes;
-uniform float uFrame;
 uniform float uStars;
 __SHADER_INJECT_0__ __SHADER_INJECT_1__ __SHADER_INJECT_2__ vec3 starField(vec3 d) {
   // cube-ish cell hashing on the direction; each cell holds at most one star (smooth gaussian so TAA is stable)
@@ -29,7 +28,7 @@ y < 4;
 y ++) for(int x = 0;
 x < 4;
 x ++) {
-float d = texture(uDepth, vUv + (vec2(x, y) - 1.5) * px).r;
+float d = textureLod(uDepth, vUv + (vec2(x, y) - 1.5) * px, 0.0).r;
 any = any || isSky(d);
 }
 if(! any) {
@@ -51,7 +50,8 @@ if(el < 0.0) {
 fragColor = vec4(skyLUT(normalize(vec3(dir.x, 0.012, dir.z))), 1.0);
 return;
 }
-float j = ign(gl_FragCoord.xy + mod(uFrame, 64.0) * 5.588238); // IGN temporal offsets: TAA resolves the march banding
+// Keep the raymarch sample anchored to the pixel. Animated jitter made the cloud detail shimmer between frames.
+float j = ign(gl_FragCoord.xy);
 if(uStars > 0.0) sky += starField(dir) * uStars * smoothstep(0.0, 0.15, dir.y);
 vec4 ci = cirrusLayer(uCamPos, dir);
 sky = sky * ci.a + ci.rgb;

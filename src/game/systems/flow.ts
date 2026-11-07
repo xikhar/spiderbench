@@ -57,6 +57,25 @@ export function createFlow(ctx, { save }) {
       } catch {}
     }
     if (m === "play") {
+      const p = player.position;
+      if (world.streetsAt?.(p.x, p.z)?.type === "water") {
+        const surface = world.surfaceAt?.(p.x, p.z);
+        const onBridge = world.bridgeDeckY?.(p.x, p.z) != null;
+        const onPier = surface?.kind === "pier";
+        if (!onBridge && !onPier) {
+          const spawn = world.spawn;
+          console.warn(
+            `[flow] player was outside playable land at (${p.x.toFixed(0)}, ${p.z.toFixed(0)})${surface ? ` (surface: ${surface.kind})` : ""}; returning to city spawn`,
+          );
+          player.teleport?.(
+            spawn.clone().add(new THREE.Vector3(0, 1.2, 0)),
+            player.heading ?? 0,
+          );
+        }
+      }
+      // Discard paused/menu frames so TAA and motion blur don't carry stale
+      // scene history into the first frames after returning to gameplay.
+      if (prev !== "play") ctx.pipeline?.resetHistory?.();
       cameraHook = null;
       clearInput();
     }

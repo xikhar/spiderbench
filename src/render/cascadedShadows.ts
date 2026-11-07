@@ -114,6 +114,7 @@ export class CascadedShadowMaps {
     this.splits = quality.splits.slice();
     this.size = quality.shadowMapSize;
     this.reversed = reversed;
+    this.stableDither = quality.name === "low";
     this.charSize = quality.charShadow || 0;
     installChunks(this.N, quality.shadowTaps, this.charSize > 0);
     this.sunDir = new THREE.Vector3(0.5, 0.7, 0.3).normalize();
@@ -506,7 +507,9 @@ export class CascadedShadowMaps {
       this.tagCasters(scene);
       if (this._layerFix) this._collectBig(scene);
     } // (perf)
-    cascadedShadowState.params.x = ((this.frame % 64) * 0.618034) % 1;
+    cascadedShadowState.params.x = this.stableDither
+      ? 0.5
+      : ((this.frame % 64) * 0.618034) % 1;
     cascadedShadowState.params.y = 0.06;
     const L = this.sunDir;
     // light basis

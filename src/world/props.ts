@@ -32,6 +32,7 @@ import { cityLights } from "../render/citylights.ts"; // (night) real street-lam
 import {
   getAdvertisingAtlasTexture,
   getSignAtlasTexture,
+  getSignCellAverageLinearRgb,
 } from "./advertisingTextures.ts"; // shared atlases for advertising and blade signs
 import { screenK } from "../render/daynight.ts"; // (night r5)
 import { getQuality } from "../render/quality.ts";
@@ -1303,7 +1304,7 @@ async function loadPropModels() {
   try {
     const { GLTFLoader } =
       await import("three/examples/jsm/loaders/GLTFLoader.js");
-    const gltf = await new GLTFLoader().loadAsync(assetUrl("city/props.glb"));
+    const gltf = await new GLTFLoader().loadAsync(assetUrl("city/props/props.gltf"));
     const geos = {};
     gltf.scene.traverse((o) => {
       if (!o.isMesh) return;
@@ -1331,7 +1332,7 @@ async function loadPropModels() {
     return geos;
   } catch (e) {
     console.warn(
-      "[city] props.glb not available (run tools/blender/city_props.py)",
+      "[city] city/props/props.gltf not available (run tools/blender/city_props.py)",
       e,
     );
     return {};
@@ -4018,43 +4019,17 @@ function bladeFaces(scene, items) {
   mesh.receiveShadow = true;
   mesh.computeBoundingSphere();
   scene.add(mesh);
-  // board colours for the blade point lights: mean of each atlas cell (small canvas downsample, once)
-  if (typeof Image !== "undefined") {
-    const im = new Image();
-    im.onload = () => {
-      const W = 64,
-        H = 128,
-        cv = document.createElement("canvas");
-      cv.width = W;
-      cv.height = H;
-      const cx = cv.getContext("2d", { willReadFrequently: true });
-      cx.drawImage(im, 0, 0, W, H);
-      const d = cx.getImageData(0, 0, W, H).data,
-        lin = (x) => {
-          x /= 255;
-          return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
-        };
-      const avg = [];
-      for (let c = 0; c < 64; c++) {
-        let r = 0,
-          g = 0,
-          b = 0,
-          k = 0;
-        for (let y = Math.floor(c / 4) * 8; y < Math.floor(c / 4) * 8 + 8; y++)
-          for (let x = (c % 4) * 16; x < (c % 4) * 16 + 16; x++) {
-            const o = (y * W + x) * 4;
-            r += lin(d[o]);
-            g += lin(d[o + 1]);
-            b += lin(d[o + 2]);
-            k++;
-          }
-        const mx = Math.max(r, g, b, 1e-4);
-        avg.push([r / mx, g / mx, b / mx]);
-      }
-      for (let i = 0; i < items.length; i++) bladeSignCol[i] = avg[cellOf[i]];
-    };
-    im.src = assetUrl("city/tex/ts_signs.webp");
-  }
+  // Board-colour metadata is precomputed from the atlas so it remains available without a raster source image.
+  void getSignCellAverageLinearRgb().then((averages) => {
+    if (!averages.length) return;
+    const normalized = averages.map(([red, green, blue]) => {
+      const maximum = Math.max(red, green, blue, 1e-4);
+      return [red / maximum, green / maximum, blue / maximum];
+    });
+    for (let i = 0; i < items.length; i++) {
+      bladeSignCol[i] = normalized[cellOf[i]];
+    }
+  });
   return mesh;
 }
 

@@ -153,7 +153,8 @@ for(int k = 0;
 k < 8;
 k ++) {
 float o = (float(k) + jit) / 8.0 - 0.35;
-pr += texture(tRefl, ruv + d * (1.0 + 0.12 * float(k)) + vec2(o * spread * 0.25, o * spread));
+// The reflection target has no mip chain; explicit LOD avoids undefined implicit derivatives inside this loop.
+pr += textureLod(tRefl, ruv + d * (1.0 + 0.12 * float(k)) + vec2(o * spread * 0.25, o * spread), 0.0);
 }
 pr /= 8.0;
 vec2 e = smoothstep(0.0, 0.03, ruv) * smoothstep(1.0, 0.97, ruv);

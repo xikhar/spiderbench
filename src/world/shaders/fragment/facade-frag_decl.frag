@@ -648,12 +648,10 @@ void facade(out Surf o) {
         float groove = (1.0 - boxAA(fs, 0.08, 0.92, ah / P)) * amp;           // interlock gap
         float rail = boxAA(y, glassY0 - 0.02, glassY0 + 0.1, ah);
         vec3 sc = vec3(0.58, 0.59, 0.6) * (0.85 + 0.15 * nz.b) * (1.0 - 0.45 * groove) * mix(0.6, 1.0, smoothstep(0.0, 1.2, y));
-        float graf = smoothstep(0.58, 0.66, textureGrad(tNoise, vec2(u, y) / 3.0 + seed, gDx / 3.0, gDy / 3.0).g) * step(y, 2.2);
-        sc = mix(sc, vec3(0.25 + 0.5 * rnd, 0.2, 0.6 - 0.4 * rnd), graf * 0.7);
         sc = mix(sc, vec3(0.2, 0.21, 0.22), rail);
         s.alb = sc;
         s.rough = 0.5 + 0.2 * groove;
-        s.metal = 0.5 * (1.0 - graf);
+        s.metal = 0.5;
         s.n = normalize(vec3(0.0, slope * 0.45, 1.0));
         s.emis = vec3(0.0);
       } else {

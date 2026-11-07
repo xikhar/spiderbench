@@ -74,7 +74,7 @@ export function initCombat(ctx) {
   c.combatCharacter = createCombatCharacter(c);
   const me = c.combatCharacter;
   // brute texture (public/enemies, built by tools/blender/enemy_tex.py); tint fallback if missing
-  loadKTX2TextureAsync(assetUrl("enemies/brute_basecolor.webp"))
+  loadKTX2TextureAsync(assetUrl("enemies/brute_basecolor.ktx2"))
     .then((t) => {
       t.colorSpace = THREE.SRGBColorSpace;
       t.flipY = false;

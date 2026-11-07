@@ -4,12 +4,13 @@
 // on into the main crown lobe, and scaffold limbs / branches / twigs that PEEL OFF their parent (each starts on the
 // parent's axis, heading along the parent's tangent, and curves out) -> smooth Y forks with a branch collar instead
 // of cylinders butted together. Near LOD: bark ridges in the silhouette (radial plates / furrows). UVs in metres for
-// the image-generated bark array (public/city/tex/bark_col.webp / bark_nrm.webp, 3 layers: plane, oak, dark).
+// the image-generated bark array (public/city/environmentTextures/bark_col.webp / bark_nrm.webp, 3 layers: plane, oak, dark).
 // The same skeleton gives the cheaper mid / far LODs and the trunk collision capsule.
 import { lazyShaderSections } from "../shaderSections.ts";
 import treetrunkShaderSource from "./shaders/glsl/treetrunk.glsl?raw";
 import * as THREE from "three";
 import { assetUrl } from "../assets.ts";
+import { loadKTX2TextureAsync } from "../render/ktx2.ts";
 import { mulberry32 } from "./layout.ts";
 
 const treetrunkShader = lazyShaderSections(() => treetrunkShaderSource);
@@ -419,11 +420,10 @@ export function trunkMesh(skel, lod = TRUNK_LOD.near) {
 
 // ---------------------------------------------------------------------------------------------- material
 let BARK_TEX = null;
-// uniform holder {value}: a 4x4 grey placeholder until the strip has loaded, then a new DataArrayTexture (no resize of
-// an already-allocated texture)
-function arrayTexFromStrip(url, srgb, fill) {
-  const mk = (data, w, h, d) => {
-    const t = new THREE.DataArrayTexture(data, w, h, d);
+// Uniform holder {value}: a small fallback until the KTX2 array texture has loaded.
+function arrayTexFromKTX2(url, srgb, fill) {
+  const fallback = (data, w, h, depth) => {
+    const t = new THREE.DataArrayTexture(data, w, h, depth);
     t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     t.generateMipmaps = true;
@@ -433,38 +433,23 @@ function arrayTexFromStrip(url, srgb, fill) {
     t.needsUpdate = true;
     return t;
   };
-  const u = { value: mk(new Uint8Array(4 * 4 * 4 * 3).fill(fill), 4, 4, 3) };
-  if (typeof Image === "undefined") return u;
-  const im = new Image();
-  im.onload = () => {
-    const size = im.width,
-      layers = Math.round(im.height / im.width);
-    const cv = document.createElement("canvas");
-    cv.width = size;
-    cv.height = im.height;
-    const cx = cv.getContext("2d", { willReadFrequently: true });
-    cx.drawImage(im, 0, 0);
-    const d = cx.getImageData(0, 0, size, im.height).data,
-      data = new Uint8Array(size * size * 4 * layers);
-    for (let L = 0; L < layers; L++)
-      for (let y = 0; y < size; y++) {
-        const src = (L * size + (size - 1 - y)) * size * 4;
-        data.set(
-          d.subarray(src, src + size * 4),
-          (L * size * size + y * size) * 4,
-        );
-      }
-    const old = u.value;
-    u.value = mk(data, size, size, layers);
-    old.dispose();
-  };
-  im.src = url;
+  const u = { value: fallback(new Uint8Array(4 * 4 * 4 * 3).fill(fill), 4, 4, 3) };
+  loadKTX2TextureAsync(url)
+    .then((texture) => {
+      texture.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      texture.anisotropy = 4;
+      const old = u.value;
+      u.value = texture;
+      old.dispose();
+    })
+    .catch((error) => console.warn("[trees] bark array texture failed", url, error));
   return u;
 }
 export function barkTextures() {
   BARK_TEX ??= {
-    col: arrayTexFromStrip(assetUrl("city/tex/bark_col.webp"), true, 110),
-    nrm: arrayTexFromStrip(assetUrl("city/tex/bark_nrm.webp"), false, 128),
+    col: arrayTexFromKTX2(assetUrl("city/environmentTextures/bark_col.ktx2"), true, 110),
+    nrm: arrayTexFromKTX2(assetUrl("city/environmentTextures/bark_nrm.ktx2"), false, 128),
   };
   return BARK_TEX;
 }

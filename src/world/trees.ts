@@ -13,6 +13,7 @@ import { G, mulberry32, PARK_WATER, parkWaterAt } from "./layout.ts";
 import { PARK_MEADOWS, PARK_ROCKS, PARK_SITES, meadowDist } from "./parkData.ts";
 import { Pool } from "./pool.ts";
 import { cascadedShadowState } from "../render/cascadedShadows.ts";
+import { getQuality } from "../render/quality.ts";
 import {
   trunkSkeleton,
   trunkMesh,
@@ -205,13 +206,9 @@ function addCore(P, N, UV, R, I, lobes, scale, seed, maxLobes = 9, detail = 1) {
       );
       P.push(p.x, p.y, p.z);
       N.push(d.x, d.y, d.z);
-      // box projection in metres (leaf-cluster texture tiles ~every 2.4 m)
-      const ax = Math.abs(d.x),
-        ay = Math.abs(d.y),
-        az = Math.abs(d.z);
-      const q =
-        ay > ax && ay > az ? [p.x, p.z] : ax > az ? [p.z, p.y] : [p.x, p.y];
-      UV.push(q[0] / 2.4, q[1] / 2.4);
+      // The solid core is shaded without the leaf atlas. Keeping a box-projected UV here
+      // creates visible projection seams and dark stripes as this core gets minified.
+      UV.push(0, 0);
       R.push(2.0 + Math.min(1, 0.6 + 0.4 * (d.y * 0.5 + 0.5)), rnd());
     }
     for (let i = 0; i < idx.length; i += 3)
@@ -232,7 +229,7 @@ function leafTextures() {
   const nrm = new THREE.Texture();
   LEAF_TEX = { col, nrm, nrmUniform: { value: nrm }, materials: new Set() };
   const load = (file, key) => {
-    loadKTX2TextureAsync(assetUrl("city/props/" + file))
+    loadKTX2TextureAsync(assetUrl("city/environmentTextures/" + file))
       .then((t) => {
         t.anisotropy = 4;
         t.wrapS = t.wrapT = THREE.RepeatWrapping;
@@ -249,8 +246,8 @@ function leafTextures() {
       })
       .catch((e) => console.warn("[trees] leaf texture failed", file, e));
   };
-  load("leaves_col.png", "col");
-  load("leaves_nrm.png", "nrm");
+  load("leaves_col.ktx2", "col");
+  load("leaves_nrm.ktx2", "nrm");
   return LEAF_TEX;
 }
 
@@ -274,6 +271,9 @@ function leafMaterial(T) {
     sh.uniforms.uTime = mat.userData.uTime;
     sh.uniforms.uLeafN = LT.nrmUniform;
     sh.uniforms.uLeafFrame = { value: cascadedShadowState.params };
+    sh.uniforms.uLeafMipScale = {
+      value: getQuality().name === "low" ? 1.75 : 1,
+    };
     sh.vertexShader = sh.vertexShader
       .replace(
         "#include <common>",treesShader.vertexCommon,
@@ -840,6 +840,10 @@ export function buildTrees({ scene, T, spots, parkPaths }) {
   const pools = [];
   const out = { pools };
   const crownMat = crownMaterial();
+  // Trees are large silhouettes: keep their LOD range at the quality preset distance and cross-fade over a wider band.
+  // This prevents low-resolution rendering from making crowns pop out close to the camera.
+  const canopyPool = (geo, mat, options) =>
+    new Pool(geo, mat, { ...options, resolutionLodWeight: 1, minFadeWidth: 24 });
   const PARK_NEAR = 165; // (park round 1) park trees: leaf cards to 130 m, then solid fluffy crowns (crownMaterial)
   for (const [name, K] of Object.entries(kinds)) {
     const parkKind = name !== "street";
@@ -879,14 +883,14 @@ export function buildTrees({ scene, T, spots, parkPaths }) {
         scale: 1.18,
         seed: 41 + name.length,
       });
-      const pN = new Pool(near, leafMat, {
+      const pN = canopyPool(near, leafMat, {
         max: 3000,
         far: PARK_NEAR,
         shadowFar: PARK_NEAR,
         extra,
         name: "trees-" + name + "-near",
       });
-      const pM = new Pool(mid, crownMat, {
+      const pM = canopyPool(mid, crownMat, {
         max: 12000,
         near: PARK_NEAR,
         far: 520,
@@ -894,7 +898,7 @@ export function buildTrees({ scene, T, spots, parkPaths }) {
         name: "trees-" + name + "-crown",
         castShadow: false,
       });
-      const pF = new Pool(fr, crownMat, {
+      const pF = canopyPool(fr, crownMat, {
         max: 16000,
         near: 520,
         far: 3200,
@@ -920,7 +924,9 @@ export function buildTrees({ scene, T, spots, parkPaths }) {
       const pT2 = new Pool(trunkMesh(skel, TRUNK_LOD.far), barkMat, {
         max: 8000,
         near: PARK_NEAR + 20,
-        far: 420,
+        // Keep the low-poly trunk under the far crown LOD. Quality scales both
+        // ranges, so this must cover the same world-space distance as pF.
+        far: 3200,
         castShadow: false,
         extra: bextra,
         name: "trunks-" + name + "-far",
@@ -933,39 +939,30 @@ export function buildTrees({ scene, T, spots, parkPaths }) {
       out[name] = items;
       continue;
     }
-    const far = canopyGeometry({
-      lobes: K.lobes,
-      cards: CARDS[name][2],
-      size: CARDS[name][3],
+    // Keep the detailed leaf cards close to the camera. Mid and far crowns use the same
+    // softly lumpy procedural foliage as park trees, avoiding atlas seams and card-grid
+    // patterns when low mode brings these LODs much closer.
+    const far = crownGeometry(K.lobes, {
+      detail: 0,
+      maxLobes: K.lobes.length,
+      scale: 1.0,
       seed: 17 + name.length,
-      core: 0.85,
-      coreLobes: 4,
-      coreDetail: 0,
     });
-    // LOD0 leaf-spray canopy (shadows to 170 m) -> LOD1 16-24 cards + solid core -> LOD2 one lumpy core blob (20 tris)
-    const xfar = canopyGeometry({
-      lobes: [
-        {
-          ...K.lobes[0],
-          r: K.lobes[0].r * 1.3,
-          y: K.lobes[0].y + K.lobes[0].r * 0.15,
-        },
-      ],
-      cards: 0,
-      size: 1,
+    const xfar = crownGeometry(K.lobes, {
+      detail: 0,
+      maxLobes: 1,
+      scale: 1.18,
       seed: 27 + name.length,
-      core: 0.95,
-      coreLobes: 1,
-      coreDetail: 0,
+      envelope: true,
     });
-    const pN = new Pool(near, leafMat, {
+    const pN = canopyPool(near, leafMat, {
       max: 3000,
       far: 170,
       shadowFar: 170,
       extra,
       name: "trees-" + name + "-near",
     });
-    const pF = new Pool(far, leafMat, {
+    const pF = canopyPool(far, crownMat, {
       max: 9000,
       near: 170,
       far: 650,
@@ -973,7 +970,7 @@ export function buildTrees({ scene, T, spots, parkPaths }) {
       name: "trees-" + name + "-far",
       castShadow: false,
     });
-    const pX = new Pool(xfar, leafMat, {
+    const pX = canopyPool(xfar, crownMat, {
       max: 9000,
       near: 650,
       far: 2000,
@@ -996,7 +993,17 @@ export function buildTrees({ scene, T, spots, parkPaths }) {
       extra: bextra,
       name: "trunks-" + name + "-mid",
     });
-    for (const p of [pN, pF, pX, pT, pTm]) {
+    const pT2 = new Pool(trunkMesh(skel, TRUNK_LOD.far), barkMat, {
+      max: 9000,
+      near: 240,
+      // Match the far crown pool so low quality does not leave distant trees
+      // floating when its aggressive distance scaling shortens both LODs.
+      far: 2000,
+      castShadow: false,
+      extra: bextra,
+      name: "trunks-" + name + "-far",
+    });
+    for (const p of [pN, pF, pX, pT, pTm, pT2]) {
       p.items = items;
       scene.add(p.mesh);
       pools.push(p);
@@ -1492,7 +1499,7 @@ export function buildTrees({ scene, T, spots, parkPaths }) {
           r1,
           "trunk",
           8,
-        ); // (veg r1) BLOCKONLY: walking only (no wall-run / perch / camera / webs)
+        ); // (veg r1) BLOCKONLY: player capsule only (no raycast / perch / camera / web blocking)
         n++;
       }
     }
@@ -1507,10 +1514,11 @@ export function buildTrees({ scene, T, spots, parkPaths }) {
   );
   out.meadows = meadows;
   let t = 0;
+  const windScale = getQuality().name === "low" ? 0.35 : 1;
   let rr = 0;
   let sunL = null;
   out.update = (dt, cam) => {
-    t += dt;
+    t += dt * windScale;
     leafMat.userData.uTime.value = t;
     // sun direction for the canopy shadow decals (the CSM's light 0; found once in the top-level scene)
     if (!sunL) {

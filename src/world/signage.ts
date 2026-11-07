@@ -23,7 +23,7 @@ import * as LAY from "./layout.ts";
 const { district, mulberry32, streetsAt, SITES } = LAY;
 import { DP } from "./buildings.ts";
 import { LAYER } from "./facade.ts";
-import { OVERHANG } from "./collision.ts";
+import { BLOCKONLY, OVERHANG } from "./collision.ts";
 import {
   LANDSCAPE_AD_AVERAGE_LINEAR_RGB as landscapeAdAverageLinearRgb,
   PORTRAIT_AD_AVERAGE_LINEAR_RGB as portraitAdAverageLinearRgb,
@@ -44,7 +44,7 @@ import {
 const signageShader = lazyShaderSections(() => signageShaderSource);
 // (night) LED screens / marquees as real lights
 
-const TEX = assetUrl("city/tex/");
+const TEX = assetUrl("city/environmentTextures/");
 const CELL = 512;
 const Q =
   typeof location !== "undefined"
@@ -1358,6 +1358,7 @@ export function buildSignage({ scene, gen }) {
             S.box(
               ...aabb(fr, u0 - fb, y0 - fb, 0, u0 + w + fb, y1 + fb, fd),
               "wall",
+              BLOCKONLY,
             );
             const D = gen.tile(cx, cz).det,
               yc = y0 - fb - 0.28,
@@ -1548,7 +1549,7 @@ export function buildSignage({ scene, gen }) {
         S.box(
           ...aabb(fr, uc - 0.19, y0, 0, uc + 0.19, y1, n1),
           "equipment",
-          OVERHANG,
+          OVERHANG | BLOCKONLY,
         );
         stats.blade++;
         note("blade", fr, uc, y0);
@@ -2006,7 +2007,11 @@ export function buildSignage({ scene, gen }) {
             4,
             gain,
           );
-          S.box(...aabb(fr, u0, y0, 0, u1, y1, n1), "equipment", OVERHANG);
+          S.box(
+            ...aabb(fr, u0, y0, 0, u1, y1, n1),
+            "equipment",
+            OVERHANG | BLOCKONLY,
+          );
           occAdd(...aabb(fr, u0, y0, 0, u1, y1, n1));
           stats.front = (stats.front ?? 0) + 1;
           if (
@@ -2186,7 +2191,7 @@ export function buildSignage({ scene, gen }) {
         S.box(
           ...aabb(fr, u0 - 0.18, y0 - 0.18, 0, u0 + w + 0.18, y1 + 0.18, 0.45),
           "equipment",
-          OVERHANG,
+          OVERHANG | BLOCKONLY,
         );
         SLS.rect(
           at(fr, u0 + w / 2, (y0 + y1) / 2, 0.4),
@@ -2291,7 +2296,7 @@ export function buildSignage({ scene, gen }) {
     t.needsUpdate = true;
     return t;
   })();
-  const artTex = loadTex(TEX + "city_signart.webp"); // (r3)
+  const artTex = loadTex(TEX + "city_signart.ktx2"); // (r3)
   const opMat = signMaterial(adsTex, signTex, noise, false, artTex),
     ghMat = null; // (ghost signs now dithered inside the opaque mesh)
   const list = [];

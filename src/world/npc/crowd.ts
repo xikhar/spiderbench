@@ -5,7 +5,7 @@ import { injectShader } from "../../render/shaderInjection.ts";
 import crowdVertexShader from "./shaders/vertex/crowd-shadow.vert?raw";
 import crowdFragmentShader from "./shaders/fragment/crowd-shadow.frag?raw";
 // Pedestrian crowd: Blender-modelled people (tools/blender/city_npc.py ->
-// public/city/npc/people.{json,bin}) rendered as instanced meshes with GPU skinning from a baked animation
+// public/city/npcs/people.{json,bin}) rendered as instanced meshes with GPU skinning from a baked animation
 // texture (18 bones, 14 clips, per-instance clip cross-fades + head look-at), 3 LODs, per-instance outfit colours.
 //
 // Simulation (camera-streamed, deterministic per block):
@@ -37,6 +37,7 @@ import { PARK_CROWD_SPOTS } from "../park.ts"; // (peds r6) lawn + park-edge peo
 import { GC_CROWD_SPOTS } from "../grandcentral.ts"; // (street r7) Park Av podium roof garden + colonnade people
 import { isPerformanceFeatureDisabled } from "../performanceFlags.ts"; // (perf r2) A/B switch
 import { cityLights } from "../../render/citylights.ts";
+import { CYL, HF, OVERHANG, RAMP } from "../collision.ts";
 
 const crowdShader = lazyShaderSections(() => crowdShaderSource);
 // (night) people cast city-light shadows
@@ -69,21 +70,14 @@ const CROWD_PRESETS = {
 };
 
 async function loadPedAtlasTexture() {
-  const url = assetUrl("city/tex/peds_atlas.webp");
+  const url = assetUrl("city/environmentTextures/peds_atlas.ktx2");
   try {
     const texture = await loadKTX2TextureAsync(url);
     console.info("[peds] peds_atlas loaded (KTX2)");
     return texture;
-  } catch (ktxError) {
-    console.warn("[peds] peds_atlas KTX2 failed; loading the WebP source", ktxError);
-    try {
-      const texture = await new THREE.TextureLoader().loadAsync(url);
-      console.info("[peds] peds_atlas loaded (WebP fallback)");
-      return texture;
-    } catch (webpError) {
-      console.error("[peds] peds_atlas could not be loaded; photo faces are unavailable", webpError);
-      return null;
-    }
+  } catch (error) {
+    console.error("[peds] peds_atlas could not be loaded; photo faces are unavailable", error);
+    return null;
   }
 }
 
@@ -95,7 +89,7 @@ const STRIDE = 1.5; // metres per walk cycle at scale 1 (clip 'walk' is 32 frame
 const RUN_STRIDE = 2.6; // clip 'run' (19 frames)
 
 const SKIN = [0.62, 0.52, 0.38, 0.24, 0.13, 0.08];
-// (peds r1) photo faces: public/city/tex/peds_atlas.webp (tools/imagegen/peds/build_atlas.py) holds 32 frontal
+// (peds r1) photo faces: public/city/environmentTextures/peds_atlas.webp (tools/imagegen/peds/build_atlas.py) holds 32 frontal
 // faces (4 cols x 8 rows of 128 px; men in cols 0/2, women in 1/3), hair strand tiles and fabric swatches. FACE_SKIN is
 // each face's clear-cheek colour (linear): the body skin uses it so neck / hands match the face. FACE_HAIR: d = dark hair
 // only, a = any natural colour, g = grey (older people)
@@ -867,6 +861,7 @@ export async function createCrowd({
   parkPaths,
   props,
   roads,
+  traffic,
   phase,
 }) {
   // The quality preset is selected with ?q=. Apply it to pedestrian LOD and
@@ -907,10 +902,10 @@ export async function createCrowd({
     blobs?.setDistance(BLOB_D);
   };
   const [meta, bin, pedTex, bakeTex] = await Promise.all([
-    fetch(assetUrl("city/npc/people.json")).then((r) => r.json()),
-    fetch(assetUrl("city/npc/people.bin")).then((r) => r.arrayBuffer()),
+    fetch(assetUrl("city/npcs/people.json")).then((r) => r.json()),
+    fetch(assetUrl("city/npcs/people.bin")).then((r) => r.arrayBuffer()),
     loadPedAtlasTexture(), // photo faces / hair / fabric
-    loadKTX2TextureAsync(assetUrl("city/npc/people_bake.webp"))
+    loadKTX2TextureAsync(assetUrl("city/npcs/people_bake.ktx2"))
       .catch(() => null), // (peds r2) Cycles cloth normal + AO
   ]);
   if (
@@ -3253,11 +3248,166 @@ export async function createCrowd({
       return a.y ?? G.CURB_H; // (street r7) a.elev
     return onRoad(a.x, a.z) ? 0 : G.CURB_H;
   };
+  let collisionGrid = null;
+  const nearbyCars = [];
+  const PED_R = 0.34;
+  const pushOutWorld = (a, footY, bodyH) => {
+    const grid = collisionGrid;
+    if (!grid) return;
+    for (let iter = 0; iter < 3; iter++) {
+      let moved = false;
+      grid.query(
+        a.x - PED_R - 0.02,
+        a.z - PED_R - 0.02,
+        a.x + PED_R + 0.02,
+        a.z + PED_R + 0.02,
+        (i) => {
+          const j = i * 6,
+            bb = grid.bb,
+            flags = grid.flags[i];
+          if (
+            (flags & OVERHANG) ||
+            bb[j + 1] >= footY + bodyH ||
+            bb[j + 4] <= footY + 0.12
+          )
+            return;
+          const type = grid.type[i],
+            par = grid.par;
+          let nx, nz, depth;
+          if (type === CYL) {
+            const ox = a.x - par[j],
+              oz = a.z - par[j + 1],
+              d = Math.hypot(ox, oz),
+              radius = Math.max(par[j + 2], par[j + 3]) + PED_R;
+            if (d >= radius) return;
+            nx = d > 1e-5 ? ox / d : 1;
+            nz = d > 1e-5 ? oz / d : 0;
+            depth = radius - d;
+          } else {
+            const cx = Math.max(bb[j], Math.min(bb[j + 3], a.x)),
+              cz = Math.max(bb[j + 2], Math.min(bb[j + 5], a.z));
+            if (type === HF) {
+              const top = grid.top(i, cx, cz);
+              if (top <= footY + 0.12 || top > footY + bodyH) return;
+            } else if (type === RAMP) {
+              const top = grid.top(i, cx, cz),
+                thickness = par[j + 3];
+              if (
+                top <= footY + 0.12 ||
+                (thickness > 0 && top - thickness >= footY + bodyH)
+              )
+                return;
+            }
+            const ox = a.x - cx,
+              oz = a.z - cz,
+              d = Math.hypot(ox, oz);
+            if (d >= PED_R) return;
+            if (d > 1e-5) {
+              nx = ox / d;
+              nz = oz / d;
+              depth = PED_R - d;
+            } else {
+              const edges = [
+                [a.x - bb[j], -1, 0],
+                [bb[j + 3] - a.x, 1, 0],
+                [a.z - bb[j + 2], 0, -1],
+                [bb[j + 5] - a.z, 0, 1],
+              ];
+              let edge = edges[0];
+              for (let k = 1; k < edges.length; k++)
+                if (edges[k][0] < edge[0]) edge = edges[k];
+              nx = edge[1];
+              nz = edge[2];
+              depth = edge[0] + PED_R;
+            }
+          }
+          a.x += nx * (depth + 0.002);
+          a.z += nz * (depth + 0.002);
+          moved = true;
+        },
+      );
+      if (!moved) break;
+    }
+  };
+  const resolveActorOverlaps = (a) => {
+    if (a.mode === "sit" || a.vendor) return;
+    const oldX = a.x,
+      oldZ = a.z,
+      footY = heightAt(a),
+      bodyH = 1.75 * (a.scale || 1);
+    pushOutWorld(a, footY, bodyH);
+    if (!player.air && Math.abs(footY - player.ground) < 1.4) {
+      const dx = a.x - player.pos.x,
+        dz = a.z - player.pos.z,
+        d = Math.hypot(dx, dz),
+        minD = PED_R + 0.38;
+      if (d < minD) {
+        const nx = d > 1e-5 ? dx / d : (a.seed & 1 ? 1 : -1),
+          nz = d > 1e-5 ? dz / d : 0,
+          push = minD - d + 0.01;
+        a.x += nx * push;
+        a.z += nz * push;
+      }
+    }
+    for (const c of nearbyCars) {
+      if (Math.abs(footY - (c.y || 0)) > 2.2) continue;
+      const fx = Math.cos(c.ry),
+        fz = -Math.sin(c.ry),
+        dx = a.x - c.x,
+        dz = a.z - c.z,
+        along = dx * fx + dz * fz,
+        across = dx * fz - dz * fx,
+        halfL = (c.len || 4.5) * 0.5 + PED_R,
+        halfW = (c.wid || 1.8) * 0.5 + PED_R,
+        ca = Math.max(-halfL, Math.min(halfL, along)),
+        cb = Math.max(-halfW, Math.min(halfW, across)),
+        da = along - ca,
+        db = across - cb,
+        d = Math.hypot(da, db);
+      if (d > 1e-5) {
+        if (d >= PED_R) continue;
+        const push = (PED_R - d + 0.01) / d;
+        a.x += (da * fx + db * fz) * push;
+        a.z += (da * fz - db * fx) * push;
+      } else {
+        const alongGap = halfL - Math.abs(along),
+          acrossGap = halfW - Math.abs(across);
+        if (alongGap < acrossGap) {
+          const sign = along >= 0 ? 1 : -1,
+            push = alongGap + 0.01;
+          a.x += fx * sign * push;
+          a.z += fz * sign * push;
+        } else {
+          const sign = across >= 0 ? 1 : -1,
+            push = acrossGap + 0.01;
+          a.x += fz * sign * push;
+          a.z -= fx * sign * push;
+        }
+      }
+    }
+    pushOutWorld(a, footY, bodyH);
+    const dx = a.x - oldX,
+      dz = a.z - oldZ;
+    if (a.hx !== undefined) {
+      a.hx += dx;
+      a.hz += dz;
+    } else if (a.mode === "walk") {
+      a.dodgeX += dx;
+      a.dodgeZ += dz;
+    } else {
+      a._colX = (a._colX || 0) + dx;
+      a._colZ = (a._colZ || 0) + dz;
+    }
+    if (dx || dz) a._hy = undefined;
+  };
   let frame = 0;
   const api = {
     agents,
     statics,
     pools: allPools,
+    setCollision(grid) {
+      collisionGrid = grid;
+    },
     setPlayer(st) {
       player.pos.copy(st.pos);
       player.vel.copy(st.vel);
@@ -3290,6 +3440,8 @@ export async function createCrowd({
       frame++;
       uni.uTime.value = time;
       const cp = camera.position;
+      if (traffic?.nearby) traffic.nearby(cp.x, cp.z, 58, nearbyCars);
+      else nearbyCars.length = 0;
       const PF = api.prof,
         q0 = PF ? performance.now() : 0;
       if (backlog || cp.distanceToSquared(lastCam) > 100 || frame % 30 === 1) {
@@ -3335,6 +3487,12 @@ export async function createCrowd({
               : 0;
         if (sdt > 0) {
           const d = toPlayer(a);
+          const useColOffset =
+            a.mode !== "walk" && a.hx === undefined && a.mode !== "sit";
+          if (useColOffset) {
+            a.x -= a._colX || 0;
+            a.z -= a._colZ || 0;
+          }
           let held = false;
           if (
             d < 45 ||
@@ -3376,6 +3534,17 @@ export async function createCrowd({
             a.lookYaw *= 0.9;
             a.lookPitch *= 0.9;
           }
+          if (useColOffset) {
+            if (a.mode === "walk") a._colX = a._colZ = 0;
+            else {
+              const fade = 1 - Math.min(1, sdt * 0.18);
+              a._colX = (a._colX || 0) * fade;
+              a._colZ = (a._colZ || 0) * fade;
+              a.x += a._colX;
+              a.z += a._colZ;
+            }
+          }
+          if (dc2 < 55 * 55) resolveActorOverlaps(a);
           a._hy = undefined; // (perf r2) moved: re-derive the cached height / on-road flag
         } else if (
           a.mode === "cross" &&

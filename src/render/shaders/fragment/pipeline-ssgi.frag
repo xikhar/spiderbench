@@ -25,23 +25,23 @@ float sunVis(vec3 p, float vz) {
 vec4 sc;
 if(vz < uSplits.x) {
 sc = uSMat[0] * vec4(p, 1.0);
-return texture(uSM0, sc.xyz);
+return textureLod(uSM0, sc.xyz, 0.0);
 }
 #if NC > 1
 if(vz < uSplits.y) {
 sc = uSMat[1] * vec4(p, 1.0);
-return texture(uSM1, sc.xyz);
+return textureLod(uSM1, sc.xyz, 0.0);
 }
 #endif
 #if NC > 2
 if(vz < uSplits.z) {
 sc = uSMat[2] * vec4(p, 1.0);
-return texture(uSM2, sc.xyz);
+return textureLod(uSM2, sc.xyz, 0.0);
 }
 #endif
 #if NC > 3
 sc = uSMat[3] * vec4(p, 1.0);
-if(all(greaterThan(sc.xyz, vec3(0.0))) && all(lessThan(sc.xyz, vec3(1.0)))) return texture(uSM3, sc.xyz);
+if(all(greaterThan(sc.xyz, vec3(0.0))) && all(lessThan(sc.xyz, vec3(1.0)))) return textureLod(uSM3, sc.xyz, 0.0);
 #endif
 return 1.0;
 }

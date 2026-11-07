@@ -563,10 +563,28 @@ export function initSystems(ctx) {
     if (dyn?.grounded && dyn.groundY != null) gy = Math.max(gy, dyn.groundY);
     return new THREE.Vector3(x, gy + 0.95 + 0.08, z);
   }
+  const outsidePlayableLand = (x, z) => {
+    if (ctx.world.streetsAt?.(x, z)?.type !== "water") return false;
+    const hit = ctx.world.surfaceAt?.(x, z);
+    // Far shore buildings also have collision surfaces over the water. Accept only
+    // actual bridge decks and pier surfaces so those buildings cannot preserve an
+    // out-of-city save position.
+    return ctx.world.bridgeDeckY?.(x, z) == null && hit?.kind !== "pier";
+  };
   if (save.persistent && save.state.player && !q.has("fresh")) {
     const [x, y, z, yaw] = save.state.player;
     try {
-      ctx.player.teleport?.(safeSpot(x, y, z), yaw || 0);
+      if (outsidePlayableLand(x, z)) {
+        const spawn = ctx.world.spawn;
+        console.warn(
+          `[systems] saved position (${x.toFixed(0)}, ${z.toFixed(0)}) is outside playable land; restoring at city spawn`,
+        );
+        ctx.player.teleport?.(safeSpot(spawn.x, spawn.y, spawn.z), yaw || 0);
+        save.state.player = [spawn.x, spawn.y, spawn.z, yaw || 0];
+        save.markDirty();
+      } else {
+        ctx.player.teleport?.(safeSpot(x, y, z), yaw || 0);
+      }
     } catch (e) {
       console.warn("[systems] restore position failed", e);
     }
@@ -582,6 +600,7 @@ export function initSystems(ctx) {
     )
       return;
     const p = ctx.player.position;
+    if (outsidePlayableLand(p.x, p.z)) return;
     save.state.player = [
       +p.x.toFixed(1),
       +(p.y + 0.5).toFixed(1),

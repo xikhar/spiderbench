@@ -27,7 +27,7 @@ import { CanopyBatch } from "./canopy.ts";
 import { RoofPlants, PLANT } from "./roofplants.ts"; // (veg r1) leaf-card shrubs / grasses / perennials
 import { GY } from "./ground.ts";
 import { batchTiles } from "./tilebatch.ts"; // (perf)
-import { loadImageRetry } from "./textures.ts";
+import { loadKTX2TextureAsync } from "../render/ktx2.ts";
 import { getQuality } from "../render/quality.ts";
 
 const rooftopsShader = lazyShaderSections(() => rooftopsShaderSource);
@@ -95,38 +95,6 @@ const jit = (c, r, a = 0.08) => {
 const pick = (a, r) => a[Math.floor(r() * a.length)];
 
 // ------------------------------------------------------------------------------------------ textures
-function loadImage(src) {
-  return loadImageRetry(src);
-}
-function arrayTex(im, srgbSpace, aniso) {
-  const size = im.width,
-    layers = Math.round(im.height / im.width);
-  const cv = document.createElement("canvas");
-  cv.width = size;
-  cv.height = im.height;
-  const cx = cv.getContext("2d", { willReadFrequently: true });
-  cx.drawImage(im, 0, 0);
-  const d = cx.getImageData(0, 0, size, im.height).data;
-  const data = new Uint8Array(size * size * 4 * layers);
-  for (let L = 0; L < layers; L++)
-    for (let y = 0; y < size; y++) {
-      // flip Y per layer (v = 0 at the bottom)
-      const src = (L * size + (size - 1 - y)) * size * 4;
-      data.set(
-        d.subarray(src, src + size * 4),
-        (L * size * size + y * size) * 4,
-      );
-    }
-  const t = new THREE.DataArrayTexture(data, size, size, layers);
-  t.colorSpace = srgbSpace ? THREE.SRGBColorSpace : THREE.NoColorSpace;
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.generateMipmaps = true;
-  t.minFilter = THREE.LinearMipmapLinearFilter;
-  t.magFilter = THREE.LinearFilter;
-  t.anisotropy = aniso;
-  t.needsUpdate = true;
-  return t;
-}
 
 function createRoofMaterial(tc, tn, noise) {
   const mat = new THREE.MeshStandardMaterial({
@@ -948,12 +916,18 @@ export async function buildRooftops({
   let lodScale = quality.lodScale * buildingLodFactor;
   const aniso = Math.min(8, renderer?.capabilities?.getMaxAnisotropy?.() ?? 4);
   const [imC, imN] = await Promise.all([
-    loadImage(assetUrl("city/tex/roof_col.png")),
-    loadImage(assetUrl("city/tex/roof_nrm.png")),
+    loadKTX2TextureAsync(assetUrl("city/environmentTextures/roof_col.ktx2")),
+    loadKTX2TextureAsync(assetUrl("city/environmentTextures/roof_nrm.ktx2")),
   ]);
+  imC.colorSpace = THREE.SRGBColorSpace;
+  imN.colorSpace = THREE.NoColorSpace;
+  imC.wrapS = imC.wrapT = THREE.RepeatWrapping;
+  imN.wrapS = imN.wrapT = THREE.RepeatWrapping;
+  imC.anisotropy = aniso;
+  imN.anisotropy = aniso;
   const mat = createRoofMaterial(
-    arrayTex(imC, true, aniso),
-    arrayTex(imN, false, aniso),
+    imC,
+    imN,
     T.noise,
   );
   const aoMat = new THREE.MeshBasicMaterial({

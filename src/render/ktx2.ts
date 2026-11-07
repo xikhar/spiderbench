@@ -12,24 +12,18 @@ export function configureKTX2Loader(renderer: unknown): KTX2Loader {
   return loader;
 }
 
-function getLoader(): KTX2Loader {
+export function getKTX2Loader(): KTX2Loader {
   if (!loader) {
     throw new Error("KTX2Loader must be configured with a renderer before use.");
   }
   return loader;
 }
 
-/** Map an original image URL to its generated KTX2 sibling, preserving query/hash suffixes. */
+/** Resolve a KTX2 URL directly, while preserving query/hash suffixes and supporting raster URL migration. */
 export function ktx2Url(sourceUrl: string): string {
   const suffixOffset = sourceUrl.search(/[?#]/);
   const resource = suffixOffset < 0 ? sourceUrl : sourceUrl.slice(0, suffixOffset);
   const suffix = suffixOffset < 0 ? "" : sourceUrl.slice(suffixOffset);
-
-  // These four source files had the same stem but different contents, so their
-  // generated siblings retain the source extension to keep both variants.
-  if (/\/thug_basecolor_[bc]\.(?:png|webp)$/i.test(resource)) {
-    return `${resource}.ktx2${suffix}`;
-  }
 
   return `${resource.replace(/\.(?:png|jpe?g|webp)$/i, ".ktx2")}${suffix}`;
 }
@@ -38,11 +32,15 @@ export function loadKTX2TextureAsync(sourceUrl: string) {
   const url = ktx2Url(sourceUrl);
   let pending = texturePromises.get(url);
   if (!pending) {
-    pending = getLoader()
+    pending = getKTX2Loader()
       .loadAsync(url)
       .then((texture) => {
         loadedTextures.set(url, texture);
         return texture;
+      })
+      .catch((error) => {
+        console.error(`[texture-load] Failed to load or transcode ${url}`, error);
+        throw error;
       });
     texturePromises.set(url, pending);
   }

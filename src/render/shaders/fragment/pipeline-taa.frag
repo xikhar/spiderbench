@@ -4,7 +4,7 @@ out vec4 fragColor;
 uniform sampler2D uCurrent, uHistory, uDepth;
 uniform mat4 uCamWorld, uPrevViewProj;
 uniform vec2 uRes, uJitter;
-uniform float uBlend, uReset;
+uniform float uBlend, uCharBlend, uSkyBlend, uSkyBlendCap, uReset;
 uniform sampler2D uMask;
 uniform float uMaskOn;
 uniform mat4 uObjDelta;
@@ -58,12 +58,12 @@ y ++) for(int x = - 1;
 x <= 1;
 x ++) {
 vec2 o = vec2(x, y) * px;
-vec3 c = toYC(tm(texture(uCurrent, vUv + o).rgb));
+vec3 c = toYC(tm(textureLod(uCurrent, vUv + o, 0.0).rgb));
 m1 += c;
 m2 += c * c;
 cmin = min(cmin, c);
 cmax = max(cmax, c);
-float d = texture(uDepth, vUv + o).r;
+float d = textureLod(uDepth, vUv + o, 0.0).r;
 bool nearer = uReversed > 0.5 ? d > closest : d < closest;
 if(nearer) {
 closest = d;
@@ -107,7 +107,8 @@ vec3 curT = toYC(tm(cur));
 float blend = mix(uBlend, 0.25, clamp(vel / 20.0, 0.0, 1.0));
   // where the history had to be clipped hard (edge flips between frames) trust the stable history a bit more
 if(vel < 0.5) blend *= mix(1.0, 0.6, clamp(ma - 1.0, 0.0, 1.0));
-if(isChar) blend = max(blend, 0.14);
+if(isChar) blend = max(blend, uCharBlend);
+if(isSky(closest)) blend = uSkyBlendCap > 0.5 ? min(blend, uSkyBlend) : max(blend, uSkyBlend);
 vec3 res = mix(hist, curT, blend);
 fragColor = vec4(itm(fromYC(res)), 1.0);
 }

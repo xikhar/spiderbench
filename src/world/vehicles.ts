@@ -422,7 +422,7 @@ export function loadVehicleModels(renderer) {
       const { GLTFLoader } =
         await import("three/examples/jsm/loaders/GLTFLoader.js");
       const gltf = await new GLTFLoader().loadAsync(
-        assetUrl("city/vehicles.glb"),
+        assetUrl("city/vehicles/vehicles.gltf"),
       );
       const geos = {};
       gltf.scene.traverse((o) => {
@@ -446,19 +446,9 @@ export function loadVehicleModels(renderer) {
         g.computeBoundingSphere();
         geos[o.name] = /^van(_l\d)?$/.test(o.name) ? vanRear(g) : g;
       });
-      const atlasUrl = assetUrl("city/tex/vehicles_atlas2.webp");
-      let atlas;
-      try {
-        atlas = await loadKTX2TextureAsync(atlasUrl);
-        console.info("[city] vehicles_atlas2 loaded (KTX2)");
-      } catch (ktxError) {
-        console.warn(
-          "[city] vehicles_atlas2 KTX2 failed; loading the WebP source",
-          ktxError,
-        );
-        atlas = await new THREE.TextureLoader().loadAsync(atlasUrl);
-        console.info("[city] vehicles_atlas2 loaded (WebP fallback)");
-      }
+      const atlasUrl = assetUrl("city/environmentTextures/vehicles_atlas2.ktx2");
+      const atlas = await loadKTX2TextureAsync(atlasUrl);
+      console.info("[city] vehicles_atlas2 loaded (KTX2)");
       atlas.colorSpace = THREE.SRGBColorSpace;
       atlas.flipY = false;
       atlas.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
@@ -466,7 +456,7 @@ export function loadVehicleModels(renderer) {
       return { geos, atlas };
     } catch (e) {
       console.warn(
-        "[city] vehicles.glb not available, using procedural vehicles",
+        "[city] city/vehicles/vehicles.gltf not available, using procedural vehicles",
         e,
       );
       return null;

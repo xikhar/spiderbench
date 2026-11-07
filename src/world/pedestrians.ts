@@ -23,6 +23,7 @@ export async function buildPedestrians({
       parkPaths,
       props,
       roads,
+      traffic: traffic?.sim || traffic,
       phase,
     });
   } catch (e) {

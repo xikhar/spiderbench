@@ -1,6 +1,6 @@
 // @ts-nocheck
-// Street-crime actors: thugs + civilians built from public/thug.glb (same skeleton as
-// Spider-Man, so the clips of spiderman.glb play on it directly, see public/SPIDERMAN.md).
+// Street-crime actors: thugs + civilians built from public/enemies/thug.gltf (same skeleton as
+// Spider-Man, so clips from player/spiderman.gltf play on it directly).
 //   const A = createActors(ctx); await A.ready();  const a = A.spawn({ pos, yaw, variant: 'a'|'b'|'c', role: 'thug'|'victim' })
 //   a.play('thugIdle') · a.face(vec3) · a.runTo(vec3, speed) · a.hit() · a.knockDown() · a.dispose()
 // Actors are plain objects so the combat module can take them over (crime.enemies[i].actor / .object):
@@ -10,11 +10,11 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { clone as skeletonClone } from "three/addons/utils/SkeletonUtils.js";
 import { assetUrl } from "../../assets.ts";
-import { loadKTX2TextureAsync } from "../../render/ktx2.ts";
+import { getKTX2Loader, loadKTX2TextureAsync } from "../../render/ktx2.ts";
 
 const VARIANT_TEX = {
-  b: assetUrl("tex/thug_basecolor_b.webp"),
-  c: assetUrl("tex/thug_basecolor_c.webp"),
+  b: assetUrl("enemies/thug_basecolor_b.ktx2"),
+  c: assetUrl("enemies/thug_basecolor_c.ktx2"),
 };
 const LOOPS = new Set([
   "idle",
@@ -29,7 +29,7 @@ const LOOPS = new Set([
   "thugWebbedStruggle",
   "thugGunAim",
 ]);
-// thug.glb's own clips whose hips travel (stumbles, knockdown, get-up): the played copy is IN PLACE (hips X/Z pinned at
+// thug.gltf's own clips whose hips travel (stumbles, knockdown, get-up): the played copy is IN PLACE (hips X/Z pinned at
 // the standing offset) and the travel is handed to the owner as root motion (a.rootDelta), so the body moves with the
 // feet instead of sliding and never snaps back when the next clip cross-fades in
 const ROOT_MOTION = new Set([
@@ -69,7 +69,7 @@ export function createActors(ctx) {
       );
     }
     // the thug's own clips (thugIdle, thugPunch1/2, thugKick, stumbles, knockdown, get-up, gun aim / fire, bruteSlam,
-    // webbed struggle); SPIDERMAN.md "thug.glb clips"
+    // webbed struggle); the thug.gltf animation clips
     for (const c of gltf.animations) {
       if (!ROOT_MOTION.has(c.name)) {
         clips.set(c.name, c);
@@ -108,9 +108,10 @@ export function createActors(ctx) {
   function load() {
     if (loading) return loading;
     const loader = new GLTFLoader();
+    loader.setKTX2Loader(getKTX2Loader());
     loader.setMeshoptDecoder(MeshoptDecoder);
     loading = loader
-      .loadAsync(assetUrl("thug.glb"))
+      .loadAsync(assetUrl("enemies/thug.gltf"))
       .then((g) => {
         gltf = g;
         clipList();
@@ -124,7 +125,7 @@ export function createActors(ctx) {
         return true;
       })
       .catch((e) => {
-        console.warn("[crimes] thug.glb unavailable", e);
+        console.warn("[crimes] enemies/thug.gltf unavailable", e);
         return false;
       });
     return loading;

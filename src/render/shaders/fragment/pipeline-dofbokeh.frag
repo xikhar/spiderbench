@@ -15,7 +15,7 @@ void main() {
   for(int i = 0; i < TAPS; i++) {
     vec2 o = uKernel[i] * uMaxCoc;
     float r = length(o);
-    vec4 s = texture(uSrc, vUv + o * uPx);
+    vec4 s = textureLod(uSrc, vUv + o * uPx, 0.0);
     float w = weigh(max(0.0, min(s.a, ctr.a)), r);
     bg += s.rgb * w;
     bw += w;

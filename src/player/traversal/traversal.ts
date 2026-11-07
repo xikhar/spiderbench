@@ -2500,6 +2500,23 @@ export function createTraversal({ world, cam, web, rig, camera }) {
       s.wallCooldown = 0.3;
       return;
     }
+    // Wall traversal follows facade raycasts, so it does not get the capsule push-out used by ground / air movement.
+    // Resolve against the shared city solids after attaching to the surface; trunks and railings are otherwise crossed
+    // when they are invisible to the wall-raycast path (BLOCKONLY) or their thin geometry is missed by the probes.
+    const obstacle = collide(0.3);
+    if (obstacle) {
+      const into = s.vel.dot(obstacle.normal);
+      if (into < 0) s.vel.addScaledVector(obstacle.normal, -into);
+      s.vel.addScaledVector(
+        obstacle.normal,
+        Math.max(1.5, s.vel.length() * 0.12),
+      );
+      setMode("air", "fall");
+      s.airT = 0;
+      s.apexY = feetY();
+      s.wallCooldown = 0.35;
+      return;
+    }
     // bottom: step off onto the street
     const gf = floorAt(s.pos.x + n.x * 0.6, s.pos.z + n.z * 0.6, feetY() + 0.3);
     if (feetY() <= gf + 0.02 && vy <= 0) {

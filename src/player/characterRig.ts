@@ -1,6 +1,6 @@
 // @ts-nocheck
 // Character loading + animation.
-// - Loads public/spiderman.glb (falls back to a procedural articulated placeholder).
+// - Loads public/player/spiderman.gltf (falls back to a procedural articulated placeholder).
 // - Resolves a logical humanoid skeleton from arbitrary bone names.
 // - Rig-agnostic procedural poses authored in *character space* (X = left, Y = up, Z = forward),
 //   used for any state that has no GLB clip, for shot poses, and as additive layers (lean, arm-to-anchor).
@@ -11,6 +11,7 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { Animator } from "./anim/animator.ts";
 import { legacyAnim } from "./anim/legacy.ts";
 import { applySuitFabric } from "./suitfabric.ts";
+import { getKTX2Loader } from "../render/ktx2.ts";
 
 const LOGICAL = [
   "hips",
@@ -565,15 +566,16 @@ export async function loadCharacter(renderer) {
   let gltf = null,
     source = "placeholder";
   const charUrl = new URLSearchParams(location.search).get("char");
-  const url = charUrl ? assetUrl(charUrl) : assetUrl("spiderman.glb");
+  const url = charUrl ? assetUrl(charUrl) : assetUrl("player/spiderman.gltf");
   try {
     // single request: a missing file (or the dev server's HTML fallback) makes GLTFLoader throw -> placeholder below
     const loader = new GLTFLoader();
+    loader.setKTX2Loader(getKTX2Loader());
     loader.setMeshoptDecoder(MeshoptDecoder);
     gltf = await loader.loadAsync(url);
-    source = "glb";
+    source = "gltf";
   } catch (e) {
-    console.warn("[player] spiderman.glb failed to load, using placeholder", e);
+    console.warn("[player] player/spiderman.gltf failed to load, using placeholder", e);
     gltf = null;
   }
 
@@ -628,7 +630,7 @@ export async function loadCharacter(renderer) {
   root.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(root, true);
   const h = box.max.y - box.min.y;
-  if (source === "glb" && (h < 1.2 || h > 2.4) && h > 0) {
+  if (source === "gltf" && (h < 1.2 || h > 2.4) && h > 0) {
     root.scale.multiplyScalar(1.78 / h);
     root.updateMatrixWorld(true);
     box.setFromObject(root, true);

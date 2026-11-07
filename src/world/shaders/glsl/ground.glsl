@@ -33,12 +33,14 @@ c = mix(c, c2, 0.35);
 #endif
 vec3 nd = texture(tNrm, p / 6.0).rgb;
 vec3 m = texture(tMacro, p / 64.0).rgb;
+vec3 nz = texture(tNoise, p / 97.0).rgb;
 #if ROAD_DETAIL_LEVEL >= 1
 vec3 m2 = texture(tMacro, vec2(- p.y, p.x) / 151.0 + 0.5).rgb;
 #else
-vec3 m2 = vec3(0.5);
+// Low quality reuses the noise sample instead of spending another texture
+// fetch. Keep broad asphalt mottling visible at the reduced render resolution.
+vec3 m2 = nz;
 #endif
-vec3 nz = texture(tNoise, p / 97.0).rgb;
 float bright = (0.8 + 0.4 * m.r) * (0.88 + 0.24 * m2.r) * (0.94 + 0.12 * nz.r); // gentle macro variation (was blotchy)
 c *= bright;
 // (no crack lines: user feedback - roads read as uniform, softly worn asphalt; refs/road)

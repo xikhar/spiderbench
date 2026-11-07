@@ -20,11 +20,12 @@ import { getRenderPixelRatio } from "./render/quality.ts";
 import { REFL_LAYER } from "./world/waterLayers.ts";
 import { BIG_CASTER_LAYER } from "./render/cascadedShadows.ts";
 import { configureKTX2Loader } from "./render/ktx2.ts";
+import { auditSceneTextures } from "./render/textureAudit.ts";
 
 const params = new URLSearchParams(location.search);
 const shotName = params.get("shot");
 // loading screen (index.html): stage labels + progress; it fades out once the first frames and the game systems are up
-const boot = window.__boot || { stage: async () => {}, sub() {}, done() {} };
+const boot = window.__boot || { stage: async () => { }, sub() { }, done() { } };
 
 type RuntimeContext = {
   THREE: typeof THREE;
@@ -94,6 +95,8 @@ const player = await createPlayer({ scene, world, camera, input, renderer });
 await boot.stage("shaders");
 const hud = createHud({ player, world, camera });
 const pipeline = createPipeline({ renderer, scene, camera, lighting });
+// Run again from DevTools after viewing a new area to inspect textures loaded later.
+(window as any).auditSceneTextures = () => auditSceneTextures(renderer, scene);
 
 let resizeTimeout: number | undefined;
 addEventListener("resize", () => {
@@ -135,8 +138,8 @@ window.__ctx = ctx;
 const warmup =
   !shotName && !params.has("nowarm")
     ? createWarmup(renderer, scene, camera, {
-        mirrorLayers: [REFL_LAYER, BIG_CASTER_LAYER],
-      })
+      mirrorLayers: [REFL_LAYER, BIG_CASTER_LAYER],
+    })
     : null;
 // first the state the first frame would set that is part of the program keys: the sky IBL (scene.environment, from the
 // first lighting update) and the pipeline's NO_SSR material defines
@@ -152,12 +155,12 @@ let framesDrawn = 0;
 const systemsReady = shotName
   ? Promise.resolve()
   : import("./game/systems/gameSystems.ts")
-      .then((m) => m.initSystems(ctx))
-      .catch((e) => console.error("[systems] init failed", e)) // open-world systems (C5)
-      .then(() => import("./game/combat/combat.ts"))
-      .then((m) => m.initCombat(ctx))
-      .catch((e) => console.error("[combat] init failed", e)) // combat (C5)
-      .then(() => warmup?.rescan()); // (perf r3) + the meshes the systems / combat added (trickled by warmup.step)
+    .then((m) => m.initSystems(ctx))
+    .catch((e) => console.error("[systems] init failed", e)) // open-world systems (C5)
+    .then(() => import("./game/combat/combat.ts"))
+    .then((m) => m.initCombat(ctx))
+    .catch((e) => console.error("[combat] init failed", e)) // combat (C5)
+    .then(() => warmup?.rescan()); // (perf r3) + the meshes the systems / combat added (trickled by warmup.step)
 // the loading screen goes once the game systems (HUD, save position) are in and a few frames have been drawn
 systemsReady.then(async () => {
   boot.sub(0.8);
@@ -183,6 +186,7 @@ if (shotName) {
       requestAnimationFrame(() => resolve()),
     );
   }
+  auditSceneTextures(renderer, scene);
   window.__shotInfo = `${renderer.info.render.calls} calls, ${renderer.info.render.triangles} tris`;
   window.__shotReady = true;
 } else {
@@ -300,6 +304,7 @@ if (shotName) {
     updateFpsReadout();
 
     if (++framesDrawn === 1) boot.sub(0.4);
+    if (framesDrawn === 4) auditSceneTextures(renderer, scene);
     markCpuPhase(null);
     reportCpuProfile();
   }

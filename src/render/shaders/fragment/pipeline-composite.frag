@@ -81,7 +81,7 @@ j ++) for(int i = 0;
 i < 2;
 i ++) {
 vec2 o = vec2(float(i), float(j));
-vec4 s = texture(tex, base + o * hp);
+vec4 s = textureLod(tex, base + o * hp, 0.0);
 float bw = (i == 0 ? 1.0 - f.x : f.x) * (j == 0 ? 1.0 - f.y : f.y);
 float dw = 1.0 / (1e-3 + abs(s.a - dist) / max(dist, 1.0) * 20.0);
 float w = bw * dw + 1e-5;
@@ -102,7 +102,7 @@ j <= 1;
 j ++) for(int i = - 1;
 i <= 1;
 i ++) {
-vec4 s = texture(uGI, uv + vec2(float(i), float(j)) * uHalfPx * 1.5);
+vec4 s = textureLod(uGI, uv + vec2(float(i), float(j)) * uHalfPx * 1.5, 0.0);
 float w = exp(- abs(s.a - dist) / max(dist, 1.0) * 30.0) * (i == 0 && j == 0 ? 2.0 : 1.0) + 1e-5;
 acc += s.rgb * w;
 ws += w;

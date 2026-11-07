@@ -1,0 +1,17 @@
+# Normalize text files in the repository while allowing Git to detect binary files.
+* text=auto
+
+# glTF files are JSON text and use LF line endings on every platform.
+*.gltf text eol=lf
+
+# Binary models, buffers, textures, images, audio, fonts and runtime modules.
+*.bin binary
+*.glb binary
+*.webp binary
+*.ktx2 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ogg binary
+*.ttf binary
+*.wasm binary

@@ -80,11 +80,45 @@ export function createTravel(sys) {
     void prevMode;
     return true;
   }
+  function nearestPlayableLand(x, z) {
+    const streetsAt = ctx.world.streetsAt;
+    if (typeof streetsAt !== "function") return [x, z];
+    const isPlayable = (px, pz) => {
+      if (streetsAt(px, pz)?.type !== "water") return true;
+      const hit = ctx.world.surfaceAt?.(px, pz);
+      // A far shore building can produce a collision surface over the sea, so only
+      // preserve points that are on the actual bridge corridor or a pier.
+      return ctx.world.bridgeDeckY?.(px, pz) != null || hit?.kind === "pier";
+    };
+    if (isPlayable(x, z)) return [x, z];
+
+    // The map includes river and harbor areas. Search outward in small rings
+    // so a drop-in always lands on the city rather than its fallback sea floor.
+    const spokes = 32,
+      step = 8,
+      maxRadius = 2200;
+    for (let radius = step; radius <= maxRadius; radius += step) {
+      for (let i = 0; i < spokes; i++) {
+        const angle = (i / spokes) * Math.PI * 2;
+        const px = x + Math.cos(angle) * radius,
+          pz = z + Math.sin(angle) * radius;
+        if (isPlayable(px, pz)) {
+          console.info(
+            `[travel] map drop target (${x.toFixed(0)}, ${z.toFixed(0)}) was water; snapped to playable land (${px.toFixed(0)}, ${pz.toFixed(0)})`,
+          );
+          return [px, pz];
+        }
+      }
+    }
+    console.warn("[travel] no nearby land for map drop; using current position");
+    return [player.position.x, player.position.z];
+  }
   // (user r-mapteleport) "teleport anywhere by clicking on the map, falls from a safe distance from the sky": drop in at
   // (x, z) from 60 m above the tallest surface within ~30 m (>= 100 m up), so no safe landing spot has to be found
   async function teleportTo(x, z) {
     if (traveling) return false;
     traveling = true;
+    [x, z] = nearestPlayableLand(x, z);
     if (sys.pause?.open) sys.pause.close(true);
     flow.setMode("travel");
     ui.fade(true, "Web Travel", "");

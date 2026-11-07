@@ -4,7 +4,7 @@
 //       red pedestrian plaza lots along both sides of the avenue (rows -240 / -160), screen-clad podium towers on the
 //       lots behind them, and screen-clad corner towers at the north (-320) and south (-80) ends of the "bow tie".
 //   buildTimesSquare({scene, gen}) -> after generateBuildings, before the tile meshes are built:
-//       LED screens (one merged emissive mesh, ad atlas public/city/tex/ts_ads.webp from tools/gen_ts_ads.py),
+//       LED screens (one merged emissive mesh, ad atlas public/city/environmentTextures/ts_ads.webp from tools/gen_ts_ads.py),
 //       screen frames / marquee light trims / storefront sign bands, red paver plaza surfaces, the red TKTS-like
 //       steps, the One-Times-Square-like tower standing on the closed avenue segment (layout.CLOSED_AV x=0, -80..0),
 //       planters with hedges and bollards. Every solid registers its collision (gen.solids) in the same call.
@@ -28,6 +28,7 @@ import {
 import {
   getAdvertisingAtlasTexture,
   getSignAtlasTexture,
+  getSignColorGrid,
 } from "./advertisingTextures.ts"; // shared ad and sign textures
 import { nightK } from "../render/daynight.ts"; // (daynight)
 import { cityLights } from "../render/citylights.ts"; // (night) screens are real light sources
@@ -45,7 +46,7 @@ const timesSquareShaderSections = lazyShaderSections(() => timesSquareShaderSour
 
 const CH = G.CURB_H;
 const TS_SPILL = 1.3; // (r5) was 1.0 // (r4) strength of the screens' coloured light spill cards
-const TEX = assetUrl("city/tex/");
+const TEX = assetUrl("city/environmentTextures/");
 // block rows (street z at the north edge of the row) and x extents
 export const TS = {
   plazaRows: [-240, -160], // rows with the pedestrian plazas
@@ -554,51 +555,37 @@ function aoTexture() {
   return t;
 }
 
-// (night) storefront sign bands as light: their colour is the mean of their ts_signs.webp cell (4 x 16 cells), measured
-// once from a small canvas downsample when the image arrives (browser-cached: same URL as the texture)
+// (night) storefront sign bands as light: their colour is measured from the precomputed KTX2 atlas colour grid.
 function signLights(q) {
-  if (!q.length || typeof Image === "undefined") return;
-  const im = new Image();
-  im.onload = () => {
-    const W = 64,
-      H = 128,
-      cv = document.createElement("canvas");
-    cv.width = W;
-    cv.height = H;
-    const cx = cv.getContext("2d", { willReadFrequently: true });
-    cx.drawImage(im, 0, 0, W, H);
-    const d = cx.getImageData(0, 0, W, H).data,
-      lin = (v) => {
-        v /= 255;
-        return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-      };
+  if (!q.length) return;
+  void getSignColorGrid().then((grid) => {
+    if (!grid) return;
     const set = screenLightSet();
     for (const s of q) {
       const uc = (s.uv[0] + s.uv[2]) / 2,
         vc = (s.uv[1] + s.uv[3]) / 2,
         du = Math.abs(s.uv[2] - s.uv[0]) / 2,
         dv = Math.abs(s.uv[3] - s.uv[1]) / 2;
-      const x0 = Math.floor((uc - du) * W),
-        x1 = Math.ceil((uc + du) * W),
-        y0 = Math.floor((1 - vc - dv) * H),
-        y1 = Math.ceil((1 - vc + dv) * H);
+      const x0 = Math.floor((uc - du) * grid.width),
+        x1 = Math.ceil((uc + du) * grid.width),
+        y0 = Math.floor((1 - vc - dv) * grid.height),
+        y1 = Math.ceil((1 - vc + dv) * grid.height);
       let r = 0,
         g = 0,
         b = 0,
         n = 0;
-      for (let y = Math.max(0, y0); y < Math.min(H, y1); y++)
-        for (let x = Math.max(0, x0); x < Math.min(W, x1); x++) {
-          const k = (y * W + x) * 4;
-          r += lin(d[k]);
-          g += lin(d[k + 1]);
-          b += lin(d[k + 2]);
+      for (let y = Math.max(0, y0); y < Math.min(grid.height, y1); y++)
+        for (let x = Math.max(0, x0); x < Math.min(grid.width, x1); x++) {
+          const k = (y * grid.width + x) * 3;
+          r += grid.linearRgb[k] ?? 0;
+          g += grid.linearRgb[k + 1] ?? 0;
+          b += grid.linearRgb[k + 2] ?? 0;
           n++;
         }
       if (n) set.rect(s.c, s.n, s.u, s.w, s.h, [r / n, g / n, b / n], 3.0); // (night r3) x3.0 at gain 1.0 (r2 0.7 -> 1.8 at gain 1.9): street-level colour on the plaza (critic: plaza 0.6x ref)
     }
     set.commit("tsSigns", { mergeA: 1e9, mergeGap: 9, mergeMax: 44 }); // one emitter per run of sign bands along a face
-  };
-  im.src = TEX + "ts_signs.webp";
+  });
 }
 
 // ------------------------------------------------------------------------------------------------ build
@@ -3328,7 +3315,7 @@ export function buildTimesSquare({ scene, gen }) {
     roughness: 0.6,
     metalness: 0.35,
   });
-  const leafTex = loadTex(TEX + "ts_foliage.webp", { aniso: 4 });
+  const leafTex = loadTex(TEX + "ts_foliage.ktx2", { aniso: 4 });
   // (r6) brighter, varied leaf cards (new ts_foliage.webp) + a less black core: r5 hedges read as black blobs
   const hedgeMat = new THREE.MeshStandardMaterial({
     color: 0x2f4126,
@@ -5210,7 +5197,7 @@ export function buildTimesSquare({ scene, gen }) {
   // ---------------------------------------------------------------- meshes
   const adsTex = getAdvertisingAtlasTexture(),
     signTex = getSignAtlasTexture() /* (night r5) shared copy */,
-    paveTex = loadTex(TEX + "ts_pavers.webp", { repeat: true, aniso: 16 });
+    paveTex = loadTex(TEX + "ts_pavers.ktx2", { repeat: true, aniso: 16 });
   const dots = dotTexture();
   const add = (g, mat, name, shadow = false) => {
     if (!g) return null;
@@ -5343,7 +5330,7 @@ export function buildTimesSquare({ scene, gen }) {
   );
   {
     // scrolling news zippers
-    const tt = loadTex(TEX + "ts_ticker.webp", { aniso: 8 });
+    const tt = loadTex(TEX + "ts_ticker.ktx2", { aniso: 8 });
     tt.wrapS = THREE.RepeatWrapping;
     const tm = add(
       tck.build(),
@@ -5367,7 +5354,7 @@ export function buildTimesSquare({ scene, gen }) {
   }
   {
     // screen light spill (additive, no depth write)
-    const st = loadTex(TEX + "ts_spill.png", { aniso: 1 });
+    const st = loadTex(TEX + "ts_spill.ktx2", { aniso: 1 });
     // custom additive blend that leaves the target's alpha alone (scene alpha > 1 is the pipeline's SSR weight)
     const sm2 = new THREE.MeshBasicMaterial({
       map: st,
@@ -5446,7 +5433,7 @@ export function buildTimesSquare({ scene, gen }) {
   }
   {
     // wear decals (plaza + avenue roadway)
-    const dt = loadTex(TEX + "ts_decals.webp", { aniso: 8 });
+    const dt = loadTex(TEX + "ts_decals.ktx2", { aniso: 8 });
     const dm = new THREE.MeshStandardMaterial({
       map: dt,
       vertexColors: true,
@@ -5467,22 +5454,22 @@ export function buildTimesSquare({ scene, gen }) {
     });
     const m = add(dec.build(), dm, "tsDecals");
     if (m) m.renderOrder = 1;
-    const rt = loadTex(TEX + "ts_road.webp", { aniso: 8 }),
+    const rt = loadTex(TEX + "ts_road.ktx2", { aniso: 8 }),
       rm = dm.clone();
     rm.map = rt;
     const m2 = add(rdw.build(), rm, "tsRoadWear"); // (r5)
     if (m2) m2.renderOrder = 1;
     const rm2 = dm.clone();
-    rm2.map = loadTex(TEX + "ts_road2.webp", { aniso: 8 }); // (r7)
+    rm2.map = loadTex(TEX + "ts_road2.ktx2", { aniso: 8 }); // (r7)
     const m3 = add(rd2.build(), rm2, "tsRoadWear2");
     if (m3) m3.renderOrder = 1;
     const rm3 = dm.clone();
-    rm3.map = loadTex(TEX + "ts_road3.webp", { aniso: 8 }); // (r9)
+    rm3.map = loadTex(TEX + "ts_road3.ktx2", { aniso: 8 }); // (r9)
     const m4r = add(rd3.build(), rm3, "tsRoadWear3");
     if (m4r) m4r.renderOrder = 1;
   }
   // storefront glass: lit interior card (emissive) under a glossy, env-reflecting surface
-  const shopTex = loadTex(TEX + "ts_shops.webp", { aniso: 4 });
+  const shopTex = loadTex(TEX + "ts_shops.ktx2", { aniso: 4 });
   {
     // (r6) interior mapping: each bay is a 5.5 m deep lit room (floor tiles, ceiling light panels, side walls, the shop
     // card on the back wall) ray-traced per pixel behind the reflective glass
@@ -5520,12 +5507,12 @@ export function buildTimesSquare({ scene, gen }) {
       true,
     );
   // (r6) paver normal (recessed grout, bevelled arrises) + roughness (G) / cavity (R) maps, tools/gen_ts_ground6.py
-  const pavN = loadTex(TEX + "ts_pavers_n.webp", {
+  const pavN = loadTex(TEX + "ts_pavers_n.ktx2", {
       srgb: false,
       repeat: true,
       aniso: 16,
     }),
-    pavR = loadTex(TEX + "ts_pavers_r.webp", {
+    pavR = loadTex(TEX + "ts_pavers_r.ktx2", {
       srgb: false,
       repeat: true,
       aniso: 8,
@@ -5542,7 +5529,7 @@ export function buildTimesSquare({ scene, gen }) {
     polygonOffsetUnits: -2,
   });
   // macro variation: large soft blotches (wear / grime / cleaning patterns) so the 9.6 m paver tile never reads as a repeat
-  const noiseTex = loadTex(TEX + "noise.png", {
+  const noiseTex = loadTex(TEX + "noise.ktx2", {
     srgb: false,
     repeat: true,
     aniso: 1,

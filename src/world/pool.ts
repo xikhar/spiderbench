@@ -79,22 +79,40 @@ export class Pool {
       isStatic = false,
       shadowFar = null,
       smallCasters = false,
+      // Values below 1 soften the extra LOD shrink caused by low internal render resolution.
+      resolutionLodWeight = 1,
+      minFadeWidth = 10,
     } = {},
   ) {
-    const lodScale = isStatic ? 1 : getQuality().lodScale;
+    const lodScale = this.readLodScale(isStatic, resolutionLodWeight);
     this._baseNear = near;
     this._baseFar = far;
     this._baseFadeIn = fadeIn;
     this._baseFadeOut = fadeOut;
     this._baseShadowFar = shadowFar ?? 160;
+    this.resolutionLodWeight = resolutionLodWeight;
+    this.minFadeWidth = minFadeWidth;
     this._lodScale = lodScale;
     this.geo = geo;
     this.mat = mat;
     this.max = max;
     this.near = near * lodScale;
     this.far = far * lodScale;
-    this.fadeIn = this.near > 0 ? fadeIn * lodScale || Math.max(10, this.near * 0.08) : 0;
-    this.fadeOut = fadeOut == null ? Math.max(10, this.far * 0.08) : fadeOut * lodScale;
+    this.fadeIn =
+      this.near > 0
+        ? fadeIn * lodScale ||
+          Math.max(
+            Math.min(minFadeWidth, this.near * 0.75),
+            this.near * 0.08,
+          )
+        : 0;
+    this.fadeOut =
+      fadeOut == null
+        ? Math.max(
+            Math.min(minFadeWidth, this.far * 0.75),
+            this.far * 0.08,
+          )
+        : fadeOut * lodScale;
     this.isStatic = isStatic;
     // shadow casting only for instances within shadowFar of the camera (default 160 m, never beyond `far`): the
     // instances are written nearest-shadow-casters-first and the shadow passes draw only that prefix (onBeforeShadow)
@@ -140,19 +158,34 @@ export class Pool {
     this.last = new THREE.Vector3(1e9, 0, 0);
     this.sel = new Int32Array(max);
   }
+  readLodScale(isStatic = this.isStatic, weight = this.resolutionLodWeight) {
+    if (isStatic) return 1;
+    const quality = getQuality();
+    return (
+      quality.lodScale /
+      Math.pow(Math.max(quality.renderScale, 1e-3), 1 - weight)
+    );
+  }
   syncLodScale() {
-    const lodScale = this.isStatic ? 1 : getQuality().lodScale;
+    const lodScale = this.readLodScale();
     if (lodScale === this._lodScale) return;
     this._lodScale = lodScale;
     this.near = this._baseNear * lodScale;
     this.far = this._baseFar * lodScale;
     this.fadeIn =
       this.near > 0
-        ? this._baseFadeIn * lodScale || Math.max(10, this.near * 0.08)
+        ? this._baseFadeIn * lodScale ||
+          Math.max(
+            Math.min(this.minFadeWidth, this.near * 0.75),
+            this.near * 0.08,
+          )
         : 0;
     this.fadeOut =
       this._baseFadeOut == null
-        ? Math.max(10, this.far * 0.08)
+        ? Math.max(
+            Math.min(this.minFadeWidth, this.far * 0.75),
+            this.far * 0.08,
+          )
         : this._baseFadeOut * lodScale;
     this.shadowFar = Math.min(this.far, this._baseShadowFar * lodScale);
     this.last.set(1e9, 0, 0);

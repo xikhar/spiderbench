@@ -28,6 +28,10 @@ vec3 viewPosFromDepthS(vec2 uv, float d) {
   vec4 p = uProjInvS * vec4(uv * 2.0 - 1.0, z, 1.0);
   return p.xyz / p.w;
 }
+float viewDepthAt(vec2 uv) {
+  float d = texture(uDepthS, uv).r;
+  return isSkyD(d) ? 1e4 : -viewPosFromDepthS(uv, d).z;
+}
 // subtle camera-lens response to the sun: soft glare, a few chromatic ghosts mirrored through the centre, halo ring
 vec3 lensFlare(vec2 uv) {
   float vis = texture(uSunVis, vec2(0.5)).r * uFlare;
@@ -102,7 +106,14 @@ float amp = sqrt(clamp(min(mnl, 1.0 - mxl) / max(mxl, 1e-4), 0.0, 1.0));
 float dz = texture(uDepthS, vUv).r;
 float zv = isSkyD(dz) ? 1e4 : - viewPosFromDepthS(vUv, dz).z;
 float distK = mix(1.0, 0.35, smoothstep(15.0, 120.0, zv));
-float dl = (4.0 * l0 - ln - ls - le_ - lw) * uSharpen * amp * 0.25 * distK;
+  // Do not sharpen across foreground silhouettes: the luma kernel otherwise makes a bright fringe on the character.
+float zn = viewDepthAt(vUv + vec2(0.0, uPx.y)), zs = viewDepthAt(vUv - vec2(0.0, uPx.y));
+float ze = viewDepthAt(vUv + vec2(uPx.x, 0.0)), zw = viewDepthAt(vUv - vec2(uPx.x, 0.0));
+float depthEdge = max(max(abs(zv - zn), abs(zv - zs)), max(abs(zv - ze), abs(zv - zw)));
+float edgeLo = max(0.035, zv * 0.02);
+float edgeHi = max(edgeLo + 0.04, zv * 0.06);
+float edgeSharpen = 1.0 - smoothstep(edgeLo, edgeHi, depthEdge);
+float dl = (4.0 * l0 - ln - ls - le_ - lw) * uSharpen * amp * 0.25 * distK * edgeSharpen;
 vec3 c = itmS(clamp(c0 * (1.0 + dl / max(l0, 1e-4)), 0.0, 0.999));
   // chromatic aberration (radial, very subtle)
 vec2 cao = d * dot(d, d) * uCA * 4.0 * smoothstep(0.3, 0.7, length(d * vec2(uAspect, 1.0))); // edges only
@@ -122,7 +133,7 @@ float o = float(k * k) * 0.0012, w = exp(- float(k) * 0.28);
       // (night r11) point sources only: minus 1.5x the 1/16-res local mean, so big bright screens (whose mean ~ their
       // radiance) don't smear a long pink bar across the frame; lamp heads / headlights (a few px) keep their streak
 vec2 ua = vUv + vec2(o, 0.0), ub = vUv - vec2(o, 0.0);
-vec3 a = texture(uStreakSrc, ua).rgb - 1.5 * texture(uStreakLo, ua).rgb, bb = texture(uStreakSrc, ub).rgb - 1.5 * texture(uStreakLo, ub).rgb;
+vec3 a = textureLod(uStreakSrc, ua, 0.0).rgb - 1.5 * textureLod(uStreakLo, ua, 0.0).rgb, bb = textureLod(uStreakSrc, ub, 0.0).rgb - 1.5 * textureLod(uStreakLo, ub, 0.0).rgb;
 st += (max(a - uStreakT, 0.0) + max(bb - uStreakT, 0.0)) * w;
 }
 c += dot(st, vec3(0.3, 0.5, 0.2)) * vec3(0.45, 0.62, 1.0) * uStreak;

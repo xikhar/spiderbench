@@ -80,8 +80,8 @@ export function applySuitFabric(root) {
   });
   if (!mat || mat.userData.__patches?.has("suitFabric")) return mat;
   if (!uniforms.uFabHex.value && loaded === 0) {
-    loadDetail(assetUrl("tex/suit_weave_hex.png"), "uFabHex");
-    loadDetail(assetUrl("tex/suit_weave_knit.png"), "uFabKnit");
+    loadDetail(assetUrl("player/suit_weave_hex.ktx2"), "uFabHex");
+    loadDetail(assetUrl("player/suit_weave_knit.ktx2"), "uFabKnit");
   }
   addShaderPatch(mat, "suitFabric", (sh) => {
     Object.assign(sh.uniforms, uniforms);
