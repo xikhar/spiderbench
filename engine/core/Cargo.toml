@@ -1,0 +1,14 @@
+[package]
+name = "engine-core"
+version = "0.1.0"
+edition = "2021"
+description = "Pure computation core for Spiderbench game optimizations."
+
+[lib]
+name = "engine_core"
+path = "src/lib.rs"
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"

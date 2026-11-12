@@ -1,8 +1,8 @@
 // OWNER: combat engineer. Combat HUD (DOM, pointer-events none): health bar with trailing damage, 3-segment focus bar,
 // combo counter, spider-sense edge arrows toward attackers, brute health bar, damage vignette, perfect-dodge banner,
 // controls hint strip at the start of a fight, transient messages.
-import * as THREE from 'three';
-import { clamp } from './util.js';
+import * as THREE from "three";
+import { clamp } from "./util.js";
 
 const CSS = `
 #cmb-hud{position:fixed;inset:0;pointer-events:none;z-index:25;font-family:var(--sys-head,'Barlow Condensed','Arial Narrow',sans-serif);color:#fff;opacity:0;transition:opacity .45s}
@@ -43,9 +43,15 @@ const CSS = `
 `;
 
 export function createHud(c) {
-  if (!document.getElementById('cmb-css')) { const st = document.createElement('style'); st.id = 'cmb-css'; st.textContent = CSS; document.head.appendChild(st); }
-  const root = document.createElement('div'); root.id = 'cmb-hud';
-  root.innerHTML = `
+    if (!document.getElementById("cmb-css")) {
+        const st = document.createElement("style");
+        st.id = "cmb-css";
+        st.textContent = CSS;
+        document.head.appendChild(st);
+    }
+    const root = document.createElement("div");
+    root.id = "cmb-hud";
+    root.innerHTML = `
     <div class="vig"></div><div class="slow"></div>
     <div class="bars"><div class="lbl"><span>HEALTH</span><span class="hpn">100</span></div>
       <div class="hp"><i class="trail"></i><i class="fill"></i></div>
@@ -56,69 +62,166 @@ export function createHud(c) {
     <div class="hint">
       <span><kbd>LMB</kbd>Attack</span><span><kbd>Hold LMB</kbd>Launch / Slam</span><span><kbd>C</kbd>Dodge</span><span><kbd>Space</kbd>Jump (evades)</span>
       <span><kbd>E</kbd>Web Strike</span><span><kbd>F</kbd>Web</span><span><kbd>R</kbd>Throw</span><span><kbd>Q</kbd>Finisher</span><span><kbd>Z</kbd>Heal</span></div>`;
-  document.body.appendChild(root);
-  const $ = s => root.querySelector(s);
-  const fill = $('.hp .fill'), trail = $('.hp .trail'), hpBox = $('.hp'), hpn = $('.hpn');
-  const segs = [...root.querySelectorAll('.focus b')];
-  const combo = $('.combo'), comboN = $('.combo .n span'), comboBar = $('.combo .bar');
-  const vig = $('.vig'), slow = $('.slow'), banner = $('.banner'), msg = $('.msg'), hint = $('.hint');
-  const arrows = $('.arrows'), ebars = $('.ebars');
-  const arrowEls = [], ebarEls = new Map();
-  let trailV = 1, vigV = 0, bannerT = 0, msgT = 0, hintT = 0, shown = false, lastHp = 100;
-  const _v = new THREE.Vector3();
+    document.body.appendChild(root);
+    const $ = (s) => root.querySelector(s);
+    const fill = $(".hp .fill"),
+        trail = $(".hp .trail"),
+        hpBox = $(".hp"),
+        hpn = $(".hpn");
+    const segs = [...root.querySelectorAll(".focus b")];
+    const combo = $(".combo"),
+        comboN = $(".combo .n span"),
+        comboBar = $(".combo .bar");
+    const vig = $(".vig"),
+        slow = $(".slow"),
+        banner = $(".banner"),
+        msg = $(".msg"),
+        hint = $(".hint");
+    const arrows = $(".arrows"),
+        ebars = $(".ebars");
+    const arrowEls = [],
+        ebarEls = new Map();
+    let trailV = 1,
+        vigV = 0,
+        bannerT = 0,
+        msgT = 0,
+        hintT = 0,
+        shown = false,
+        lastHp = 100;
+    const _v = new THREE.Vector3();
 
-  return {
-    show(on) { shown = on; root.classList.toggle('on', on); if (on) { hintT = 9; } },
-    hurt(k) { vigV = Math.min(1, vigV + 0.5 + k); },
-    banner(text) { banner.textContent = text; bannerT = 1.1; },
-    flash(text) { msg.textContent = text; msgT = 1.4; },
-    update(realDt, S) {
-      const me = c.spidey;
-      const hp = clamp(me.hp / me.maxHp, 0, 1);
-      fill.style.transform = `scaleX(${hp})`;
-      if (hp < trailV) trailV = Math.max(hp, trailV - realDt * (me.hp < lastHp ? 0 : 0.45)); else trailV = hp;
-      if (me.hp < lastHp) this._hold = 0.5; lastHp = me.hp;
-      this._hold = (this._hold || 0) - realDt; if (this._hold <= 0) trailV = Math.max(hp, trailV - realDt * 0.5);
-      trail.style.transform = `scaleX(${trailV})`;
-      hpBox.classList.toggle('low', hp < 0.3); hpn.textContent = Math.ceil(me.hp);
-      segs.forEach((b, i) => { const k = clamp(me.focus - i, 0, 1); b.firstChild.style.transform = `scaleX(${k})`; b.classList.toggle('full', k >= 1); });
-      // combo
-      const on = c.combo.n >= 2; combo.classList.toggle('on', on);
-      if (on) { comboN.textContent = c.combo.n; comboBar.style.transform = `scaleX(${clamp(1 - c.combo.t / 3.2, 0, 1)})`; }
-      vigV = Math.max(0, vigV - realDt * 1.6); vig.style.opacity = vigV.toFixed(3);
-      slow.style.opacity = c.slowK > 0.05 ? (c.slowK * 0.9).toFixed(2) : '0';
-      bannerT -= realDt; banner.classList.toggle('on', bannerT > 0);
-      msgT -= realDt; msg.classList.toggle('on', msgT > 0);
-      hintT -= realDt; hint.classList.toggle('on', shown && hintT > 0);
-      // spider-sense edge arrows (attackers the player may not see) + brute bars
-      const cam = c.ctx.camera, W = innerWidth, Hh = innerHeight;
-      const threats = S.threats;
-      while (arrowEls.length < threats.length) { const i = document.createElement('i'); arrows.appendChild(i); arrowEls.push(i); }
-      arrowEls.forEach((el, k) => {
-        const t = threats[k]; if (!t) { el.style.display = 'none'; return; }
-        const p = t.e.chest(_v).project(cam);
-        const behind = p.z > 1;
-        let x = p.x, y = p.y; if (behind) { x = -x; y = -y; }
-        const onScreen = !behind && Math.abs(x) < 0.85 && Math.abs(y) < 0.8;
-        const lvl = clamp(1 - (t.at - c.time) / 0.9, 0, 1);
-        if (onScreen || lvl <= 0) { el.style.display = 'none'; return; }
-        const a = Math.atan2(y, x); const r = Math.max(Math.abs(Math.cos(a)) / 0.9, Math.abs(Math.sin(a)) / 0.82);
-        const sx = (Math.cos(a) / r * 0.5 + 0.5) * W, sy = (1 - (Math.sin(a) / r * 0.5 + 0.5)) * Hh;
-        el.style.display = 'block'; el.style.color = t.kind === 'gun' ? '#ff4040' : '#ffd070';
-        el.style.opacity = (0.35 + 0.65 * lvl).toFixed(2);
-        el.style.transform = `translate(${sx}px,${sy}px) rotate(${-a}rad) scale(${0.8 + 0.5 * lvl})`;
-      });
-      for (const e of c.enemies) {
-        let el = ebarEls.get(e);
-        const want = e.type === 'brute' && e.alive;
-        if (!want) { if (el) el.style.opacity = 0; continue; }
-        if (!el) { el = document.createElement('div'); el.className = 'ebar'; el.innerHTML = '<i></i>'; ebars.appendChild(el); ebarEls.set(e, el); }
-        const p = e.headPos(_v); p.y += 0.45; p.project(cam);
-        if (p.z > 1 || Math.abs(p.x) > 1.1) { el.style.opacity = 0; continue; }
-        el.style.opacity = 1; el.style.transform = `translate(${(p.x * 0.5 + 0.5) * W}px,${(1 - (p.y * 0.5 + 0.5)) * Hh}px) skewX(-18deg)`;
-        el.firstChild.style.transform = `scaleX(${clamp(e.hp / e.maxHp, 0, 1)})`; el.classList.toggle('stun', e.stun > 0);
-      }
-      for (const [e, el] of ebarEls) if (!c.enemies.includes(e)) { el.remove(); ebarEls.delete(e); }
-    },
-  };
+    return {
+        show(on) {
+            shown = on;
+            root.classList.toggle("on", on);
+            if (on) {
+                hintT = 9;
+            }
+        },
+        hurt(k) {
+            vigV = Math.min(1, vigV + 0.5 + k);
+        },
+        banner(text) {
+            banner.textContent = text;
+            bannerT = 1.1;
+        },
+        flash(text) {
+            msg.textContent = text;
+            msgT = 1.4;
+        },
+        update(realDt, S) {
+            const me = c.spidey;
+            const hp = clamp(me.hp / me.maxHp, 0, 1);
+            fill.style.transform = `scaleX(${hp})`;
+            if (hp < trailV)
+                trailV = Math.max(
+                    hp,
+                    trailV - realDt * (me.hp < lastHp ? 0 : 0.45),
+                );
+            else trailV = hp;
+            if (me.hp < lastHp) this._hold = 0.5;
+            lastHp = me.hp;
+            this._hold = (this._hold || 0) - realDt;
+            if (this._hold <= 0) trailV = Math.max(hp, trailV - realDt * 0.5);
+            trail.style.transform = `scaleX(${trailV})`;
+            hpBox.classList.toggle("low", hp < 0.3);
+            hpn.textContent = Math.ceil(me.hp);
+            segs.forEach((b, i) => {
+                const k = clamp(me.focus - i, 0, 1);
+                b.firstChild.style.transform = `scaleX(${k})`;
+                b.classList.toggle("full", k >= 1);
+            });
+            // combo
+            const on = c.combo.n >= 2;
+            combo.classList.toggle("on", on);
+            if (on) {
+                comboN.textContent = c.combo.n;
+                comboBar.style.transform = `scaleX(${clamp(1 - c.combo.t / 3.2, 0, 1)})`;
+            }
+            vigV = Math.max(0, vigV - realDt * 1.6);
+            vig.style.opacity = vigV.toFixed(3);
+            slow.style.opacity =
+                c.slowK > 0.05 ? (c.slowK * 0.9).toFixed(2) : "0";
+            bannerT -= realDt;
+            banner.classList.toggle("on", bannerT > 0);
+            msgT -= realDt;
+            msg.classList.toggle("on", msgT > 0);
+            hintT -= realDt;
+            hint.classList.toggle("on", shown && hintT > 0);
+            // spider-sense edge arrows (attackers the player may not see) + brute bars
+            const cam = c.ctx.camera,
+                W = innerWidth,
+                Hh = innerHeight;
+            const threats = S.threats;
+            while (arrowEls.length < threats.length) {
+                const i = document.createElement("i");
+                arrows.appendChild(i);
+                arrowEls.push(i);
+            }
+            arrowEls.forEach((el, k) => {
+                const t = threats[k];
+                if (!t) {
+                    el.style.display = "none";
+                    return;
+                }
+                const p = t.e.chest(_v).project(cam);
+                const behind = p.z > 1;
+                let x = p.x,
+                    y = p.y;
+                if (behind) {
+                    x = -x;
+                    y = -y;
+                }
+                const onScreen =
+                    !behind && Math.abs(x) < 0.85 && Math.abs(y) < 0.8;
+                const lvl = clamp(1 - (t.at - c.time) / 0.9, 0, 1);
+                if (onScreen || lvl <= 0) {
+                    el.style.display = "none";
+                    return;
+                }
+                const a = Math.atan2(y, x);
+                const r = Math.max(
+                    Math.abs(Math.cos(a)) / 0.9,
+                    Math.abs(Math.sin(a)) / 0.82,
+                );
+                const sx = ((Math.cos(a) / r) * 0.5 + 0.5) * W,
+                    sy = (1 - ((Math.sin(a) / r) * 0.5 + 0.5)) * Hh;
+                el.style.display = "block";
+                el.style.color = t.kind === "gun" ? "#ff4040" : "#ffd070";
+                el.style.opacity = (0.35 + 0.65 * lvl).toFixed(2);
+                el.style.transform = `translate(${sx}px,${sy}px) rotate(${-a}rad) scale(${0.8 + 0.5 * lvl})`;
+            });
+            for (const e of c.enemies) {
+                let el = ebarEls.get(e);
+                const want = e.type === "brute" && e.alive;
+                if (!want) {
+                    if (el) el.style.opacity = 0;
+                    continue;
+                }
+                if (!el) {
+                    el = document.createElement("div");
+                    el.className = "ebar";
+                    el.innerHTML = "<i></i>";
+                    ebars.appendChild(el);
+                    ebarEls.set(e, el);
+                }
+                const p = e.headPos(_v);
+                p.y += 0.45;
+                p.project(cam);
+                if (p.z > 1 || Math.abs(p.x) > 1.1) {
+                    el.style.opacity = 0;
+                    continue;
+                }
+                el.style.opacity = 1;
+                el.style.transform = `translate(${(p.x * 0.5 + 0.5) * W}px,${(1 - (p.y * 0.5 + 0.5)) * Hh}px) skewX(-18deg)`;
+                el.firstChild.style.transform = `scaleX(${clamp(e.hp / e.maxHp, 0, 1)})`;
+                el.classList.toggle("stun", e.stun > 0);
+            }
+            for (const [e, el] of ebarEls)
+                if (!c.enemies.includes(e)) {
+                    el.remove();
+                    ebarEls.delete(e);
+                }
+        },
+    };
 }

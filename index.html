@@ -1,160 +1,641 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Spiderbench</title>
-<link rel="icon" href="data:," />
-<link rel="preload" as="image" href="/assets/loading/01.webp" fetchpriority="high" />
-<link rel="stylesheet" id="sys-fonts" href="/assets/ui/fonts/fonts.css" /><!-- the one fonts.css link (src/ui/fonts.js loadFonts() keeps it single) -->
-<style>
-html,body{margin:0;height:100%;overflow:hidden;background:#000}canvas{display:block}
-/* ---- loading screen (shown before any script runs; driven by window.__boot, see below) ----
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>Spiderbench</title>
+        <link rel="icon" href="data:," />
+        <link
+            rel="preload"
+            as="image"
+            href="/assets/loading/01.webp"
+            fetchpriority="high"
+        />
+        <link
+            rel="stylesheet"
+            id="sys-fonts"
+            href="/assets/ui/fonts/fonts.css"
+        />
+        <!-- the one fonts.css link (src/ui/fonts.js loadFonts() keeps it single) -->
+        <style>
+            html,
+            body {
+                margin: 0;
+                height: 100%;
+                overflow: hidden;
+                background: #000;
+            }
+            canvas {
+                display: block;
+            }
+            /* ---- loading screen (shown before any script runs; driven by window.__boot, see below) ----
    Everything that moves is transform / opacity, so it keeps animating on the compositor while the city build blocks
    the main thread: the slideshow is pure CSS keyframes, the bar a long CSS transition toward the expected end of the
    current stage (durations remembered from the previous load on this machine). */
-#boot{--red:#e3262f;position:fixed;inset:0;z-index:1000;background:#040509;color:#f4f6fb;overflow:hidden;
-  font-family:'Spiderbench Sans',Manrope,system-ui,sans-serif;transition:opacity .9s ease;cursor:progress;user-select:none}
-#boot.out{opacity:0;pointer-events:none}
-#boot .slides{position:absolute;inset:0}
-#boot figure{position:absolute;inset:0;margin:0;opacity:0;animation:bootFade var(--T) linear infinite;animation-delay:calc(var(--i) * var(--S))}
-#boot figure img{position:absolute;inset:-2%;width:104%;height:104%;object-fit:cover;animation:bootKB var(--T) linear infinite;
-  animation-delay:calc(var(--i) * var(--S));transform-origin:var(--o,50% 50%);will-change:transform}
-#boot figure:nth-child(even) img{animation-name:bootKB2}
-#boot figcaption{position:absolute;right:clamp(20px,4vw,64px);top:clamp(20px,4.5vh,54px);font:800 12px/1 'Spiderbench Sans',sans-serif;
-  letter-spacing:.42em;text-transform:uppercase;color:rgba(244,246,251,.9);display:flex;align-items:center;gap:12px;
-  text-shadow:0 1px 2px rgba(0,0,0,.55),0 0 18px rgba(0,0,0,.45)}
-#boot figcaption::before{content:'';width:26px;height:1px;background:rgba(244,246,251,.7);box-shadow:0 0 6px rgba(0,0,0,.5)}
-/* each slide: fade in 1.2 s, hold, fade out while the next one fades in (N slides x S s, loop) */
-@keyframes bootFade{0%{opacity:0}3.2%{opacity:1}16.7%{opacity:1}19.9%{opacity:0}100%{opacity:0}}
-@keyframes bootKB{0%{transform:scale(1.10) translate3d(1.2%,.6%,0)}20%{transform:scale(1.0) translate3d(-.6%,-.3%,0)}100%{transform:scale(1.0) translate3d(-.6%,-.3%,0)}}
-@keyframes bootKB2{0%{transform:scale(1.0) translate3d(-1%,.4%,0)}20%{transform:scale(1.09) translate3d(.8%,-.5%,0)}100%{transform:scale(1.09) translate3d(.8%,-.5%,0)}}
-/* legibility shading lives in each slide, under its caption (a global layer above the slides dimmed the captions) */
-#boot figure::after{content:'';position:absolute;inset:0;background:
-  linear-gradient(0deg,rgba(3,4,9,.92) 0%,rgba(3,4,9,.55) 18%,rgba(3,4,9,0) 42%),
-  linear-gradient(180deg,rgba(3,4,9,.5) 0%,rgba(3,4,9,0) 20%),
-  radial-gradient(ellipse at 50% 45%,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%)}
-#boot figcaption{z-index:1}
-#boot .grain{position:absolute;inset:-50%;opacity:.07;mix-blend-mode:overlay;animation:bootGrain .9s steps(6) infinite;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
-@keyframes bootGrain{0%{transform:translate3d(0,0,0)}20%{transform:translate3d(-6%,4%,0)}40%{transform:translate3d(5%,-7%,0)}60%{transform:translate3d(-3%,8%,0)}80%{transform:translate3d(7%,2%,0)}100%{transform:translate3d(0,0,0)}}
-#boot .ui{position:absolute;left:clamp(20px,4vw,64px);right:clamp(20px,4vw,64px);bottom:clamp(26px,6vh,64px)}
-#boot .brand{display:flex;align-items:flex-end;gap:16px;margin-bottom:clamp(18px,3.2vh,30px)}
-#boot .brand b{font:800 clamp(44px,7vw,92px)/.82 'Spiderbench Condensed','Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.01em;
-  text-shadow:0 6px 30px rgba(0,0,0,.45)}
-#boot .brand b i{font-style:normal;color:var(--red)}
-#boot .brand span{font:700 11px/1.5 'Spiderbench Sans',sans-serif;letter-spacing:.42em;text-transform:uppercase;color:rgba(244,246,251,.6);
-  padding-bottom:.35em;border-left:1px solid rgba(244,246,251,.3);padding-left:14px}
-#boot .row{display:flex;justify-content:space-between;align-items:baseline;font:600 12px/1 'Spiderbench Sans',sans-serif;
-  letter-spacing:.3em;text-transform:uppercase;color:rgba(244,246,251,.82);margin-bottom:12px}
-#boot .row .lbl{transition:opacity .25s}
-#boot .msg{display:none;margin-top:12px;font:500 13px/1.45 'Spiderbench Sans',sans-serif;color:rgba(244,246,251,.78);max-width:min(720px,100%);overflow-wrap:anywhere}
-#boot.err .msg{display:block}
-#boot.err .row{color:#ff8a8f}#boot.err .row .dots,#boot.err .bar b{display:none}#boot.err .bar i{background:#9e1017}
-#boot .row .dots i{display:inline-block;width:4px;height:4px;margin-left:6px;border-radius:50%;background:currentColor;opacity:.25;
-  animation:bootDot 1.2s ease-in-out infinite}
-#boot .row .dots i:nth-child(2){animation-delay:.2s}#boot .row .dots i:nth-child(3){animation-delay:.4s}
-@keyframes bootDot{0%,100%{opacity:.2;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
-#boot .bar{position:relative;height:2px;background:rgba(244,246,251,.14);overflow:hidden}
-#boot .bar i{position:absolute;inset:0;transform-origin:0 50%;transform:scaleX(0);will-change:transform;
-  background:linear-gradient(90deg,#9e1017,var(--red) 70%,#ff6a70)}
-#boot .bar b{position:absolute;top:0;bottom:0;width:18%;left:-18%;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.55),rgba(255,255,255,0));
-  animation:bootSheen 1.8s ease-in-out infinite;will-change:transform}
-@keyframes bootSheen{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(660%,0,0)}}
-@media (prefers-reduced-motion:reduce){#boot figure img,#boot .grain,#boot .bar b,#boot .row .dots i{animation:none}}
-</style>
-</head>
-<body>
-<div id="boot" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-  <div class="slides" style="--T:36s;--S:6s">
-    <!-- in-game stills, no UI, graded by tools/loading_grade.py (captured with tools/loading_shots.mjs) -->
-    <figure style="--i:0;--o:45% 40%"><img src="/assets/loading/01.webp" alt="" decoding="async" /><figcaption>Midtown · Golden hour</figcaption></figure>
-    <figure style="--i:1;--o:48% 45%"><img src="/assets/loading/02.webp" alt="" decoding="async" /><figcaption>Times Square · Night</figcaption></figure>
-    <figure style="--i:2;--o:70% 60%"><img src="/assets/loading/03.webp" alt="" decoding="async" /><figcaption>Brooklyn Bridge · Sunrise</figcaption></figure>
-    <figure style="--i:3;--o:55% 60%"><img src="/assets/loading/04.webp" alt="" decoding="async" /><figcaption>Central Park · Morning</figcaption></figure>
-    <figure style="--i:4;--o:52% 55%"><img src="/assets/loading/05.webp" alt="" decoding="async" /><figcaption>Midtown · Noon</figcaption></figure>
-    <figure style="--i:5;--o:60% 65%"><img src="/assets/loading/06.webp" alt="" decoding="async" /><figcaption>East River · Dusk</figcaption></figure>
-  </div>
-  <div class="grain"></div>
-  <div class="ui">
-    <div class="brand"><b>SPIDERBENCH<i>.</i></b><span>Manhattan</span></div>
-    <div class="row"><span class="lbl">Starting</span><span class="dots"><i></i><i></i><i></i></span></div>
-    <div class="bar"><i></i><b></b></div>
-    <div class="msg" role="alert"></div>
-  </div>
-</div>
-<script>
-// Boot progress (window.__boot), used by src/main.js and src/world/city.js:
-//   __boot.stage(name) -> Promise (resolves after the label painted)   __boot.sub(0..1) progress inside the stage
-//   __boot.done()      fade out and remove
-// Stage durations are remembered per machine (localStorage 'spiderbench.boot'): the bar eases toward the expected end of the
-// current stage on the compositor, so it keeps moving while a stage blocks the main thread. ?shot / ?playtest: no screen.
-(() => {
-  const el = document.getElementById('boot');
-  const q = new URLSearchParams(location.search);
-  const noop = () => Promise.resolve();
-  if (q.has('shot') || q.has('playtest') || q.has('noboot')) { el.remove(); window.__boot = { stage: noop, sub() {}, done() {} }; return; }
-  const LABELS = { boot: 'Starting', tex: 'Loading textures', gen: 'Laying out the streets', build: 'Raising the skyline',
-    ground: 'Paving the streets', props: 'Parking the traffic', life: 'Bringing the city to life', coll: 'Mapping every surface',
-    player: 'Suiting up', shaders: 'Compiling shaders', frame: 'Swinging in' };
-  const ORDER = Object.keys(LABELS);
-  // defaults (ms) measured on the dev machine; replaced by this machine's last load
-  const DEF = { boot: 1400, tex: 800, gen: 4600, build: 7200, ground: 2300, props: 1300, life: 1250, coll: 2400, player: 800, shaders: 8200, frame: 3600 };
-  let T = { ...DEF }; try { Object.assign(T, JSON.parse(localStorage.getItem('spiderbench.boot') || localStorage.getItem('spidey.boot') || '{}')); localStorage.removeItem('spidey.boot'); } catch (e) { /* private mode */ }
-  const total = ORDER.reduce((s, k) => s + T[k], 0);
-  const startOf = k => ORDER.slice(0, ORDER.indexOf(k)).reduce((s, n) => s + T[n], 0) / total;
-  const bar = el.querySelector('.bar i'), lbl = el.querySelector('.lbl');
-  const seen = {}; let cur = null, curAt = 0, frac = 0, act = 0; // act: last sign of progress (stage or sub)
-  const set = (f, ms, ease) => { frac = Math.max(frac, Math.min(1, f)); bar.style.transition = `transform ${ms | 0}ms ${ease}`; bar.style.transform = `scaleX(${frac.toFixed(4)})`; el.setAttribute('aria-valuenow', Math.round(frac * 100)); };
-  // let the label / bar paint before the next blocking step: two frames, but never wait on rAF in a background tab (it does
-  // not run there and the load would stall until the tab is shown), and never more than 250 ms
-  const raf2 = () => new Promise(r => {
-    if (document.hidden) { setTimeout(r, 0); return; }
-    let done = false; const go = () => { if (!done) { done = true; r(); } };
-    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(go, 0))); setTimeout(go, 250);
-  });
-  function stage(name) {
-    const now = performance.now();
-    if (cur) seen[cur] = now - curAt;
-    cur = name; curAt = act = now;
-    if (!(name in LABELS)) return raf2();
-    lbl.textContent = LABELS[name];
-    const s = startOf(name), e = s + T[name] / total;
-    set(s, 260, 'ease-out');                                               // catch up to the stage start
-    requestAnimationFrame(() => set(s + (e - s) * 0.94, T[name] * 1.15, 'cubic-bezier(.3,.6,.4,1)')); // then creep toward its end
-    return raf2();
-  }
-  function sub(k) { // measured progress inside the current stage (shader links)
-    if (!cur || !(cur in LABELS)) return;
-    act = performance.now();
-    const s = startOf(cur), e = s + T[cur] / total;
-    set(s + (e - s) * Math.max(0, Math.min(1, k)), 180, 'ease-out');
-  }
-  let finished = false;
-  function done() {
-    if (finished) return; finished = true;
-    if (cur) seen[cur] = performance.now() - curAt;
-    try { const m = {}; for (const k of ORDER) m[k] = Math.round(seen[k] != null ? (T[k] + 2 * seen[k]) / 3 : T[k]); localStorage.setItem('spiderbench.boot', JSON.stringify(m)); } catch (e) { /* ignore */ }
-    set(1, 300, 'ease-out');
-    setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 1000); }, 350);
-  }
-  window.__boot = { stage, sub, done, get timings() { return { ...seen }; } };
-  // a failed start never leaves the screen loading forever. The error message is shown on the screen: at once when it is
-  // certainly fatal (no WebGL, a script that failed to load, anything before the first loading stage), otherwise after
-  // 8 s without any progress (a harmless error in an optional module while loading carries on is ignored)
-  const msgEl = el.querySelector('.msg');
-  const showErr = m => { if (finished) return; el.classList.add('err'); lbl.textContent = 'Could not start'; msgEl.textContent = (m || 'Unknown error') + ' — details in the browser console'; };
-  const fail = (m, fatal) => { if (finished) return; if (fatal || cur === 'boot') { showErr(m); return; } const at = act; setTimeout(() => { if (act === at) showErr(m); }, 8000); };
-  const msgOf = e => String(e?.message || e || '').slice(0, 240);
-  addEventListener('error', e => {
-    if (e.target && e.target !== window && e.target.tagName === 'SCRIPT') { fail('Could not load ' + (e.target.src || 'a script'), true); return; }
-    if (e.target === window || !e.target) { const m = msgOf(e.error) || msgOf(e); fail(m, /webgl|context/i.test(m)); }
-  }, true);
-  addEventListener('unhandledrejection', e => { const m = msgOf(e.reason); fail(m, /webgl|context/i.test(m)); });
-  stage('boot');
-})();
-</script>
-<div id="hud"></div>
-<script type="module" src="/src/main.js"></script>
-</body>
+            #boot {
+                --red: #e3262f;
+                position: fixed;
+                inset: 0;
+                z-index: 1000;
+                background: #040509;
+                color: #f4f6fb;
+                overflow: hidden;
+                font-family: "Spiderbench Sans", Manrope, system-ui, sans-serif;
+                transition: opacity 0.9s ease;
+                cursor: progress;
+                user-select: none;
+            }
+            #boot.out {
+                opacity: 0;
+                pointer-events: none;
+            }
+            #boot .slides {
+                position: absolute;
+                inset: 0;
+            }
+            #boot figure {
+                position: absolute;
+                inset: 0;
+                margin: 0;
+                opacity: 0;
+                animation: bootFade var(--T) linear infinite;
+                animation-delay: calc(var(--i) * var(--S));
+            }
+            #boot figure img {
+                position: absolute;
+                inset: -2%;
+                width: 104%;
+                height: 104%;
+                object-fit: cover;
+                animation: bootKB var(--T) linear infinite;
+                animation-delay: calc(var(--i) * var(--S));
+                transform-origin: var(--o, 50% 50%);
+                will-change: transform;
+            }
+            #boot figure:nth-child(even) img {
+                animation-name: bootKB2;
+            }
+            #boot figcaption {
+                position: absolute;
+                right: clamp(20px, 4vw, 64px);
+                top: clamp(20px, 4.5vh, 54px);
+                font:
+                    800 12px/1 "Spiderbench Sans",
+                    sans-serif;
+                letter-spacing: 0.42em;
+                text-transform: uppercase;
+                color: rgba(244, 246, 251, 0.9);
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                text-shadow:
+                    0 1px 2px rgba(0, 0, 0, 0.55),
+                    0 0 18px rgba(0, 0, 0, 0.45);
+            }
+            #boot figcaption::before {
+                content: "";
+                width: 26px;
+                height: 1px;
+                background: rgba(244, 246, 251, 0.7);
+                box-shadow: 0 0 6px rgba(0, 0, 0, 0.5);
+            }
+            /* each slide: fade in 1.2 s, hold, fade out while the next one fades in (N slides x S s, loop) */
+            @keyframes bootFade {
+                0% {
+                    opacity: 0;
+                }
+                3.2% {
+                    opacity: 1;
+                }
+                16.7% {
+                    opacity: 1;
+                }
+                19.9% {
+                    opacity: 0;
+                }
+                100% {
+                    opacity: 0;
+                }
+            }
+            @keyframes bootKB {
+                0% {
+                    transform: scale(1.1) translate3d(1.2%, 0.6%, 0);
+                }
+                20% {
+                    transform: scale(1) translate3d(-0.6%, -0.3%, 0);
+                }
+                100% {
+                    transform: scale(1) translate3d(-0.6%, -0.3%, 0);
+                }
+            }
+            @keyframes bootKB2 {
+                0% {
+                    transform: scale(1) translate3d(-1%, 0.4%, 0);
+                }
+                20% {
+                    transform: scale(1.09) translate3d(0.8%, -0.5%, 0);
+                }
+                100% {
+                    transform: scale(1.09) translate3d(0.8%, -0.5%, 0);
+                }
+            }
+            /* legibility shading lives in each slide, under its caption (a global layer above the slides dimmed the captions) */
+            #boot figure::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                background:
+                    linear-gradient(
+                        0deg,
+                        rgba(3, 4, 9, 0.92) 0%,
+                        rgba(3, 4, 9, 0.55) 18%,
+                        rgba(3, 4, 9, 0) 42%
+                    ),
+                    linear-gradient(
+                        180deg,
+                        rgba(3, 4, 9, 0.5) 0%,
+                        rgba(3, 4, 9, 0) 20%
+                    ),
+                    radial-gradient(
+                        ellipse at 50% 45%,
+                        rgba(0, 0, 0, 0) 55%,
+                        rgba(0, 0, 0, 0.55) 100%
+                    );
+            }
+            #boot figcaption {
+                z-index: 1;
+            }
+            #boot .grain {
+                position: absolute;
+                inset: -50%;
+                opacity: 0.07;
+                mix-blend-mode: overlay;
+                animation: bootGrain 0.9s steps(6) infinite;
+                background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+            }
+            @keyframes bootGrain {
+                0% {
+                    transform: translate3d(0, 0, 0);
+                }
+                20% {
+                    transform: translate3d(-6%, 4%, 0);
+                }
+                40% {
+                    transform: translate3d(5%, -7%, 0);
+                }
+                60% {
+                    transform: translate3d(-3%, 8%, 0);
+                }
+                80% {
+                    transform: translate3d(7%, 2%, 0);
+                }
+                100% {
+                    transform: translate3d(0, 0, 0);
+                }
+            }
+            #boot .ui {
+                position: absolute;
+                left: clamp(20px, 4vw, 64px);
+                right: clamp(20px, 4vw, 64px);
+                bottom: clamp(26px, 6vh, 64px);
+            }
+            #boot .brand {
+                display: flex;
+                align-items: flex-end;
+                gap: 16px;
+                margin-bottom: clamp(18px, 3.2vh, 30px);
+            }
+            #boot .brand b {
+                font:
+                    800 clamp(44px, 7vw, 92px)/0.82 "Spiderbench Condensed",
+                    "Barlow Condensed",
+                    "Arial Narrow",
+                    sans-serif;
+                letter-spacing: 0.01em;
+                text-shadow: 0 6px 30px rgba(0, 0, 0, 0.45);
+            }
+            #boot .brand b i {
+                font-style: normal;
+                color: var(--red);
+            }
+            #boot .brand span {
+                font:
+                    700 11px/1.5 "Spiderbench Sans",
+                    sans-serif;
+                letter-spacing: 0.42em;
+                text-transform: uppercase;
+                color: rgba(244, 246, 251, 0.6);
+                padding-bottom: 0.35em;
+                border-left: 1px solid rgba(244, 246, 251, 0.3);
+                padding-left: 14px;
+            }
+            #boot .row {
+                display: flex;
+                justify-content: space-between;
+                align-items: baseline;
+                font:
+                    600 12px/1 "Spiderbench Sans",
+                    sans-serif;
+                letter-spacing: 0.3em;
+                text-transform: uppercase;
+                color: rgba(244, 246, 251, 0.82);
+                margin-bottom: 12px;
+            }
+            #boot .row .lbl {
+                transition: opacity 0.25s;
+            }
+            #boot .msg {
+                display: none;
+                margin-top: 12px;
+                font:
+                    500 13px/1.45 "Spiderbench Sans",
+                    sans-serif;
+                color: rgba(244, 246, 251, 0.78);
+                max-width: min(720px, 100%);
+                overflow-wrap: anywhere;
+            }
+            #boot.err .msg {
+                display: block;
+            }
+            #boot.err .row {
+                color: #ff8a8f;
+            }
+            #boot.err .row .dots,
+            #boot.err .bar b {
+                display: none;
+            }
+            #boot.err .bar i {
+                background: #9e1017;
+            }
+            #boot .row .dots i {
+                display: inline-block;
+                width: 4px;
+                height: 4px;
+                margin-left: 6px;
+                border-radius: 50%;
+                background: currentColor;
+                opacity: 0.25;
+                animation: bootDot 1.2s ease-in-out infinite;
+            }
+            #boot .row .dots i:nth-child(2) {
+                animation-delay: 0.2s;
+            }
+            #boot .row .dots i:nth-child(3) {
+                animation-delay: 0.4s;
+            }
+            @keyframes bootDot {
+                0%,
+                100% {
+                    opacity: 0.2;
+                    transform: translateY(0);
+                }
+                50% {
+                    opacity: 1;
+                    transform: translateY(-3px);
+                }
+            }
+            #boot .bar {
+                position: relative;
+                height: 2px;
+                background: rgba(244, 246, 251, 0.14);
+                overflow: hidden;
+            }
+            #boot .bar i {
+                position: absolute;
+                inset: 0;
+                transform-origin: 0 50%;
+                transform: scaleX(0);
+                will-change: transform;
+                background: linear-gradient(
+                    90deg,
+                    #9e1017,
+                    var(--red) 70%,
+                    #ff6a70
+                );
+            }
+            #boot .bar b {
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                width: 18%;
+                left: -18%;
+                background: linear-gradient(
+                    90deg,
+                    rgba(255, 255, 255, 0),
+                    rgba(255, 255, 255, 0.55),
+                    rgba(255, 255, 255, 0)
+                );
+                animation: bootSheen 1.8s ease-in-out infinite;
+                will-change: transform;
+            }
+            @keyframes bootSheen {
+                0% {
+                    transform: translate3d(0, 0, 0);
+                }
+                100% {
+                    transform: translate3d(660%, 0, 0);
+                }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                #boot figure img,
+                #boot .grain,
+                #boot .bar b,
+                #boot .row .dots i {
+                    animation: none;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div
+            id="boot"
+            role="progressbar"
+            aria-label="Loading"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="0"
+        >
+            <div class="slides" style="--T: 36s; --S: 6s">
+                <!-- in-game stills, no UI, graded by tools/loading_grade.py (captured with tools/loading_shots.mjs) -->
+                <figure style="--i: 0; --o: 45% 40%">
+                    <img
+                        src="/assets/loading/01.webp"
+                        alt=""
+                        decoding="async"
+                    />
+                    <figcaption>Midtown · Golden hour</figcaption>
+                </figure>
+                <figure style="--i: 1; --o: 48% 45%">
+                    <img
+                        src="/assets/loading/02.webp"
+                        alt=""
+                        decoding="async"
+                    />
+                    <figcaption>Times Square · Night</figcaption>
+                </figure>
+                <figure style="--i: 2; --o: 70% 60%">
+                    <img
+                        src="/assets/loading/03.webp"
+                        alt=""
+                        decoding="async"
+                    />
+                    <figcaption>Brooklyn Bridge · Sunrise</figcaption>
+                </figure>
+                <figure style="--i: 3; --o: 55% 60%">
+                    <img
+                        src="/assets/loading/04.webp"
+                        alt=""
+                        decoding="async"
+                    />
+                    <figcaption>Central Park · Morning</figcaption>
+                </figure>
+                <figure style="--i: 4; --o: 52% 55%">
+                    <img
+                        src="/assets/loading/05.webp"
+                        alt=""
+                        decoding="async"
+                    />
+                    <figcaption>Midtown · Noon</figcaption>
+                </figure>
+                <figure style="--i: 5; --o: 60% 65%">
+                    <img
+                        src="/assets/loading/06.webp"
+                        alt=""
+                        decoding="async"
+                    />
+                    <figcaption>East River · Dusk</figcaption>
+                </figure>
+            </div>
+            <div class="grain"></div>
+            <div class="ui">
+                <div class="brand">
+                    <b>SPIDERBENCH<i>.</i></b
+                    ><span>Manhattan</span>
+                </div>
+                <div class="row">
+                    <span class="lbl">Starting</span
+                    ><span class="dots"><i></i><i></i><i></i></span>
+                </div>
+                <div class="bar"><i></i><b></b></div>
+                <div class="msg" role="alert"></div>
+            </div>
+        </div>
+        <script>
+            // Boot progress (window.__boot), used by src/main.js and src/world/city.js:
+            //   __boot.stage(name) -> Promise (resolves after the label painted)   __boot.sub(0..1) progress inside the stage
+            //   __boot.done()      fade out and remove
+            // Stage durations are remembered per machine (localStorage 'spiderbench.boot'): the bar eases toward the expected end of the
+            // current stage on the compositor, so it keeps moving while a stage blocks the main thread. ?shot / ?playtest: no screen.
+            (() => {
+                const el = document.getElementById("boot");
+                const q = new URLSearchParams(location.search);
+                const noop = () => Promise.resolve();
+                if (q.has("shot") || q.has("playtest") || q.has("noboot")) {
+                    el.remove();
+                    window.__boot = { stage: noop, sub() {}, done() {} };
+                    return;
+                }
+                const LABELS = {
+                    boot: "Starting",
+                    tex: "Loading textures",
+                    gen: "Laying out the streets",
+                    build: "Raising the skyline",
+                    ground: "Paving the streets",
+                    props: "Parking the traffic",
+                    life: "Bringing the city to life",
+                    coll: "Mapping every surface",
+                    player: "Suiting up",
+                    shaders: "Compiling shaders",
+                    frame: "Swinging in",
+                };
+                const ORDER = Object.keys(LABELS);
+                // defaults (ms) measured on the dev machine; replaced by this machine's last load
+                const DEF = {
+                    boot: 1400,
+                    tex: 800,
+                    gen: 4600,
+                    build: 7200,
+                    ground: 2300,
+                    props: 1300,
+                    life: 1250,
+                    coll: 2400,
+                    player: 800,
+                    shaders: 8200,
+                    frame: 3600,
+                };
+                let T = { ...DEF };
+                try {
+                    Object.assign(
+                        T,
+                        JSON.parse(
+                            localStorage.getItem("spiderbench.boot") ||
+                                localStorage.getItem("spidey.boot") ||
+                                "{}",
+                        ),
+                    );
+                    localStorage.removeItem("spidey.boot");
+                } catch (e) {
+                    /* private mode */
+                }
+                const total = ORDER.reduce((s, k) => s + T[k], 0);
+                const startOf = (k) =>
+                    ORDER.slice(0, ORDER.indexOf(k)).reduce(
+                        (s, n) => s + T[n],
+                        0,
+                    ) / total;
+                const bar = el.querySelector(".bar i"),
+                    lbl = el.querySelector(".lbl");
+                const seen = {};
+                let cur = null,
+                    curAt = 0,
+                    frac = 0,
+                    act = 0; // act: last sign of progress (stage or sub)
+                const set = (f, ms, ease) => {
+                    frac = Math.max(frac, Math.min(1, f));
+                    bar.style.transition = `transform ${ms | 0}ms ${ease}`;
+                    bar.style.transform = `scaleX(${frac.toFixed(4)})`;
+                    el.setAttribute("aria-valuenow", Math.round(frac * 100));
+                };
+                // let the label / bar paint before the next blocking step: two frames, but never wait on rAF in a background tab (it does
+                // not run there and the load would stall until the tab is shown), and never more than 250 ms
+                const raf2 = () =>
+                    new Promise((r) => {
+                        if (document.hidden) {
+                            setTimeout(r, 0);
+                            return;
+                        }
+                        let done = false;
+                        const go = () => {
+                            if (!done) {
+                                done = true;
+                                r();
+                            }
+                        };
+                        requestAnimationFrame(() =>
+                            requestAnimationFrame(() => setTimeout(go, 0)),
+                        );
+                        setTimeout(go, 250);
+                    });
+                function stage(name) {
+                    const now = performance.now();
+                    if (cur) seen[cur] = now - curAt;
+                    cur = name;
+                    curAt = act = now;
+                    if (!(name in LABELS)) return raf2();
+                    lbl.textContent = LABELS[name];
+                    const s = startOf(name),
+                        e = s + T[name] / total;
+                    set(s, 260, "ease-out"); // catch up to the stage start
+                    requestAnimationFrame(() =>
+                        set(
+                            s + (e - s) * 0.94,
+                            T[name] * 1.15,
+                            "cubic-bezier(.3,.6,.4,1)",
+                        ),
+                    ); // then creep toward its end
+                    return raf2();
+                }
+                function sub(k) {
+                    // measured progress inside the current stage (shader links)
+                    if (!cur || !(cur in LABELS)) return;
+                    act = performance.now();
+                    const s = startOf(cur),
+                        e = s + T[cur] / total;
+                    set(
+                        s + (e - s) * Math.max(0, Math.min(1, k)),
+                        180,
+                        "ease-out",
+                    );
+                }
+                let finished = false;
+                function done() {
+                    if (finished) return;
+                    finished = true;
+                    if (cur) seen[cur] = performance.now() - curAt;
+                    try {
+                        const m = {};
+                        for (const k of ORDER)
+                            m[k] = Math.round(
+                                seen[k] != null
+                                    ? (T[k] + 2 * seen[k]) / 3
+                                    : T[k],
+                            );
+                        localStorage.setItem(
+                            "spiderbench.boot",
+                            JSON.stringify(m),
+                        );
+                    } catch (e) {
+                        /* ignore */
+                    }
+                    set(1, 300, "ease-out");
+                    setTimeout(() => {
+                        el.classList.add("out");
+                        setTimeout(() => el.remove(), 1000);
+                    }, 350);
+                }
+                window.__boot = {
+                    stage,
+                    sub,
+                    done,
+                    get timings() {
+                        return { ...seen };
+                    },
+                };
+                // a failed start never leaves the screen loading forever. The error message is shown on the screen: at once when it is
+                // certainly fatal (no WebGL, a script that failed to load, anything before the first loading stage), otherwise after
+                // 8 s without any progress (a harmless error in an optional module while loading carries on is ignored)
+                const msgEl = el.querySelector(".msg");
+                const showErr = (m) => {
+                    if (finished) return;
+                    el.classList.add("err");
+                    lbl.textContent = "Could not start";
+                    msgEl.textContent =
+                        (m || "Unknown error") +
+                        " — details in the browser console";
+                };
+                const fail = (m, fatal) => {
+                    if (finished) return;
+                    if (fatal || cur === "boot") {
+                        showErr(m);
+                        return;
+                    }
+                    const at = act;
+                    setTimeout(() => {
+                        if (act === at) showErr(m);
+                    }, 8000);
+                };
+                const msgOf = (e) =>
+                    String(e?.message || e || "").slice(0, 240);
+                addEventListener(
+                    "error",
+                    (e) => {
+                        if (
+                            e.target &&
+                            e.target !== window &&
+                            e.target.tagName === "SCRIPT"
+                        ) {
+                            fail(
+                                "Could not load " +
+                                    (e.target.src || "a script"),
+                                true,
+                            );
+                            return;
+                        }
+                        if (e.target === window || !e.target) {
+                            const m = msgOf(e.error) || msgOf(e);
+                            fail(m, /webgl|context/i.test(m));
+                        }
+                    },
+                    true,
+                );
+                addEventListener("unhandledrejection", (e) => {
+                    const m = msgOf(e.reason);
+                    fail(m, /webgl|context/i.test(m));
+                });
+                stage("boot");
+            })();
+        </script>
+        <div id="hud"></div>
+        <script type="module" src="/src/main.js"></script>
+    </body>
 </html>

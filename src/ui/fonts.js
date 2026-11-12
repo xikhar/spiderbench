@@ -3,8 +3,10 @@
 // loadFonts(), which adds it only when it is missing. (A second link to the same @font-face rules makes Safari reload
 // the fonts and blank the text that uses them for a moment.)
 export function loadFonts() {
-  if (document.getElementById('sys-fonts')) return;
-  const l = document.createElement('link'); l.id = 'sys-fonts'; l.rel = 'stylesheet';
-  l.href = (import.meta.env?.BASE_URL || '/') + 'assets/ui/fonts/fonts.css';
-  document.head.appendChild(l);
+    if (document.getElementById("sys-fonts")) return;
+    const l = document.createElement("link");
+    l.id = "sys-fonts";
+    l.rel = "stylesheet";
+    l.href = (import.meta.env?.BASE_URL || "/") + "assets/ui/fonts/fonts.css";
+    document.head.appendChild(l);
 }

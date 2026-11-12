@@ -12,33 +12,51 @@
 //     irradiance' = mix(luma, irr, sat) * tint + bounce * (0.5 - 0.5 * n.y)^1.5-ish   (GI approximation:
 //     warm light bounced from the sunlit street and facades onto down/side-facing surfaces)
 // Parameters live in the shared `ambShared` object (lighting.js updates it per time of day).
-import * as THREE from 'three';
-import { avenues, G, WIDE_ROADS, NARROW_STREETS, WIDE_ST_HALF, NARROW_ST_HALF, VREG, FREG } from '../world/layout.js'; // (zfix) kerb-gutter puddles
+import * as THREE from "three";
+import {
+    avenues,
+    G,
+    WIDE_ROADS,
+    NARROW_STREETS,
+    WIDE_ST_HALF,
+    NARROW_ST_HALF,
+    VREG,
+    FREG,
+} from "../world/layout.js"; // (zfix) kerb-gutter puddles
 
 export const ambShared = {
-  grade: new THREE.Vector4(1, 1, 1, 0.6),   // rgb: ambient tint, w: ambient saturation
-  bounce: new THREE.Vector4(0, 0, 0, 1),    // rgb: bounce irradiance (already x PI), w: daylight factor (1 day .. ~0 night)
-  vert: new THREE.Vector4(1, 1, 0, 0),     // (lighting2 r6) x: sky-fill gain on VERTICAL / side-facing surfaces (facades, cars, props, trees in shade), y: street-bounce gain on them
-  wx: new THREE.Vector4(0, 0, 0, 1),       // (lighting2 r3) weather: x wet amount (overcast rain: whole city wet + puddles), y clock (s), z rain intensity, w dry-weather puddles on/off (user r-nopuddles, Settings)
-  cgrid: new THREE.Vector4(0, 0, 512, 0),  // (night) city-light grid (citylights.js): xy origin (world x, z), z span, w on
-  city: new THREE.Vector4(0, 0, 0, 0),     // (lighting2 r3) night city light: rgb sodium street-light irradiance (x PI) near the ground, w: Times Square screen spill
-  shape: new THREE.Vector4(0.25, 1, 0, 0),  // w: (atmosphere r3) extra street-level bounce near the ground (x(1+w) at y=0, fades over ~26 m)  // x: bounce weight on up-facing surfaces (street canyon inter-reflection), y: skylight weight on up-facing,
-                                            // z: (atmosphere r2) diffuse-only IBL gain (0 = 1): sky fill decoupled from the specular sky reflections
+    grade: new THREE.Vector4(1, 1, 1, 0.6), // rgb: ambient tint, w: ambient saturation
+    bounce: new THREE.Vector4(0, 0, 0, 1), // rgb: bounce irradiance (already x PI), w: daylight factor (1 day .. ~0 night)
+    vert: new THREE.Vector4(1, 1, 0, 0), // (lighting2 r6) x: sky-fill gain on VERTICAL / side-facing surfaces (facades, cars, props, trees in shade), y: street-bounce gain on them
+    wx: new THREE.Vector4(0, 0, 0, 1), // (lighting2 r3) weather: x wet amount (overcast rain: whole city wet + puddles), y clock (s), z rain intensity, w dry-weather puddles on/off (user r-nopuddles, Settings)
+    cgrid: new THREE.Vector4(0, 0, 512, 0), // (night) city-light grid (citylights.js): xy origin (world x, z), z span, w on
+    city: new THREE.Vector4(0, 0, 0, 0), // (lighting2 r3) night city light: rgb sodium street-light irradiance (x PI) near the ground, w: Times Square screen spill
+    shape: new THREE.Vector4(0.25, 1, 0, 0), // w: (atmosphere r3) extra street-level bounce near the ground (x(1+w) at y=0, fades over ~26 m)  // x: bounce weight on up-facing surfaces (street canyon inter-reflection), y: skylight weight on up-facing,
+    // z: (atmosphere r2) diffuse-only IBL gain (0 = 1): sky fill decoupled from the specular sky reflections
 };
 
 let _installed = false;
 export function installSurfaceChunks(quality = {}) {
-  if (_installed) return;
-  _installed = true;
-  const SC = THREE.ShaderChunk;
-  // (lighting2 r1) wet patches: world-anchored puddle mask on flat, up-facing, low-chroma (asphalt / concrete / tar roof)
-  // surfaces of every lit standard material -> near-mirror roughness + darker wet albedo, so SSR + the env map show sharp
-  // sky / sun / building reflections in patches (rooftop golden-hour ref). Grass, foliage, paint and the character
-  // (skinned) are excluded. ?q=low or ?nowet turns it off.
-  let wetOn = quality.wet !== false;
-  try { if (new URLSearchParams(location.search).has('nowet')) wetOn = false; } catch (e) { /* non-browser */ }
-  let oldPud = false; try { oldPud = new URLSearchParams(location.search).has('oldpuddles'); } catch (e) { /* non-browser */ } // (zfix) puddle A/B
-  const wet = /* glsl */`
+    if (_installed) return;
+    _installed = true;
+    const SC = THREE.ShaderChunk;
+    // (lighting2 r1) wet patches: world-anchored puddle mask on flat, up-facing, low-chroma (asphalt / concrete / tar roof)
+    // surfaces of every lit standard material -> near-mirror roughness + darker wet albedo, so SSR + the env map show sharp
+    // sky / sun / building reflections in patches (rooftop golden-hour ref). Grass, foliage, paint and the character
+    // (skinned) are excluded. ?q=low or ?nowet turns it off.
+    let wetOn = quality.wet !== false;
+    try {
+        if (new URLSearchParams(location.search).has("nowet")) wetOn = false;
+    } catch (e) {
+        /* non-browser */
+    }
+    let oldPud = false;
+    try {
+        oldPud = new URLSearchParams(location.search).has("oldpuddles");
+    } catch (e) {
+        /* non-browser */
+    } // (zfix) puddle A/B
+    const wet = /* glsl */ `
 #if defined( STANDARD ) && !defined( USE_SKINNING ) && !defined( NO_WET ) && !defined( USE_TRANSMISSION )
 {
   vec3 wetUp = ( viewMatrix * vec4( 0.0, 1.0, 0.0, 0.0 ) ).xyz;
@@ -77,7 +95,7 @@ export function installSurfaceChunks(quality = {}) {
     float wetT = 0.3 * wetRain; // rain: puddles grow, the rest of the ground is a damp film
     // (zfix) dry presets (no rain): ~35-40 % fewer / smaller puddles, pooled mostly in the kerb gutters of the grid
     // roads, in low spots (a 23 m noise field) and around the roof drains; the rain look (wetRain > 0) is unchanged
-    float wetSh = 0.0, wetDry = max( ${oldPud ? '0.0' : '1.0'} - clamp( wetRain * 4.0, 0.0, 1.0 ), 0.0 ); // ?oldpuddles: the previous dry look (A/B)
+    float wetSh = 0.0, wetDry = max( ${oldPud ? "0.0" : "1.0"} - clamp( wetRain * 4.0, 0.0, 1.0 ), 0.0 ); // ?oldpuddles: the previous dry look (A/B)
     if ( wetDry > 0.0 ) {
       vec2 lq = q / 23.0 + vec2( 5.3, 9.01 ), li = floor( lq ), lf = fract( lq ); lf = lf * lf * ( 3.0 - 2.0 * lf );
       #define WL(v) fract( sin( dot( v, vec2( 269.5, 183.3 ) ) ) * 43758.5453 )
@@ -86,10 +104,10 @@ export function installSurfaceChunks(quality = {}) {
       float wetLow = smoothstep( 0.45, 0.8, wetL ) * ( wetP.y > 4.0 ? 1.0 : 0.45 ), wetGut = 0.0;
       if ( wetP.y < 0.1 && wetP.z < ${FREG.z0.toFixed(1)} && !( wetP.x > ${VREG.x0.toFixed(1)} && wetP.x < ${VREG.x1.toFixed(1)} && wetP.z > ${VREG.z0.toFixed(1)} && wetP.z < ${VREG.z1.toFixed(1)} ) ) {
         float dk = 9.0; // distance inside the roadway to the nearest kerb line (grid avenues + streets)
-        ${avenues.map(a => `dk = min( dk, ${G.AV_HALF.toFixed(2)} - abs( wetP.x - ${a.toFixed(1)} ) + step( ${G.AV_HALF.toFixed(2)}, abs( wetP.x - ${a.toFixed(1)} ) ) * 99.0 );`).join(' ')}
+        ${avenues.map((a) => `dk = min( dk, ${G.AV_HALF.toFixed(2)} - abs( wetP.x - ${a.toFixed(1)} ) + step( ${G.AV_HALF.toFixed(2)}, abs( wetP.x - ${a.toFixed(1)} ) ) * 99.0 );`).join(" ")}
         float zc = floor( wetP.z / ${G.ST_SP.toFixed(1)} + 0.5 ) * ${G.ST_SP.toFixed(1)}, hw = ${G.ST_HALF.toFixed(2)};
-        ${WIDE_ROADS.map(z => `hw = abs( zc - ${z.toFixed(1)} ) < 1.0 ? ${WIDE_ST_HALF.toFixed(2)} : hw;`).join(' ')}
-        ${NARROW_STREETS.map(z => `hw = abs( zc - ${z.toFixed(1)} ) < 1.0 ? ${NARROW_ST_HALF.toFixed(2)} : hw;`).join(' ')}
+        ${WIDE_ROADS.map((z) => `hw = abs( zc - ${z.toFixed(1)} ) < 1.0 ? ${WIDE_ST_HALF.toFixed(2)} : hw;`).join(" ")}
+        ${NARROW_STREETS.map((z) => `hw = abs( zc - ${z.toFixed(1)} ) < 1.0 ? ${NARROW_ST_HALF.toFixed(2)} : hw;`).join(" ")}
         float dz = abs( wetP.z - zc ); if ( dz < hw ) dk = min( dk, hw - dz );
         wetGut = 1.0 - smoothstep( 0.4, 1.6, dk );
       }
@@ -119,8 +137,9 @@ export function installSurfaceChunks(quality = {}) {
 }
 #endif
 `;
-  if (wetOn && !SC.lights_physical_fragment.includes('wetFlat')) SC.lights_physical_fragment = SC.lights_physical_fragment + wet;
-  const add = /* glsl */`
+    if (wetOn && !SC.lights_physical_fragment.includes("wetFlat"))
+        SC.lights_physical_fragment = SC.lights_physical_fragment + wet;
+    const add = /* glsl */ `
 #if defined( STANDARD ) && defined( OPAQUE ) && !defined( NO_SSR ) && !defined( USE_TRANSMISSION )
 {
   float ssrRough = material.roughness;
@@ -134,16 +153,21 @@ export function installSurfaceChunks(quality = {}) {
 }
 #endif
 `;
-  if (!SC.opaque_fragment.includes('ssrW')) SC.opaque_fragment = SC.opaque_fragment + add;
+    if (!SC.opaque_fragment.includes("ssrW"))
+        SC.opaque_fragment = SC.opaque_fragment + add;
 
-  // ---- ambient (diffuse IBL) grading + bounce GI approximation
-  const env = SC.envmap_physical_pars_fragment;
-  const target = 'return PI * envMapColor.rgb * envMapIntensity;';
-  if (env.includes(target) && !env.includes('ambData')) {
-    SC.envmap_physical_pars_fragment = /* glsl */`
+    // ---- ambient (diffuse IBL) grading + bounce GI approximation
+    const env = SC.envmap_physical_pars_fragment;
+    const target = "return PI * envMapColor.rgb * envMapIntensity;";
+    if (env.includes(target) && !env.includes("ambData")) {
+        SC.envmap_physical_pars_fragment =
+            /* glsl */ `
 struct AmbData { vec4 grade; vec4 bounce; vec4 shape; vec4 city; vec4 wx; vec4 vert; vec4 cgrid; };
 uniform AmbData ambData;
-` + env.replace(target, /* glsl */`vec3 irr = PI * envMapColor.rgb * envMapIntensity;
+` +
+            env.replace(
+                target,
+                /* glsl */ `vec3 irr = PI * envMapColor.rgb * envMapIntensity;
 			float irrL = dot( irr, vec3( 0.2126, 0.7152, 0.0722 ) );
 			irr = mix( vec3( irrL ), irr, ambData.grade.w ) * ambData.grade.rgb;
 			float down = clamp( 0.5 - 0.5 * worldNormal.y, 0.0, 1.0 );
@@ -194,12 +218,15 @@ uniform AmbData ambData;
 				}
 			}
 			#endif
-			return irr;`);
-    for (const k of ['standard', 'physical', 'lambert', 'phong', 'toon']) {
-      const lib = THREE.ShaderLib[k];
-      if (lib) lib.uniforms.ambData = { value: ambShared };
+			return irr;`,
+            );
+        for (const k of ["standard", "physical", "lambert", "phong", "toon"]) {
+            const lib = THREE.ShaderLib[k];
+            if (lib) lib.uniforms.ambData = { value: ambShared };
+        }
+    } else if (!env.includes("ambData")) {
+        console.warn(
+            "[render/surface] could not patch envmap_physical_pars_fragment",
+        );
     }
-  } else if (!env.includes('ambData')) {
-    console.warn('[render/surface] could not patch envmap_physical_pars_fragment');
-  }
 }

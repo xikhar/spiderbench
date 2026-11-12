@@ -16,20 +16,34 @@
 const handlers = new Map();
 
 export function on(type, fn) {
-  let s = handlers.get(type);
-  if (!s) handlers.set(type, (s = new Set()));
-  s.add(fn);
-  return () => s.delete(fn);
+    let s = handlers.get(type);
+    if (!s) handlers.set(type, (s = new Set()));
+    s.add(fn);
+    return () => s.delete(fn);
 }
-export function off(type, fn) { handlers.get(type)?.delete(fn); }
-export function once(type, fn) { const u = on(type, (p, t) => { u(); fn(p, t); }); return u; }
+export function off(type, fn) {
+    handlers.get(type)?.delete(fn);
+}
+export function once(type, fn) {
+    const u = on(type, (p, t) => {
+        u();
+        fn(p, t);
+    });
+    return u;
+}
 export function emit(type, payload) {
-  const list = [...(handlers.get(type) || []), ...(handlers.get('*') || [])];
-  for (const fn of list) {
-    try { fn(payload, type); } catch (e) { console.error(`[events] handler for "${type}" failed`, e); }
-  }
-  return list.length;
+    const list = [...(handlers.get(type) || []), ...(handlers.get("*") || [])];
+    for (const fn of list) {
+        try {
+            fn(payload, type);
+        } catch (e) {
+            console.error(`[events] handler for "${type}" failed`, e);
+        }
+    }
+    return list.length;
 }
-export function listenerCount(type) { return handlers.get(type)?.size || 0; }
+export function listenerCount(type) {
+    return handlers.get(type)?.size || 0;
+}
 export const events = { on, off, once, emit, listenerCount };
 export default events;

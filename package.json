@@ -1,18 +1,18 @@
 {
-  "name": "spiderbench",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "vite --port 5173 --host 127.0.0.1",
-    "build": "vite build",
-    "preview": "vite preview --port 4173 --host 127.0.0.1"
-  },
-  "dependencies": {
-    "n8ao": "^2.0.1",
-    "postprocessing": "^6.39.5",
-    "three": "^0.186.0"
-  },
-  "devDependencies": {
-    "vite": "^8.3.0"
-  }
+    "name": "spiderbench",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "dev": "vite --port 5173 --host 127.0.0.1",
+        "build": "vite build",
+        "start": "vite preview --port 4173 --host 127.0.0.1"
+    },
+    "dependencies": {
+        "n8ao": "^2.0.1",
+        "postprocessing": "^6.39.6",
+        "three": "^0.186.1"
+    },
+    "devDependencies": {
+        "vite": "^8.3.8"
+    }
 }

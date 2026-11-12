@@ -12,48 +12,87 @@
 //  - low-frequency bind-pose noise for crimson / navy-cobalt tonal shifts, and baked AO also darkening the direct light
 //    a little (creases).
 // Only active for the Advanced suit: game/systems/suits.js turns it off for Iron / Symbiote (setSuitFabric).
-import * as THREE from 'three';
-import { addShaderPatch } from '../render/materials.js';
-import { nightK } from '../render/daynight.js';
-import { cityAmbient } from '../render/citylights.js';
+import * as THREE from "three";
+import { addShaderPatch } from "../render/materials.js";
+import { nightK } from "../render/daynight.js";
+import { cityAmbient } from "../render/citylights.js";
 
 const uniforms = {
-  uFabOn: { value: 0 },
-  uFabHex: { value: null }, uFabKnit: { value: null },
-  // x: baked-map texels per UV unit (hex registration, cell pitch ~2.5 mm), y: knit tiles per UV unit (tile = 10 threads, ~1.2 mm),
-  // z: detail normal strength, w: cavity (albedo) strength
-  uFabP: { value: new THREE.Vector4(4096, 147, 0.85, 0.18) },
-  uFabNightK: nightK, // (night r12)
-  uCityAmbLo: cityAmbient.lo, uCityAmbHi: cityAmbient.hi, // (user r-amb) area ambient of the lit blocks around the player
+    uFabOn: { value: 0 },
+    uFabHex: { value: null },
+    uFabKnit: { value: null },
+    // x: baked-map texels per UV unit (hex registration, cell pitch ~2.5 mm), y: knit tiles per UV unit (tile = 10 threads, ~1.2 mm),
+    // z: detail normal strength, w: cavity (albedo) strength
+    uFabP: { value: new THREE.Vector4(4096, 147, 0.85, 0.18) },
+    uFabNightK: nightK, // (night r12)
+    uCityAmbLo: cityAmbient.lo,
+    uCityAmbHi: cityAmbient.hi, // (user r-amb) area ambient of the lit blocks around the player
 };
-let want = true, loaded = 0, readyRes;
-const fabOff = typeof location !== 'undefined' && new URLSearchParams(location.search).get('fabric') === '0'; // A/B: ?fabric=0 = raw GLB material
+let want = true,
+    loaded = 0,
+    readyRes;
+const fabOff =
+    typeof location !== "undefined" &&
+    new URLSearchParams(location.search).get("fabric") === "0"; // A/B: ?fabric=0 = raw GLB material
 /** resolves once both detail textures are in (screenshots wait on it) */
-export const suitFabricReady = new Promise(r => { readyRes = r; });
-const sync = () => { uniforms.uFabOn.value = want && !fabOff && loaded === 2 ? 1 : 0; if (loaded === 2) readyRes(); };
+export const suitFabricReady = new Promise((r) => {
+    readyRes = r;
+});
+const sync = () => {
+    uniforms.uFabOn.value = want && !fabOff && loaded === 2 ? 1 : 0;
+    if (loaded === 2) readyRes();
+};
 /** Advanced suit on/off (suits.js). Off = the material renders exactly as the GLB (other suits do their own thing). */
-export function setSuitFabric(on) { want = !!on; sync(); }
+export function setSuitFabric(on) {
+    want = !!on;
+    sync();
+}
 
 function loadDetail(url, key) {
-  new THREE.TextureLoader().load(url, t => {
-    t.colorSpace = THREE.NoColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
-    t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;
-    uniforms[key].value = t; loaded++; sync();
-  }, undefined, e => console.warn('[suitfabric] detail texture failed', url, e));
+    new THREE.TextureLoader().load(
+        url,
+        (t) => {
+            t.colorSpace = THREE.NoColorSpace;
+            t.wrapS = t.wrapT = THREE.RepeatWrapping;
+            t.anisotropy = 8;
+            t.generateMipmaps = true;
+            t.minFilter = THREE.LinearMipmapLinearFilter;
+            uniforms[key].value = t;
+            loaded++;
+            sync();
+        },
+        undefined,
+        (e) => console.warn("[suitfabric] detail texture failed", url, e),
+    );
 }
 
 export function applySuitFabric(root) {
-  let mat = null;
-  root.traverse(o => { if (!o.isMesh) return; for (const m of [].concat(o.material)) if (m?.name === 'SpiderSuit') mat = m; });
-  if (!mat || mat.userData.__patches?.has('suitFabric')) return mat;
-  if (!uniforms.uFabHex.value && loaded === 0) { loadDetail('/assets/tex/suit_weave_hex.png', 'uFabHex'); loadDetail('/assets/tex/suit_weave_knit.png', 'uFabKnit'); }
-  addShaderPatch(mat, 'suitFabric', sh => {
-    Object.assign(sh.uniforms, uniforms);
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vFabP;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvFabP = position;');   // bind-pose position: sticks to the body
-    sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', `#include <common>
+    let mat = null;
+    root.traverse((o) => {
+        if (!o.isMesh) return;
+        for (const m of [].concat(o.material))
+            if (m?.name === "SpiderSuit") mat = m;
+    });
+    if (!mat || mat.userData.__patches?.has("suitFabric")) return mat;
+    if (!uniforms.uFabHex.value && loaded === 0) {
+        loadDetail("/assets/tex/suit_weave_hex.png", "uFabHex");
+        loadDetail("/assets/tex/suit_weave_knit.png", "uFabKnit");
+    }
+    addShaderPatch(mat, "suitFabric", (sh) => {
+        Object.assign(sh.uniforms, uniforms);
+        sh.vertexShader = sh.vertexShader
+            .replace(
+                "#include <common>",
+                "#include <common>\nvarying vec3 vFabP;",
+            )
+            .replace(
+                "#include <begin_vertex>",
+                "#include <begin_vertex>\nvFabP = position;",
+            ); // bind-pose position: sticks to the body
+        sh.fragmentShader = sh.fragmentShader
+            .replace(
+                "#include <common>",
+                `#include <common>
 uniform float uFabOn, uFabNightK; uniform sampler2D uFabHex, uFabKnit; uniform vec4 uFabP; uniform vec3 uCityAmbLo, uCityAmbHi;
 varying vec3 vFabP;
 float fabHash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
@@ -61,8 +100,11 @@ float fabNoise(vec3 x) { // value noise, -1..1
   vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
   return 2.0 * mix(mix(mix(fabHash(i), fabHash(i + vec3(1, 0, 0)), f.x), mix(fabHash(i + vec3(0, 1, 0)), fabHash(i + vec3(1, 1, 0)), f.x), f.y),
                    mix(mix(fabHash(i + vec3(0, 0, 1)), fabHash(i + vec3(1, 0, 1)), f.x), mix(fabHash(i + vec3(0, 1, 1)), fabHash(i + vec3(1, 1, 1)), f.x), f.y), f.z) - 1.0;
-}`)
-      .replace('#include <map_fragment>', `#include <map_fragment>
+}`,
+            )
+            .replace(
+                "#include <map_fragment>",
+                `#include <map_fragment>
 vec4 fabW = vec4(0.0); vec3 fabHx = vec3(0.5, 0.5, 0.5), fabKn = vec3(0.5, 0.5, 0.5); float fabFade = 0.0, fabN1 = 0.0;
 #ifdef USE_MAP
 if (uFabOn > 0.5) {
@@ -98,8 +140,11 @@ if (uFabOn > 0.5) {
   #endif
   diffuseColor.rgb = o;
 }
-#endif`)
-      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+#endif`,
+            )
+            .replace(
+                "#include <roughnessmap_fragment>",
+                `#include <roughnessmap_fragment>
 if (uFabOn > 0.5) {
   float fabMetal = 0.0;
   #ifdef USE_METALNESSMAP
@@ -112,22 +157,28 @@ if (uFabOn > 0.5) {
                  0.40);
   float ws = dot(fabW, vec4(1.0)) * (1.0 - smoothstep(0.2, 0.5, fabMetal));   // leave the metal web-shooter parts alone
   roughnessFactor = mix(roughnessFactor, dot(rr, fabW) / max(dot(fabW, vec4(1.0)), 1e-3), clamp(ws, 0.0, 1.0));
-}`)
-      // (night r12) user: 'none of the lights affect the player suit at all'. The night preset's sky fill (env x3, tuned
-      // so facades read) lit the suit evenly from every side and drowned the lamps / headlights / screens (city lights
-      // off changed the suit by ~15 %). At night the suit keeps ~35 % of that fill (any suit: outside uFabOn), so the
-      // local lights model it; the moon key and city lights are unchanged, by day nothing changes
-      // (only where the city lights compiled in: on 16-texture-unit GPUs the suit falls back without them, citylights.js)
-      // (user r-amb) + the AREA AMBIENT of the lit blocks around him (citylights.js cityAmbient: street bounce from below,
-      // a weaker share from above), on every GPU path (uniforms, no texture): a bright avenue lifts the whole suit even
-      // away from the nearest lamp, a dark side street adds ~nothing
-      .replace('#include <lights_fragment_maps>', `#include <lights_fragment_maps>
+}`,
+            )
+            // (night r12) user: 'none of the lights affect the player suit at all'. The night preset's sky fill (env x3, tuned
+            // so facades read) lit the suit evenly from every side and drowned the lamps / headlights / screens (city lights
+            // off changed the suit by ~15 %). At night the suit keeps ~35 % of that fill (any suit: outside uFabOn), so the
+            // local lights model it; the moon key and city lights are unchanged, by day nothing changes
+            // (only where the city lights compiled in: on 16-texture-unit GPUs the suit falls back without them, citylights.js)
+            // (user r-amb) + the AREA AMBIENT of the lit blocks around him (citylights.js cityAmbient: street bounce from below,
+            // a weaker share from above), on every GPU path (uniforms, no texture): a bright avenue lifts the whole suit even
+            // away from the nearest lamp, a dark side street adds ~nothing
+            .replace(
+                "#include <lights_fragment_maps>",
+                `#include <lights_fragment_maps>
 #ifdef USE_CITYL
 iblIrradiance *= mix(1.0, 0.35, uFabNightK); radiance *= mix(1.0, 0.6, uFabNightK);
 #endif
 { vec3 fabWN = transformDirectionByInverseViewMatrix(normal, viewMatrix);
-  irradiance += mix(uCityAmbLo, uCityAmbHi, 0.5 + 0.5 * fabWN.y) * (0.75 + 0.25 * (1.0 - abs(fabWN.y))); }`)
-      .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+  irradiance += mix(uCityAmbLo, uCityAmbHi, 0.5 + 0.5 * fabWN.y) * (0.75 + 0.25 * (1.0 - abs(fabWN.y))); }`,
+            )
+            .replace(
+                "#include <normal_fragment_maps>",
+                `#include <normal_fragment_maps>
 #ifdef USE_NORMALMAP_TANGENTSPACE
 if (uFabOn > 0.5) {
   // tbn = (dP/du, dP/dv) of the glTF UVs. Hex texture x runs along -v, y along +u -> rotate into (u, v).
@@ -136,8 +187,9 @@ if (uFabOn > 0.5) {
   dn *= uFabP.z * fabFade;
   normal = normalize(tbn * vec3(mapN.xy + dn, mapN.z));
 }
-#endif`);
-  });
-  sync();
-  return mat;
+#endif`,
+            );
+    });
+    sync();
+    return mat;
 }

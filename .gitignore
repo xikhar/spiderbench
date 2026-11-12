@@ -1,3 +1,21 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 dist/
+
+# Rust / WASM
+target/
+**/*.rs.bk
+src/engine/pkg/
+
+# Vite / tooling
+.vite/
+*.log
+
+# OS / editor
 .DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
