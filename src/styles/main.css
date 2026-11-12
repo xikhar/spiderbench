@@ -1,0 +1,34 @@
+/**
+ * Main stylesheet entrypoint that composes global and feature-specific CSS.
+ *
+ * @module styles-main
+ * @version 1.0.0
+ * @file src/styles/main.css
+ * @since 0.0.1
+ * @description Imports fonts, game, and UI styles and defines base layout/reset rules for the document, app container, and canvas element.
+ */
+@import "./fonts.css";
+@import "./game.css";
+@import "./ui.css";
+
+:root {
+    color-scheme: dark;
+}
+
+html,
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+}
+
+#app {
+    width: 100%;
+    height: 100%;
+}
+
+canvas {
+    display: block;
+}

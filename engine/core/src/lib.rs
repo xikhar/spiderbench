@@ -1,6 +1,6 @@
 //! Pure, wasm-agnostic computation helpers for performance-sensitive game math.
 //!
-//! @since 0.1.0
+//! @since 0.0.1
 //! @version 0.1.0
 
 #![forbid(unsafe_code)]

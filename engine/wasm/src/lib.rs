@@ -1,6 +1,6 @@
 //! Thin WASM boundary over `engine-core`.
 //!
-//! @since 0.1.0
+//! @since 0.0.1
 //! @version 0.1.0
 
 #![forbid(unsafe_code)]
@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::*;
 
 /// Initializes panic hook for better browser diagnostics.
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[wasm_bindgen]
 #[allow(non_snake_case)]
@@ -20,7 +20,7 @@ pub fn initEngine() {
 
 /// Exponential damping toward a target value.
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[wasm_bindgen]
 #[allow(non_snake_case)]
@@ -30,7 +30,7 @@ pub fn damp(current: f32, target: f32, rate: f32, delta_time_seconds: f32) -> f3
 
 /// Clamps a float to [minimum, maximum].
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[wasm_bindgen]
 #[allow(non_snake_case)]
@@ -40,7 +40,7 @@ pub fn clampF32(value: f32, minimum: f32, maximum: f32) -> f32 {
 
 /// Wraps an angle to [-pi, pi].
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[wasm_bindgen]
 #[allow(non_snake_case)]
@@ -50,7 +50,7 @@ pub fn angleWrap(angle_radians: f32) -> f32 {
 
 /// Caps horizontal speed and returns `[x, z]` as a JS array-compatible tuple via two-value struct.
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[wasm_bindgen]
 #[allow(non_snake_case)]
@@ -60,7 +60,7 @@ pub fn capHorizontalSpeedX(velocity_x: f32, velocity_z: f32, max_speed: f32) -> 
 
 /// Caps horizontal speed and returns z component.
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[wasm_bindgen]
 #[allow(non_snake_case)]
@@ -70,7 +70,7 @@ pub fn capHorizontalSpeedZ(velocity_x: f32, velocity_z: f32, max_speed: f32) -> 
 
 /// Integrates x position.
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[wasm_bindgen]
 #[allow(non_snake_case)]
@@ -86,7 +86,7 @@ pub fn integrateX(position_x: f32, velocity_x: f32, delta_time_seconds: f32) -> 
 
 /// Integrates y position.
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[wasm_bindgen]
 #[allow(non_snake_case)]
@@ -102,7 +102,7 @@ pub fn integrateY(position_y: f32, velocity_y: f32, delta_time_seconds: f32) -> 
 
 /// Integrates z position.
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[wasm_bindgen]
 #[allow(non_snake_case)]

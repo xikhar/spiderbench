@@ -1,13 +1,13 @@
 //! Math helpers used by traversal and simulation code.
 //!
-//! @since 0.1.0
+//! @since 0.0.1
 //! @version 0.1.0
 
 /// Clamps `value` to the inclusive range `[minimum, maximum]`.
 ///
 /// If `minimum > maximum`, the bounds are treated as swapped.
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[must_use]
 pub fn clamp_f32(value: f32, minimum: f32, maximum: f32) -> f32 {
@@ -27,7 +27,7 @@ pub fn clamp_f32(value: f32, minimum: f32, maximum: f32) -> f32 {
 
 /// Exponential damping toward a target value.
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[must_use]
 pub fn damp(current: f32, target: f32, rate: f32, delta_time_seconds: f32) -> f32 {
@@ -47,7 +47,7 @@ pub fn damp(current: f32, target: f32, rate: f32, delta_time_seconds: f32) -> f3
 
 /// Wraps an angle in radians to the range [-pi, pi].
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[must_use]
 pub fn angle_wrap(angle_radians: f32) -> f32 {
@@ -59,7 +59,7 @@ pub fn angle_wrap(angle_radians: f32) -> f32 {
 
 /// Smoothstep interpolation between edges.
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[must_use]
 pub fn smooth_step(edge0: f32, edge1: f32, value: f32) -> f32 {

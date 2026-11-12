@@ -1,0 +1,32 @@
+/**
+ * Font-face declarations for Spiderbench display and sans-serif typography.
+ *
+ * @module styles-fonts
+ * @version 1.0.0
+ * @file src/styles/fonts.css
+ * @since 0.0.1
+ * @description Registers custom font families and sources used by the application, including condensed display fonts and the variable sans-serif font.
+ */
+@font-face {
+    font-family: "Spiderbench Condensed";
+    src: url("../assets/fonts/spiderbench-condensed-800.ttf") format("truetype");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: block;
+}
+@font-face {
+    font-family: "Barlow Condensed";
+    src:
+        local("Barlow Condensed ExtraBold"),
+        url("../assets/fonts/spiderbench-condensed-800.ttf") format("truetype");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: block;
+}
+@font-face {
+    font-family: "Spiderbench Sans";
+    src: url("../assets/fonts/manrope-variable.ttf") format("truetype");
+    font-weight: 200 800;
+    font-style: normal;
+    font-display: block;
+}

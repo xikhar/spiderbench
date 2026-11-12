@@ -1,0 +1,844 @@
+// @ts-nocheck
+/**
+ * Builds vehicle models and integrates traffic rendering systems.
+ *
+ * @module world-vehicles
+ * @version 1.0.0
+ * @file src/world/vehicles.ts
+ * @since 0.0.1
+ * @description Defines vehicle geometry/material helpers and sets up vehicle assets used by the city traffic simulation.
+ */
+import * as THREE from "three";
+
+import { MB } from "./geom.ts";
+import { createPartMaterial, PART } from "./partmat.ts";
+import { buildRoads } from "./npc/roads.ts";
+import { createTraffic } from "./npc/traffic.ts";
+
+function loft(b, st, seg = 3, caps = true) {
+    const rings = [];
+    for (const s of st) {
+        const ring = [];
+        const hw = s.w / 2,
+            r = Math.min(s.r ?? 0.12, hw * 0.9, (s.yt - s.yb) * 0.45);
+
+        const corners = [
+            [hw - r, s.yb + r, -Math.PI / 2],
+            [hw - r, s.yt - r, 0],
+            [-hw + r, s.yt - r, Math.PI / 2],
+            [-hw + r, s.yb + r, Math.PI],
+        ];
+        for (const [cz, cy, a0] of corners) {
+            for (let k = 0; k <= seg; k++) {
+                const a = a0 + ((k / seg) * Math.PI) / 2;
+                ring.push([
+                    s.x,
+                    cy + Math.sin(a) * r,
+                    cz + Math.cos(a) * r,
+                    Math.cos(a),
+                    Math.sin(a),
+                ]);
+            }
+        }
+        rings.push(ring);
+    }
+    const n = rings[0].length;
+    const idx = rings.map((ring) =>
+        ring.map(([x, y, z, nz, ny]) => b.vert(x, y, z, 0, ny, nz)),
+    );
+    for (let i = 0; i + 1 < rings.length; i++) {
+        for (let k = 0; k < n; k++) {
+            const k2 = (k + 1) % n;
+            b.quad(idx[i][k], idx[i + 1][k], idx[i + 1][k2], idx[i][k2]);
+        }
+    }
+    if (caps) {
+        for (const [ri, sgn] of [
+            [0, -1],
+            [rings.length - 1, 1],
+        ]) {
+            const ring = rings[ri];
+            const c = ring.reduce(
+                (a, p) => [a[0] + p[0] / n, a[1] + p[1] / n, a[2] + p[2] / n],
+                [0, 0, 0],
+            );
+            const ci = b.vert(c[0], c[1], c[2], sgn, 0, 0);
+            const vs = ring.map((p) => b.vert(p[0], p[1], p[2], sgn, 0, 0));
+            for (let k = 0; k < n; k++) {
+                if (sgn > 0) b.tri(ci, vs[k], vs[(k + 1) % n]);
+                else b.tri(ci, vs[(k + 1) % n], vs[k]);
+            }
+        }
+    }
+}
+
+function wheel(b, x, z, r, w) {
+    const side = Math.sign(z);
+    b.setPart(PART.RUBBER).setColor(0x151515);
+    b.with(
+        new THREE.Matrix4()
+            .makeRotationX((side * Math.PI) / 2)
+            .setPosition(x, r, z - (side * w) / 2),
+        (d) => d.cyl(0, 0, 0, r, r, w, 9, true),
+    );
+    b.setPart(PART.METAL).setColor(0x9a9ea2);
+    b.with(
+        new THREE.Matrix4()
+            .makeRotationX((side * Math.PI) / 2)
+            .setPosition(x, r, z + (side * w) / 2 - side * 0.005),
+        (d) => d.cyl(0, 0, 0, r * 0.6, r * 0.55, 0.02, 8, true),
+    );
+}
+
+function car({
+    L = 4.9,
+    W = 1.84,
+    H = 1.46,
+    belt = 0.95,
+    hood = 0.9,
+    cab0 = -1.35,
+    cab1 = 1.05,
+    roof0 = -0.8,
+    roof1 = 0.35,
+    wr = 0.33,
+    taxi = false,
+    wagon = false,
+} = {}) {
+    const b = new MB();
+    const h2 = L / 2;
+
+    b.setPart(PART.PAINT).setColor(0xffffff);
+    loft(b, [
+        { x: -h2, yb: 0.34, yt: belt - 0.2, w: W - 0.14, r: 0.12 },
+        { x: -h2 + 0.12, yb: 0.28, yt: belt - 0.02, w: W - 0.04, r: 0.14 },
+        { x: -h2 + 0.9, yb: 0.24, yt: belt, w: W, r: 0.14 },
+        { x: cab1, yb: 0.24, yt: belt - 0.02, w: W, r: 0.14 },
+        { x: h2 - 0.45, yb: 0.26, yt: hood - 0.08, w: W - 0.04, r: 0.14 },
+        { x: h2 - 0.05, yb: 0.32, yt: hood - 0.28, w: W - 0.18, r: 0.12 },
+    ]);
+
+    b.setPart(PART.GLASS).setColor(0x000000);
+    const cw = W - 0.14,
+        rw = W - 0.34;
+    loft(
+        b,
+        wagon
+            ? [
+                  { x: cab0, yb: belt - 0.05, yt: belt + 0.02, w: cw, r: 0.05 },
+                  {
+                      x: cab0 + 0.08,
+                      yb: belt - 0.05,
+                      yt: H - 0.04,
+                      w: rw,
+                      r: 0.1,
+                  },
+                  { x: roof1, yb: belt - 0.05, yt: H, w: rw, r: 0.1 },
+                  { x: cab1, yb: belt - 0.05, yt: belt + 0.02, w: cw, r: 0.05 },
+              ]
+            : [
+                  { x: cab0, yb: belt - 0.05, yt: belt + 0.02, w: cw, r: 0.05 },
+                  { x: roof0, yb: belt - 0.05, yt: H - 0.03, w: rw, r: 0.1 },
+                  { x: roof1, yb: belt - 0.05, yt: H, w: rw, r: 0.1 },
+                  { x: cab1, yb: belt - 0.05, yt: belt + 0.02, w: cw, r: 0.05 },
+              ],
+        2,
+    );
+
+    b.setPart(PART.PAINT).setColor(0xffffff);
+    const r0 = wagon ? cab0 + 0.12 : roof0 + 0.06,
+        r1 = roof1 - 0.04;
+    loft(
+        b,
+        [
+            { x: r0, yb: H - 0.07, yt: H - 0.01, w: rw - 0.02, r: 0.03 },
+            { x: r1, yb: H - 0.06, yt: H + 0.01, w: rw - 0.02, r: 0.03 },
+        ],
+        1,
+    );
+    for (const s of [-1, 1]) {
+        const zb = s * (cw / 2 - 0.02),
+            zt = s * (rw / 2 - 0.02);
+        b.tube([cab1 - 0.04, belt, zb], [roof1 - 0.02, H - 0.02, zt], 0.045, 4);
+        b.tube(
+            [(roof0 + roof1) / 2 - 0.1, belt, zb],
+            [(roof0 + roof1) / 2 - 0.1, H - 0.02, zt],
+            0.05,
+            4,
+        );
+        if (!wagon)
+            b.tube(
+                [cab0 + 0.04, belt, zb],
+                [roof0 + 0.02, H - 0.02, zt],
+                0.07,
+                4,
+            );
+        else {
+            b.tube(
+                [cab0 + 0.06, belt, zb],
+                [cab0 + 0.1, H - 0.02, zt],
+                0.07,
+                4,
+            );
+            b.tube([cab0 + 0.9, belt, zb], [cab0 + 0.9, H - 0.02, zt], 0.05, 4);
+        }
+
+        b.box(
+            cab1 - 0.25,
+            belt + 0.02,
+            s * (W / 2 + 0.02) - 0.08,
+            cab1 - 0.1,
+            belt + 0.14,
+            s * (W / 2 + 0.02) + 0.08,
+        );
+    }
+
+    b.setPart(PART.PLASTIC).setColor(0x1a1a1a);
+    b.box(h2 - 0.12, 0.28, -W / 2 + 0.12, h2 + 0.02, 0.5, W / 2 - 0.12);
+    b.box(-h2 - 0.02, 0.28, -W / 2 + 0.12, -h2 + 0.12, 0.5, W / 2 - 0.12);
+    b.box(h2 - 0.06, 0.52, -0.45, h2 - 0.02, 0.66, 0.45);
+    b.box(
+        -h2 + 0.9,
+        0.2,
+        -W / 2 - 0.005,
+        h2 - 0.9,
+        0.3,
+        W / 2 + 0.005,
+        0b110011,
+    );
+
+    for (const s of [-1, 1]) {
+        b.setPart(PART.HEAD)
+            .setColor(0xc8ccd0)
+            .box(
+                h2 - 0.16,
+                hood - 0.36,
+                s * (W / 2 - 0.16) - 0.16,
+                h2 - 0.03,
+                hood - 0.27,
+                s * (W / 2 - 0.16) + 0.16,
+            );
+        b.setPart(PART.TAIL)
+            .setColor(0xb01010)
+            .box(
+                -h2 - 0.03,
+                belt - 0.32,
+                s * (W / 2 - 0.12) - 0.22,
+                -h2 + 0.1,
+                belt - 0.18,
+                s * (W / 2 - 0.12) + 0.22,
+            );
+    }
+
+    b.setPart(PART.BASE)
+        .setColor(taxi ? 0xe6d27a : 0xe9e4d4)
+        .box(-h2 - 0.04, 0.55, -0.26, -h2 - 0.02, 0.7, 0.26);
+    b.box(h2 + 0.02, 0.36, -0.26, h2 + 0.04, 0.5, 0.26);
+    if (taxi) {
+        b.setPart(PART.PLASTIC)
+            .setColor(0x151515)
+            .box(-0.3, H, -0.28, 0.14, H + 0.04, 0.28);
+        b.setPart(PART.TAXI)
+            .setColor(0xd8d2b0)
+            .box(-0.26, H + 0.04, -0.26, 0.1, H + 0.3, 0.26);
+        b.setPart(PART.PLASTIC)
+            .setColor(0x2a2a2a)
+            .box(-0.24, H + 0.08, -0.265, 0.08, H + 0.26, 0.265, 0b110000);
+
+        b.setPart(PART.BASE)
+            .setColor(0x111111)
+            .box(
+                -1.2,
+                belt - 0.24,
+                -W / 2 - 0.006,
+                1.0,
+                belt - 0.2,
+                W / 2 + 0.006,
+                0b110000,
+            );
+    }
+    for (const x of [-(h2 - 0.95), h2 - 0.85])
+        for (const s of [-1, 1]) wheel(b, x, s * (W / 2 - 0.12), wr, 0.24);
+    return b.build({ part: true });
+}
+
+function boxTruck() {
+    const b = new MB();
+    const W = 2.3;
+
+    b.setPart(PART.BASE).setColor(0xe8e8e6);
+    loft(b, [
+        { x: 1.6, yb: 0.45, yt: 2.5, w: W, r: 0.1 },
+        { x: 2.6, yb: 0.45, yt: 2.45, w: W, r: 0.15 },
+        { x: 3.2, yb: 0.5, yt: 1.45, w: W - 0.1, r: 0.15 },
+        { x: 3.5, yb: 0.55, yt: 1.1, w: W - 0.2, r: 0.12 },
+    ]);
+    b.setPart(PART.GLASS)
+        .setColor(0)
+        .box(2.62, 1.55, -W / 2 + 0.1, 3.08, 2.3, W / 2 - 0.1, 0b000001);
+    b.box(1.9, 1.5, -W / 2 - 0.01, 2.55, 2.25, W / 2 + 0.01, 0b110000);
+
+    b.setPart(PART.PAINT)
+        .setColor(0xffffff)
+        .box(-3.6, 0.9, -W / 2 - 0.05, 1.55, 3.5, W / 2 + 0.05);
+    b.setPart(PART.PLASTIC)
+        .setColor(0x222222)
+        .box(-3.62, 0.5, -1.0, 1.6, 0.9, 1.0);
+    b.box(-3.7, 0.6, -W / 2, -3.55, 0.8, W / 2);
+    for (const s of [-1, 1]) {
+        b.setPart(PART.HEAD)
+            .setColor(0xf0f0f0)
+            .box(3.45, 0.85, s * 0.9 - 0.15, 3.52, 1.0, s * 0.9 + 0.15);
+        b.setPart(PART.TAIL)
+            .setColor(0xb01010)
+            .box(-3.72, 1.0, s * 1.0 - 0.1, -3.65, 1.2, s * 1.0 + 0.1);
+    }
+    for (const x of [-2.4, 2.4])
+        for (const s of [-1, 1]) wheel(b, x, s * (W / 2 - 0.2), 0.48, 0.3);
+    return b.build({ part: true });
+}
+
+function bus({ tour = false } = {}) {
+    const b = new MB();
+    const L = tour ? 11 : 12.2,
+        W = 2.55,
+        H = tour ? 4.3 : 3.1;
+    const h2 = L / 2;
+    const body = tour ? PART.PAINT : PART.BASE;
+    b.setPart(body).setColor(tour ? 0xffffff : 0xeeeeea);
+    loft(
+        b,
+        [
+            { x: -h2, yb: 0.35, yt: H - 0.05, w: W - 0.05, r: 0.2 },
+            { x: -h2 + 0.1, yb: 0.3, yt: H, w: W, r: 0.25 },
+            { x: h2 - 0.15, yb: 0.3, yt: H, w: W, r: 0.25 },
+            { x: h2, yb: 0.35, yt: H - 0.1, w: W - 0.05, r: 0.2 },
+        ],
+        3,
+    );
+
+    b.setPart(PART.GLASS).setColor(0);
+    const bands = tour
+        ? [
+              [1.25, 2.1],
+              [2.55, 3.65],
+          ]
+        : [[1.2, 2.55]];
+    for (const [y0, y1] of bands) {
+        b.box(
+            -h2 + 0.6,
+            y0,
+            -W / 2 - 0.012,
+            h2 - 1.2,
+            y1,
+            W / 2 + 0.012,
+            0b110000,
+        );
+        b.box(
+            h2 + 0.005,
+            y0 - 0.2,
+            -W / 2 + 0.12,
+            h2 + 0.015,
+            y1,
+            W / 2 - 0.12,
+            0b000001,
+        );
+    }
+    if (!tour) {
+        b.setPart(PART.BASE)
+            .setColor(0x1f4fa3)
+            .box(
+                -h2 + 0.05,
+                1.0,
+                -W / 2 - 0.014,
+                h2 - 0.05,
+                1.15,
+                W / 2 + 0.014,
+                0b110011,
+            );
+        b.setPart(PART.SCREEN)
+            .setColor(0xff9a20)
+            .box(h2 + 0.016, 2.62, -0.8, h2 + 0.02, 2.9, 0.8, 0b000001);
+    } else {
+        b.setPart(PART.BASE)
+            .setColor(0xd9b34a)
+            .box(
+                -h2 + 0.05,
+                2.2,
+                -W / 2 - 0.014,
+                h2 - 0.05,
+                2.35,
+                W / 2 + 0.014,
+                0b110011,
+            );
+    }
+    b.setPart(PART.PLASTIC)
+        .setColor(0x1a1a1a)
+        .box(-h2 - 0.03, 0.3, -W / 2, h2 + 0.03, 0.6, W / 2, 0b000011);
+    for (const s of [-1, 1]) {
+        b.setPart(PART.HEAD)
+            .setColor(0xf0f0f0)
+            .box(
+                h2 + 0.01,
+                0.7,
+                s * 1.0 - 0.15,
+                h2 + 0.03,
+                0.85,
+                s * 1.0 + 0.15,
+            );
+        b.setPart(PART.TAIL)
+            .setColor(0xb01010)
+            .box(
+                -h2 - 0.03,
+                0.8,
+                s * 1.1 - 0.08,
+                -h2 - 0.01,
+                1.3,
+                s * 1.1 + 0.08,
+            );
+    }
+    for (const x of [-h2 + 2.6, h2 - 2.4])
+        for (const s of [-1, 1]) wheel(b, x, s * (W / 2 - 0.15), 0.5, 0.3);
+    return b.build({ part: true });
+}
+
+const VAN_REAR = {
+    x: 448,
+    y: 1680,
+    w: 320,
+    h: 352,
+    S: 2048,
+    z0: -0.98,
+    z1: 0.98,
+    y0: 0.38,
+    y1: 2.54,
+};
+function vanRear(g0) {
+    const g = g0.index ? g0.toNonIndexed() : g0;
+    const P = g.attributes.position,
+        U = g.attributes.uv,
+        part = g.attributes.aPart;
+    if (!U || !part) return g0;
+    const R = VAN_REAR,
+        a = new THREE.Vector3(),
+        b = new THREE.Vector3(),
+        c = new THREE.Vector3(),
+        n = new THREE.Vector3();
+    let xmin = Infinity;
+    for (let i = 0; i < P.count; i++) xmin = Math.min(xmin, P.getX(i));
+    for (let t = 0; t < P.count; t += 3) {
+        a.fromBufferAttribute(P, t);
+        b.fromBufferAttribute(P, t + 1);
+        c.fromBufferAttribute(P, t + 2);
+        n.subVectors(b, a).cross(c.clone().sub(a)).normalize();
+        if (n.x > -0.25 || (a.x + b.x + c.x) / 3 > xmin + 0.6) continue;
+        const pt = part.getX(t);
+        if (pt === 0) {
+            for (let k = 0; k < 3; k++) P.setY(t + k, P.getY(t + k) + 0.33);
+            continue;
+        }
+        if (pt !== 1 && pt !== 3 && pt !== 6 && pt !== 8) continue;
+        for (let k = 0; k < 3; k++) {
+            const z = P.getZ(t + k),
+                y = P.getY(t + k);
+            const u = THREE.MathUtils.clamp(
+                    (z - R.z0) / (R.z1 - R.z0),
+                    0.004,
+                    0.996,
+                ),
+                v = THREE.MathUtils.clamp(
+                    (R.y1 - y) / (R.y1 - R.y0),
+                    0.004,
+                    0.996,
+                );
+            U.setXY(t + k, (R.x + u * R.w) / R.S, (R.y + v * R.h) / R.S);
+            part.setX(t + k, 1);
+        }
+    }
+    g.computeBoundingSphere();
+    return g;
+}
+
+let _vehLoad = null;
+export function loadVehicleModels(renderer) {
+    if (_vehLoad) return _vehLoad;
+    _vehLoad = (async () => {
+        try {
+            const { GLTFLoader } =
+                await import("three/examples/jsm/loaders/GLTFLoader.js");
+            const gltf = await new GLTFLoader().loadAsync(
+                new URL("../assets/models/city/vehicles.glb", import.meta.url)
+                    .href,
+            );
+            const geos = {};
+            gltf.scene.traverse((o) => {
+                if (!o.isMesh) return;
+                const g = o.geometry;
+                const uv1 = g.attributes.uv1;
+                const part = new Float32Array(g.attributes.position.count);
+                for (let i = 0; i < part.length; i++)
+                    part[i] = Math.round(uv1.getX(i));
+                g.setAttribute("aPart", new THREE.BufferAttribute(part, 1));
+                g.deleteAttribute("uv1");
+
+                const col = g.attributes.color,
+                    ao = new Float32Array(part.length).fill(1);
+                if (col) {
+                    for (let i = 0; i < ao.length; i++)
+                        ao[i] = Math.pow(col.getX(i), 1 / 2.2);
+                    g.deleteAttribute("color");
+                }
+                g.setAttribute("aAO", new THREE.BufferAttribute(ao, 1));
+                g.applyMatrix4(o.matrixWorld);
+                g.computeBoundingSphere();
+                geos[o.name] = /^van(_l\d)?$/.test(o.name) ? vanRear(g) : g;
+            });
+            const atlas = await new THREE.TextureLoader().loadAsync(
+                new URL(
+                    "../assets/textures/city/vehicles_atlas2.webp",
+                    import.meta.url,
+                ).href,
+            );
+            atlas.colorSpace = THREE.SRGBColorSpace;
+            atlas.flipY = false;
+            atlas.anisotropy = Math.min(
+                8,
+                renderer.capabilities.getMaxAnisotropy(),
+            );
+            atlas.needsUpdate = true;
+            return { geos, atlas };
+        } catch (e) {
+            console.warn(
+                "[city] vehicles.glb not available, using procedural vehicles",
+                e,
+            );
+            return null;
+        }
+    })();
+    return _vehLoad;
+}
+
+export function createVehicleMaterial({ name, map, physical = true }) {
+    const mat = createPartMaterial({
+        name,
+        instTint: true,
+        instState: true,
+        physical,
+        map,
+        extraVert:
+            "varying float vVehY; attribute float aAO; varying float vVehAO; attribute float aSeed;",
+
+        extraVertMain: `vVehY = position.y; vVehAO = aAO;
+      #ifdef USE_MAP
+      if (aPart > 14.5 && aPart < 15.5 && uv.x > 0.499) {
+        const float AH = 170.0 / 2048.0;
+        float k = floor(fract(aSeed * 7.31 + 0.13) * 8.0);
+        vMapUv = vec2(0.5 + mod(k, 2.0) * 0.25, floor(k / 2.0) * AH) + (uv - vec2(0.5, 0.0));
+      }
+      #endif`,
+    });
+    if (physical) {
+        mat.clearcoat = 1.0;
+        mat.clearcoatRoughness = 0.06;
+    }
+    const base = mat.onBeforeCompile;
+    mat.onBeforeCompile = (sh, r) => {
+        base(sh, r);
+        sh.fragmentShader = sh.fragmentShader
+            .replace(
+                "#include <common>",
+                "#include <common>\nvarying float vVehY; varying float vVehAO;",
+            )
+            .replace(
+                "diffuseColor.rgb = vec3(0.012, 0.014, 0.016); pR = 0.04;",
+                "diffuseColor.rgb = min(diffuseColor.rgb * vec3(0.27, 0.285, 0.3), vec3(0.12)); pR = 0.07;",
+            )
+
+            .replace(
+                "#include <lights_physical_pars_fragment>",
+                `#include <lights_physical_pars_fragment>
+        #if defined( USE_ENVMAP ) && defined( ENVMAP_TYPE_CUBE_UV )
+        vec3 vehHorizon(vec3 viewDir, vec3 n, float rough) {
+          vec3 r = transformDirectionByInverseViewMatrix(reflect(-viewDir, n), viewMatrix);
+          float h = r.y;
+          vec3 sky = textureCubeUV(envMap, envMapRotation * normalize(vec3(r.x, max(h, 0.1), r.z)), max(rough, 0.03)).rgb * envMapIntensity;
+          vec3 hor = textureCubeUV(envMap, envMapRotation * normalize(vec3(r.x, 0.35, r.z)), 0.5).rgb * envMapIntensity;
+          float id = floor(atan(r.z, r.x) * 11.0);
+          float bt = 0.03 + 0.24 * fract(sin(id * 12.9898) * 43758.5453);   // building tops (elevation, ~2-15 deg)
+          float e = 0.006 + rough * 0.4;
+          float bld = 1.0 - smoothstep(bt - e, bt + e, h);
+          float gnd = 1.0 - smoothstep(-0.04 - e, 0.0 + e, h);
+          vec3 c = sky * 1.25;
+          c = mix(c, hor * (0.24 + 0.1 * fract(id * 0.618)), bld);
+          c = mix(c, hor * 0.04, gnd);
+          return c;
+        }
+        #endif`,
+            )
+            .replace(
+                "#include <lights_fragment_maps>",
+                `#include <lights_fragment_maps>
+        #if defined( USE_ENVMAP ) && defined( ENVMAP_TYPE_CUBE_UV ) && defined( RE_IndirectSpecular )
+        if (P == 3) radiance = min(mix(radiance, vehHorizon(geometryViewDir, geometryNormal, material.roughness) * 0.7, 0.85), vec3(1.1)); // (vehicles r4) no blown white sky blocks on glass from above
+        #ifdef USE_CLEARCOAT
+        else if (P == 1 || P == 0 || P == 15 || P == 7 || P == 8) clearcoatRadiance = mix(clearcoatRadiance, vehHorizon(geometryViewDir, geometryClearcoatNormal, material.clearcoatRoughness) * (P == 1 ? 2.1 : P == 0 ? 1.5 : 1.0), 0.9); // (vehicles r3) paint: stronger reflection read ((vehicles r4) x2.1 paint, x1.5 white bodies: director 'weak on yellow/white')
+        #else
+        else if (P == 1) radiance = mix(radiance, vehHorizon(geometryViewDir, geometryNormal, material.roughness), 0.5);
+        #endif
+        #endif`,
+            )
+            .replace(
+                "roughnessFactor = pR;",
+                `
+        float gk = 1.0 - smoothstep(0.16, 0.5, vVehY);              // (vehicles) grime band on the lower panels ((vehicles r3) lower + lighter: sills / arches only)
+        float vehCC = 0.0;
+        if (P == 1 || P == 0) { diffuseColor.rgb *= mix(vec3(1.0), vec3(0.72, 0.68, 0.62), gk * 0.7); pR = mix(P == 1 ? 0.26 : 0.45, 0.65, gk * 0.7); vehCC = (P == 1 ? 1.0 : 0.7) * (1.0 - gk * 0.6); }
+        else if (P == 15) vehCC = 0.8;
+        else if (P == 3) vehCC = 0.0;                                  // (vehicles r3) one glossy layer on glass (two layers = blown double sun glint)
+        else if (P == 7 || P == 8) vehCC = 0.9;
+        float vAOe = (P == 2 || P == 5) ? mix(vVehAO, 1.0, 0.65) : vVehAO; // (vehicles r2) baked AO (wheels sit deep in the wells: softened)
+        diffuseColor.rgb *= mix(1.0, vAOe, 0.55);                    // cavities / wheel wells / under-body
+        roughnessFactor = pR;`,
+            )
+            .replace(
+                "#include <aomap_fragment>",
+                `#include <aomap_fragment>
+        {                                                             // (vehicles r2) baked AO occludes sky light + reflections
+          float vAOk = clamp(vAOe * 1.08, 0.0, 1.0);
+          reflectedLight.indirectDiffuse *= vAOk;
+          reflectedLight.indirectSpecular *= vAOk * vAOk;
+          if (P == 3) reflectedLight.directSpecular = min(reflectedLight.directSpecular, vec3(0.7)); // (vehicles r4) no blown sun glint on (rear) glass
+          #if defined( USE_CLEARCOAT )
+          clearcoatSpecularIndirect *= vAOk * vAOk;
+          #endif
+        }`,
+            )
+            .replace(
+                "#include <lights_physical_fragment>",
+                `#include <lights_physical_fragment>
+        #ifdef USE_CLEARCOAT
+        material.clearcoat = vehCC;
+        #endif`,
+            );
+    };
+    mat.customProgramCacheKey = () => `city-veh-${name}-${physical}`;
+    return mat;
+}
+
+function proxy(type) {
+    const b = new MB();
+    const big = type === "truck" || type === "bus" || type === "tour";
+    if (!big) {
+        const L = type === "suv" ? 5.0 : 4.9,
+            W = type === "suv" ? 1.95 : 1.84,
+            H = type === "suv" ? 1.8 : 1.46,
+            belt = type === "suv" ? 1.12 : 0.95;
+        b.setPart(PART.PAINT)
+            .setColor(0xffffff)
+            .box(-L / 2, 0.28, -W / 2, L / 2, belt, W / 2);
+        b.setPart(PART.GLASS)
+            .setColor(0)
+            .box(
+                type === "suv" ? -2.2 : -1.3,
+                belt,
+                -W / 2 + 0.08,
+                1.0,
+                H - 0.06,
+                W / 2 - 0.08,
+                0b110111,
+            );
+        b.setPart(PART.PAINT)
+            .setColor(0xffffff)
+            .box(
+                type === "suv" ? -2.15 : -0.8,
+                H - 0.06,
+                -W / 2 + 0.12,
+                0.3,
+                H,
+                W / 2 - 0.12,
+                0b000100,
+            );
+        b.setPart(PART.TAIL)
+            .setColor(0xb01010)
+            .box(
+                -L / 2 - 0.02,
+                belt - 0.3,
+                -W / 2 + 0.1,
+                -L / 2,
+                belt - 0.15,
+                W / 2 - 0.1,
+                0b000010,
+            );
+        if (type === "taxi")
+            b.setPart(PART.TAXI)
+                .setColor(0xd8d2b0)
+                .box(-0.26, H, -0.26, 0.1, H + 0.28, 0.26);
+        b.setPart(PART.RUBBER)
+            .setColor(0x111111)
+            .box(
+                -L / 2 + 0.6,
+                0,
+                -W / 2 + 0.05,
+                L / 2 - 0.6,
+                0.3,
+                W / 2 - 0.05,
+                0b110011,
+            );
+    } else if (type === "truck") {
+        b.setPart(PART.BASE)
+            .setColor(0xe8e8e6)
+            .box(1.6, 0.45, -1.15, 3.5, 2.45, 1.15);
+        b.setPart(PART.GLASS)
+            .setColor(0)
+            .box(2.62, 1.55, -1.05, 3.1, 2.3, 1.05, 0b000001);
+        b.setPart(PART.PAINT)
+            .setColor(0xffffff)
+            .box(-3.6, 0.9, -1.2, 1.55, 3.5, 1.2);
+        b.setPart(PART.RUBBER)
+            .setColor(0x111111)
+            .box(-3.0, 0, -1.0, 3.0, 0.9, 1.0, 0b110011);
+    } else {
+        const L = type === "tour" ? 11 : 12.2,
+            H = type === "tour" ? 4.3 : 3.1;
+        b.setPart(type === "tour" ? PART.PAINT : PART.BASE)
+            .setColor(type === "tour" ? 0xffffff : 0xeeeeea)
+            .box(-L / 2, 0.3, -1.27, L / 2, H, 1.27);
+        b.setPart(PART.GLASS)
+            .setColor(0)
+            .box(
+                -L / 2 + 0.6,
+                1.2,
+                -1.285,
+                L / 2 - 1.2,
+                type === "tour" ? 3.65 : 2.55,
+                1.285,
+                0b110001,
+            );
+        if (type !== "tour")
+            b.setPart(PART.BASE)
+                .setColor(0x1f4fa3)
+                .box(-L / 2, 1.0, -1.29, L / 2, 1.15, 1.29, 0b110011);
+    }
+    return b.build({ part: true });
+}
+
+export const VMODELS = {
+    taxi: { base: "taxi", grp: "car" },
+    taxi_hy: { base: "taxi", grp: "car" },
+    taxi_mv: { base: "taxi", grp: "tall" },
+    taxi_gr: { base: "taxi", grp: "car" },
+    sedan: { base: "sedan", grp: "car" },
+    hatch: { base: "sedan", grp: "car" },
+    sedan2: { base: "sedan", grp: "car" },
+    cross: { base: "suv", grp: "tall" },
+    suv: { base: "suv", grp: "tall" },
+    suv2: { base: "suv", grp: "tall" },
+    pickup: { base: "suv", grp: "tall" },
+    van: { base: "truck", grp: "van" },
+    truck: { base: "truck", grp: "truck" },
+    bus: { base: "bus", grp: "bus" },
+    tour: { base: "tour", grp: "tour" },
+};
+const GRP_REP = {
+    car: "sedan",
+    tall: "suv",
+    van: "van",
+    truck: "truck",
+    bus: "bus",
+    tour: "tour",
+};
+
+export function buildTraffic({ scene, phase, models = null }) {
+    const proc = {
+        taxi: car({ taxi: true }),
+        sedan: car({}),
+        suv: car({
+            L: 5.0,
+            W: 1.95,
+            H: 1.8,
+            belt: 1.12,
+            hood: 1.08,
+            cab0: -2.2,
+            cab1: 0.95,
+            roof0: -1.9,
+            roof1: 0.3,
+            wr: 0.38,
+            wagon: true,
+        }),
+        truck: boxTruck(),
+        bus: bus(),
+        tour: bus({ tour: true }),
+    };
+    const G = models ? models.geos : {};
+    const glb = !!(models && G.sedan && G.sedan_l1 && G.sedan_l2);
+
+    const hi = {},
+        low = {},
+        far = {};
+    for (const t of Object.keys(VMODELS)) {
+        const b = VMODELS[t].base;
+        if (glb && G[t] && G[t + "_l1"]) {
+            hi[t] = G[t];
+            low[t] = G[t + "_l1"];
+        } else {
+            low[t] = proc[b].clone();
+            if (G[b]) hi[t] = G[b].clone();
+        }
+    }
+    for (const [g, rep] of Object.entries(GRP_REP))
+        far[g] =
+            glb && G[rep + "_l2"] ? G[rep + "_l2"] : proxy(VMODELS[rep].base);
+    const map = models ? models.atlas : null;
+    const mats = glb
+        ? {
+              hi: createVehicleMaterial({ name: "veh0", map }),
+              mid: createVehicleMaterial({ name: "veh1", map }),
+              far: createVehicleMaterial({
+                  name: "veh2",
+                  map,
+                  physical: false,
+              }),
+          }
+        : {
+              hi: createPartMaterial({
+                  name: "vehglb",
+                  instTint: true,
+                  instState: true,
+                  map,
+              }),
+              mid: null,
+              far: null,
+          };
+    if (!glb) {
+        mats.low = createPartMaterial({
+            name: "veh",
+            instTint: true,
+            instState: true,
+        });
+        mats.mid = mats.low;
+        mats.far = mats.low;
+    }
+    const roads = buildRoads();
+    const sim = createTraffic({
+        scene,
+        roads,
+        phase,
+        geos: { hi, low, far, glb },
+        mats,
+        models: VMODELS,
+    });
+    let cam = null;
+    return {
+        sim,
+        roads,
+
+        update(dt, camOrPos, t, clear = null) {
+            if (camOrPos && camOrPos.isCamera) cam = camOrPos;
+            else if (!cam)
+                cam =
+                    (typeof window !== "undefined" && window.__ctx?.camera) ||
+                    null;
+            if (!cam) return;
+            sim.update(dt, cam, t, clear);
+        },
+    };
+}

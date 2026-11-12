@@ -1,5 +1,13 @@
-/* OWNER: systems engineer. Insomniac-style open-world UI: pause menu, map, suits, skills, collectibles, settings,
-   photo mode, toasts, banners, XP widget, interaction prompts, world pins. Everything lives under #sys-root. */
+/**
+ * System UI styles.
+ *
+ * @module src-ui-systems
+ * @version 1.0.0
+ * @file src/ui/systems.css
+ * @since 0.0.1
+ * @description Defines styles for HUD, menus, prompts, toasts, markers, and other system UI elements.
+ */
+ 
 :root {
     --sys-red: #e3262f;
     --sys-red-d: #9e1017;
@@ -14,7 +22,7 @@
     --sys-gold: #f5b82e;
     --sys-green: #47d88a;
     --sys-cut: 14px;
-    /* local fonts only (public/assets/ui/fonts/fonts.css); system fallbacks if the files are missing */
+
     --sys-head:
         "Spiderbench Condensed", "Barlow Condensed", "Roboto Condensed",
         "Arial Narrow", "Liberation Sans Narrow", sans-serif;
@@ -66,7 +74,6 @@
     margin-right: 0.5em;
 }
 
-/* ------------------------------------------------------------------ world pins (projected markers) */
 .sys-pins {
     position: absolute;
     inset: 0;
@@ -122,7 +129,6 @@
     }
 }
 
-/* ------------------------------------------------------------------ interaction prompt */
 .sys-prompt {
     position: absolute;
     left: 61%;
@@ -178,7 +184,6 @@
     text-transform: none;
 }
 
-/* ------------------------------------------------------------------ XP widget (top-left) */
 .sys-xp {
     position: absolute;
     left: 2.2vw;
@@ -275,7 +280,6 @@
     }
 }
 
-/* ------------------------------------------------------------------ objective panel (top-left, Insomniac style) */
 .sys-obj {
     position: absolute;
     left: 2.2vw;
@@ -333,7 +337,7 @@
 #sys-root.sys-combat .sys-obj {
     display: none;
 }
-/* ------------------------------------------------------------------ toasts (left, stacked) */
+
 .sys-toasts {
     position: absolute;
     left: 2.2vw;
@@ -418,7 +422,6 @@
     }
 }
 
-/* ------------------------------------------------------------------ big banner (district unlocked / level up) */
 .sys-banner {
     position: absolute;
     left: 0;
@@ -497,7 +500,6 @@
     }
 }
 
-/* quick in-game snapshot flash */
 .sys-snap {
     position: absolute;
     inset: 0;
@@ -509,7 +511,6 @@
     animation: sysFlash 0.45s ease-out;
 }
 
-/* ------------------------------------------------------------------ fade (fast travel: subway tunnel loading screen) */
 .sys-fade {
     position: absolute;
     inset: 0;
@@ -677,7 +678,6 @@
     }
 }
 
-/* ------------------------------------------------------------------ pause menu shell */
 .sys-menu {
     position: absolute;
     inset: 0;
@@ -905,7 +905,6 @@
     white-space: nowrap;
 }
 
-/* generic panels / typography */
 .sys-panel {
     background: var(--sys-navy);
     border: 1px solid var(--sys-line);
@@ -1015,7 +1014,6 @@
     scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
 }
 
-/* ------------------------------------------------------------------ MAP */
 .sys-map {
     position: absolute;
     inset: 0;
@@ -1146,7 +1144,6 @@
     text-transform: uppercase;
 }
 
-/* tower reveal: stays until the player continues */
 .sys-map .reveal-hint {
     position: absolute;
     left: 50%;
@@ -1194,7 +1191,6 @@
     margin-top: 4px;
 }
 
-/* ------------------------------------------------------------------ SUITS */
 .sys-suits {
     position: absolute;
     inset: 0;
@@ -1296,7 +1292,6 @@
     text-transform: uppercase;
 }
 
-/* ------------------------------------------------------------------ SKILLS */
 .sys-skills {
     position: absolute;
     inset: 0;
@@ -1513,7 +1508,6 @@
     height: 22px;
 }
 
-/* ------------------------------------------------------------------ COLLECTIBLES */
 .sys-coll {
     position: absolute;
     inset: 0;
@@ -1646,7 +1640,6 @@
     color: rgba(255, 255, 255, 0.25);
 }
 
-/* subtitles (police scanner / dispatch) */
 .sys-sub {
     position: absolute;
     left: 50%;
@@ -1670,7 +1663,6 @@
     margin-right: 6px;
 }
 
-/* collectibles: one row per district */
 .sys-coll .grid:has(.sys-drows) {
     display: block;
 }
@@ -1735,7 +1727,6 @@
     color: var(--sys-dim);
 }
 
-/* ------------------------------------------------------------------ SETTINGS */
 .sys-settings {
     position: absolute;
     inset: 0;
@@ -1868,7 +1859,6 @@ input[type="range"].sys-range::-moz-range-thumb {
     min-width: 170px;
 }
 
-/* ------------------------------------------------------------------ PHOTO MODE */
 .sys-photo {
     position: absolute;
     inset: 0;
@@ -2119,7 +2109,6 @@ input[type="range"].sys-range::-moz-range-thumb {
     opacity: 1;
 }
 
-/* crime tracker (top right under the compass area) */
 .sys-crime {
     position: absolute;
     right: 2.4vw;
@@ -2334,8 +2323,6 @@ input[type="range"].sys-range::-moz-range-thumb {
     }
 }
 
-/* Minimal HUD setting (Interface > Minimal HUD): hide every gameplay HUD element except the minimap.
-   Menus, fades and the photo-mode flash are untouched. */
 body.ui-minimal #hud > :not(.mm-wrap),
 body.ui-minimal
     #sys-root

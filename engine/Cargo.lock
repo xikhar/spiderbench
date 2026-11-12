@@ -26,11 +26,11 @@ dependencies = [
 
 [[package]]
 name = "engine-core"
-version = "0.1.0"
+version = "0.0.1"
 
 [[package]]
 name = "engine-wasm"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "console_error_panic_hook",
  "engine-core",

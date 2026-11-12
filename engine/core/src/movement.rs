@@ -1,11 +1,11 @@
 //! Movement and integration helpers.
 //!
-//! @since 0.1.0
+//! @since 0.0.1
 //! @version 0.1.0
 
 /// Result of capping horizontal speed.
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct CappedHorizontalVelocity {
@@ -17,7 +17,7 @@ pub struct CappedHorizontalVelocity {
 
 /// Caps horizontal (x, z) speed to `max_speed` while preserving direction.
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[must_use]
 pub fn cap_horizontal_speed(
@@ -61,7 +61,7 @@ pub fn cap_horizontal_speed(
 ///
 /// Returns `(x, y, z)`.
 ///
-/// @since 0.1.0
+/// @since 0.0.1
 /// @version 0.1.0
 #[must_use]
 pub fn integrate_position(

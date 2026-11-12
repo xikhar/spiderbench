@@ -1,0 +1,29 @@
+{
+    "$schema": "https://json.schemastore.org/tsconfig",
+    "compilerOptions": {
+        "target": "es2023",
+        "module": "esnext",
+        "lib": ["ES2023", "DOM"],
+        "types": ["vite/client"],
+        "allowArbitraryExtensions": true,
+        "skipLibCheck": true,
+        "moduleResolution": "bundler",
+        "allowImportingTsExtensions": true,
+        "verbatimModuleSyntax": false,
+        "moduleDetection": "force",
+        "noEmit": true,
+        "strict": false,
+        "noImplicitAny": false,
+        "strictNullChecks": false,
+        "noUnusedLocals": false,
+        "noUnusedParameters": false,
+        "erasableSyntaxOnly": true,
+        "noFallthroughCasesInSwitch": true,
+        "paths": {
+            "@/*": ["./src/*"],
+            "@/tests/*": ["./tests/*"],
+            "@/scripts/*": ["./scripts/*"]
+        }
+    },
+    "include": ["src", "tests", "scripts", "vite.config.ts"]
+}

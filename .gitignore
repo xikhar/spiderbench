@@ -1,21 +1,26 @@
-# Dependencies
-node_modules/
-
-# Build outputs
-dist/
-
-# Rust / WASM
-target/
-**/*.rs.bk
-src/engine/pkg/
-
-# Vite / tooling
-.vite/
+# Logs
+logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# OS / editor
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
-Thumbs.db
-.vscode/
-.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
+target/

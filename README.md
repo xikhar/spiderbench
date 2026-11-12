@@ -44,11 +44,13 @@ This repository is a non commercial fan project and technical demo. It is meant 
 ## 🧰 Requirements
 
 ### For running and frontend development
+
 - [Bun](https://bun.sh/) (package manager, script runner, and build commands)
 - A modern browser with **WebGL2** support
 - A GPU with decent WebGL performance (integrated GPUs can run it, but you may need lower settings)
 
 ### For Rust/WASM development and builds
+
 - [Rust](https://www.rust-lang.org/tools/install) installed via `rustup`
 - Rust WebAssembly target: `wasm32-unknown-unknown`
 - [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) (builds the WASM package for the browser)
@@ -252,18 +254,18 @@ bun run preview
 
 ### Bun scripts (`package.json`)
 
-| Command | Description |
-| :-- | :-- |
-| `bun run dev` | Starts the Vite dev server on `127.0.0.1:5173` |
-| `bun run build` | Builds the frontend production bundle into `dist/` |
+| Command           | Description                                        |
+| :---------------- | :------------------------------------------------- |
+| `bun run dev`     | Starts the Vite dev server on `127.0.0.1:5173`     |
+| `bun run build`   | Builds the frontend production bundle into `dist/` |
 | `bun run preview` | Serves the production build locally (Vite preview) |
 
 ### mise tasks (`mise.toml`)
 
-| Command | Description |
-| :-- | :-- |
-| `mise run wasm` | Builds the Rust/WASM package into `src/engine/pkg/` |
-| `mise run start` | Builds WASM, then starts the Vite dev server |
+| Command          | Description                                             |
+| :--------------- | :------------------------------------------------------ |
+| `mise run wasm`  | Builds the Rust/WASM package into `src/engine/pkg/`     |
+| `mise run start` | Builds WASM, then starts the Vite dev server            |
 | `mise run build` | Builds WASM, then creates the frontend production build |
 
 ## 🦀 Rust/WASM engine notes
@@ -276,27 +278,27 @@ bun run preview
 
 ## 🎮 Controls
 
-| Input | Action |
-| :-- | :-- |
-| **H** | Show in game help/controls |
-| **~** (dev server) | Open developer menu |
+| Input                                       | Action                                            |
+| :------------------------------------------ | :------------------------------------------------ |
+| **H**                                       | Show in game help/controls                        |
+| **~** (dev server)                          | Open developer menu                               |
 | **`?dev` URL parameter** (production build) | Enable developer menu on a build (when supported) |
 
 Movement, swinging, and camera controls are documented in game. Use the in game help menu for the full control list.
 
 ## 📁 Project structure
 
-| Path | Purpose |
-| :-- | :-- |
-| `src/` | Main game code (player, traversal, world, rendering, UI, systems) |
-| `engine/` | Rust workspace for performance helpers |
-| `engine/core/` | Pure Rust computation core |
-| `engine/wasm/` | WASM bindings/crate for browser integration |
-| `src/engine/pkg/` | Generated WASM package output (build artifact) |
-| `public/` | Static assets served by the app |
-| `dist/` | Production build output |
-| `plan.md` | Performance optimization checklist and notes |
-| `mise.toml` | Task shortcuts for WASM and app workflows |
+| Path              | Purpose                                                           |
+| :---------------- | :---------------------------------------------------------------- |
+| `src/`            | Main game code (player, traversal, world, rendering, UI, systems) |
+| `engine/`         | Rust workspace for performance helpers                            |
+| `engine/core/`    | Pure Rust computation core                                        |
+| `engine/wasm/`    | WASM bindings/crate for browser integration                       |
+| `src/engine/pkg/` | Generated WASM package output (build artifact)                    |
+| `public/`         | Static assets served by the app                                   |
+| `dist/`           | Production build output                                           |
+| `plan.md`         | Performance optimization checklist and notes                      |
+| `mise.toml`       | Task shortcuts for WASM and app workflows                         |
 
 ## ⚙️ Performance tips
 
